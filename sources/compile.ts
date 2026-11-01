@@ -37,6 +37,11 @@ export function Compile(source: string):string{
         return ''
     })
 
+    r(/(\w+)\s*\=\s*(\w+\(.*\))/gm, (match:any, targetName:any, callback:any) => {
+        return `${callback}
+        mov [${targetName}], rax`
+    })
+
     r(/(const|let|var)\s+(\w+)\:(\w+)\s*=\s*(.*)/gm, (match:any, keyword:any, varName:any, varType:any, value:any) => {
         console.log(`Compiling variable: ${varName} of type ${varType} with value ${value}`)
         if(varType=='string'){
@@ -47,6 +52,11 @@ export function Compile(source: string):string{
         }
         return ''
     })
+
+    r(/([a-zA-Z0-9\_]+)\s*\=\s*(\w+)/gm, `mov rax, [$2]\nmov [$1], rax`)
+
+    //r(/mov (\w+)\s*,\s*([a-zA-Z0-9\_]+)/gm, `mov $1, [$2]`)
+    //r(/mov ([a-zA-Z0-9\_]+)\s*,\s*(\w+)/gm, `mov [$1], $2`)
 
     fs.writeFileSync('./cache/compiled.beforeFunc.asm', source);
 

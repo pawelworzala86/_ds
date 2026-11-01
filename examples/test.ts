@@ -13,9 +13,8 @@ printf(addr format, addr msgA, [valA], 5, 8)
 
 EndoFunc(addr helloTxt)
 
-malloc(16)
-mov [ptr], rax
-mov [ptr+0], 11
+ptr = malloc(16)
+ptr[0] = 11
 mov [ptr+8], 12
 mov [ptr], rax
 printf(addr formatA, [ptr+8])
