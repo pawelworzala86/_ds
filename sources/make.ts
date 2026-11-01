@@ -15,6 +15,8 @@ let destFileName = process.argv[3]
 let source = fs.readFileSync(sourceFileName).toString()
 
 source = Compile(source)
+fs.writeFileSync('./cache/compiled.asm', source);
+
 
 let exe = CompileASM(source)
 
