@@ -39,26 +39,30 @@ export function Compile(source: string):string{
 
     r(/(\w+)\s*\=\s*(\w+\(.*\))/gm, (match:any, targetName:any, callback:any) => {
         return `${callback}
-        mov [${targetName}], rax`
+        mov ${targetName}, rax`
     })
 
     r(/(const|let|var)\s+(\w+)\:(\w+)\s*=\s*(.*)/gm, (match:any, keyword:any, varName:any, varType:any, value:any) => {
-        console.log(`Compiling variable: ${varName} of type ${varType} with value ${value}`)
-        if(varType=='string'){
-            //value = value.trim().slice(1, -1)
-            DATA.push(`${varName} db ${value},0`)
-        }else{
-            DATA.push(`${varName} dq ${value}`)
-        }
+        DATA.push({name:varName,value,type:varType})
         return ''
     })
 
-    r(/([a-zA-Z0-9\_]+)\s*\=\s*(\w+)/gm, `mov rax, [$2]\nmov [$1], rax`)
+    r(/(.*)\s*\=\s*(.*)/gm, `mov rax, $2\nmov $1, rax`)
 
-    //r(/mov (\w+)\s*,\s*([a-zA-Z0-9\_]+)/gm, `mov $1, [$2]`)
-    //r(/mov ([a-zA-Z0-9\_]+)\s*,\s*(\w+)/gm, `mov [$1], $2`)
+    for(const data of DATA){
+        if(data.type=='string'){
+            r(new RegExp(`\\b(${data.name})\\b`,'gm'), `addr $1`)
+        }else{
+            r(new RegExp(`\\b(${data.name})\\b`,'gm'), `[$1]`)
+        }
+    }
 
-    fs.writeFileSync('./cache/compiled.beforeFunc.asm', source);
+    //[ptr][0]
+    r(/\[([a-zA-Z0-9\_]+)\]\[([a-zA-Z0-9\_]+)\]/gm, (match:any, arrName:any, index:any) => {
+        return `[${arrName}+${index*8}]`
+    })
+
+    //fs.writeFileSync('./cache/compiled.beforeFunc.asm', source);
 
     r(/function\s+(\w+)\s*\((.*)\)\s*(?<num>\:[0-9]+)\{([\s\S]+?)(\k<num>)\}/gm,(match:any, funcName:any, params:any, tabNum:any, body:any)=>{
         params = params.split(',').map((param:any)=>param.split(':')[0]).join(', ')
@@ -75,6 +79,7 @@ export function Compile(source: string):string{
         return `invoke ${funcName}, ${params}`
     })
 
+    r(/\ \,\ /gm,', ')
 
 
 
@@ -87,11 +92,22 @@ export function Compile(source: string):string{
         importStr += `import '${dll}.dll',${functions.join(',')}\n`
     }
 
+    let dataStr:any = ''
+    for(let data of DATA){
+        let type = 'dq'
+        if(data.type=='string'){
+            dataStr += `${data.name} db ${data.value},0\n`
+            type = 'db'
+        }else{
+            dataStr += `${data.name} ${type} ${data.value}\n`
+        }
+    }
+
     return `.code
     ${source}
 
 .data
-    ${DATA.join('\n')}
+    ${dataStr}
 
 .import
     ${importStr}`

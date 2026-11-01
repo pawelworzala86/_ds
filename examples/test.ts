@@ -7,17 +7,16 @@ let format:string = 'msg %s %i %i %i'
 let msgA:string = 'a'
 let valA:number = 1
 let formatA:string = 'msg %i'
-let ptr:number = 0
+let ptr:any = 0
 
-printf(addr format, addr msgA, [valA], 5, 8)
+printf(format, msgA, valA, 5, 8)
 
-EndoFunc(addr helloTxt)
+EndoFunc(helloTxt)
 
 ptr = malloc(16)
 ptr[0] = 11
-mov [ptr+8], 12
-mov [ptr], rax
-printf(addr formatA, [ptr+8])
+ptr[1] = 12
+printf(formatA, ptr[1])
 
 ExitProcess()
 
