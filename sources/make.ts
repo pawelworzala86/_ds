@@ -1,5 +1,6 @@
 import fs from 'fs'
-import Compile from './../../_winasm/sources/compile.ts'
+import Compile from './compile.ts'
+import CompileASM from './../../_winasm/sources/compile.ts'
 
 if(!fs.existsSync('./dist/')){
   fs.mkdirSync('./dist/')
@@ -13,6 +14,8 @@ let destFileName = process.argv[3]
 
 let source = fs.readFileSync(sourceFileName).toString()
 
-let exe = Compile(source)
+source = Compile(source)
+
+let exe = CompileASM(source)
 
 fs.writeFileSync(destFileName, exe);

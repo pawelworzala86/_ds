@@ -1,4 +1,4 @@
-npm run test .\examples\test.asm .\dist\test.exe
+npm run test .\examples\test.ts .\dist\test.exe
 
 cd .\dist\
 test.exe
