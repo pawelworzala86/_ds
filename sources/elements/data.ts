@@ -1,5 +1,6 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
+import ASM from './../asm.ts'
 
 export class Data extends Base{
     kind:string|null = null
@@ -24,6 +25,14 @@ export class Data extends Base{
     }
     asm(){
         console.log('DATA SETTTER')
+        let type = 'dq'
+        let value = this.value
+        if(this.type=='string'){
+            type = 'db'
+            value += ',0'
+        }
+        const data:string = `${this.name} ${type} ${value}`
+        ASM.addData(data)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()

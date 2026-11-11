@@ -1,6 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import {setInvoke} from './invoke.ts'
+import ASM from './../asm.ts'
 
 export class Declare extends Base{
     name:string|null = null
@@ -27,6 +28,7 @@ export class Declare extends Base{
     }
     asm(){
         console.log('DECLARATION')
+        ASM.addImport(this.dll!,this.name!)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()

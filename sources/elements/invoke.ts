@@ -1,5 +1,6 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
+import ASM from './../asm.ts'
 
 const Invokers:any = []
 
@@ -27,6 +28,8 @@ export class Invoke extends Base{
     }
     asm(){
         console.log('INVOKE CALL')
+        const code = `invoke ${this.name} ${this.params.join(', ')}`
+        ASM.addCode(code)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
