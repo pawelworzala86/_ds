@@ -4,13 +4,20 @@ export class Tokenizer{
     index:number = 0
     constructor(text:string){
         this.original = text
-        this.tokens = text.split(/\ |\r|\t|(\n)/gm)
+        this.tokens = text.split(/\ |\r|\t|(\n)|(\:)/gm).filter(t=>t)
+        console.log(this.tokens)
     }
     get(index:number|null=null){
         if(index){
             return this.tokens[index]
         }
         return this.tokens[this.index++]
+    }
+    has(index:number|null=null):boolean{
+        if(index){
+            return this.tokens[index]?true:false
+        }
+        return this.tokens[this.index]?true:false
     }
     getBlock(){
         let tokens:string[] = []
