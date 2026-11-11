@@ -13,7 +13,7 @@ export class Data extends Base{
         let tokens:string[] = []
         let token:any
         while(!['\n','\;'].includes(token = tokenizer.get())){
-            console.log('REC::', token)
+            //console.log('REC::', token)
             tokens.push(token)
         }
         const [kind,name,sep,type,eq,value] = tokens
@@ -29,7 +29,7 @@ export class Data extends Base{
         const token = tokenizer.get()
         if(['let','var','const'].includes(token)){
             tokenizer.move(-1)
-            console.log('DATASET')
+            ///console.log('DATASET')
             const data = new Data(active)
             data.set(tokenizer)
             active.children.push(data)

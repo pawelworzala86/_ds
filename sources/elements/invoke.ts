@@ -1,7 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 
-const Invokers = []
+const Invokers:any = []
 
 export function setInvoke(name:string){
     Invokers.push(name)
@@ -17,7 +17,7 @@ export class Invoke extends Base{
         let tokens:string[] = []
         let token:any
         while(![')'].includes(token = tokenizer.get())){
-            console.log('REC::', token)
+            //console.log('REC::', token)
             tokens.push(token)
         }
         const [name] = tokens
@@ -30,9 +30,9 @@ export class Invoke extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        if(['printf'].includes(token)){
+        if(Invokers.includes(token)){
             tokenizer.move(-1)
-            console.log('Declare')
+            //console.log('Declare')
             const data = new Invoke(active)
             data.set(tokenizer)
             active.children.push(data)

@@ -12,7 +12,7 @@ export class Declare extends Base{
         let tokens:string[] = []
         let token:any
         while(!['\n'].includes(token = tokenizer.get())){
-            console.log('REC::', token)
+            //console.log('REC::', token)
             tokens.push(token)
         }
         const [def,kind,name] = tokens
@@ -32,7 +32,7 @@ export class Declare extends Base{
         const token = tokenizer.get()
         if(['declare'].includes(token)){
             tokenizer.move(-1)
-            console.log('Declare')
+            //console.log('Declare')
             const data = new Declare(active)
             data.set(tokenizer)
             active.children.push(data)
