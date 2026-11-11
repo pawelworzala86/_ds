@@ -2,15 +2,6 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import ASM from './../asm.ts'
 
-const DATA:any = []
-
-export function getData(name:string){
-    return DATA[name]
-}
-export function setData(name:string,value:any){
-    DATA[name] = value
-}
-
 export class Data extends Base{
     kind:string|null = null
     name:string|null = null
@@ -56,7 +47,7 @@ export class Data extends Base{
             console.log('values',values)
             this.value = values.join(' ')
         }
-        setData(name, {name,type,value:values.join(' ')})
+        this.parent?.setData(name, {name,type,value:values.join(' ')})
     }
     asm(){
         console.log('DATA SETTTER')

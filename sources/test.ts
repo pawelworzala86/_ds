@@ -11,6 +11,8 @@ const source = fs.readFileSync('./examples/test.ts').toString()
 const make = new Make(source)
 make.compile()
 
+//console.log(make.active)
+
 make.asm()
 
 const code = ASM.getCode()
