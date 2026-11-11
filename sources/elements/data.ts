@@ -31,7 +31,32 @@ export class Data extends Base{
         this.name = name
         this.type = type
         this.value = value
-        setData(name, {name,type,value})
+        let values = [value]
+        if(type=='string'){
+            let open = false
+            let spec = false
+            values = []
+            console.log('TOKENS: ',tokens)
+            for(const token of tokens){
+                console.log(token)
+                if(spec&&(token=='\'')){
+                    values.push(token)
+                }else if(token=='\''){
+                    open = !open
+                    continue
+                }else if(token=='\\'){
+                    spec = true
+                    continue
+                }
+                if(open){
+                    values.push(token)
+                }
+                spec = false
+            }
+            console.log('values',values)
+            this.value = values.join(' ')
+        }
+        setData(name, {name,type,value:values.join(' ')})
     }
     asm(){
         console.log('DATA SETTTER')
@@ -39,7 +64,7 @@ export class Data extends Base{
         let value = this.value
         if(this.type=='string'){
             type = 'db'
-            value += ',0'
+            value = '\''+value+'\',0'
         }
         const data:string = `${this.name} ${type} ${value}`
         ASM.addData(data)

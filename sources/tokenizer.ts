@@ -4,7 +4,7 @@ export class Tokenizer{
     index:number = 0
     constructor(text:string){
         this.original = text
-        this.tokens = text.split(/\ |\r|\t|(\n)|(\:)|(\()|(\))/gm).filter(t=>t)
+        this.tokens = text.split(/\ |\r|\t|(\n)|(\:)|(\()|(\))|(\')|(\")/gm).filter(t=>t)
         console.log(this.tokens)
     }
     get(index:number|null=null){
