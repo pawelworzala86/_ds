@@ -14,9 +14,10 @@ export class Make{
     compile(){
         const {tokenizer} = this
         while(tokenizer.has()){
-            const token = tokenizer.getNA()
+            const token = tokenizer.get()
             console.log(token)
             if(['let','var','const'].includes(token)){
+                tokenizer.move(-1)
                 console.log('DATASET')
                 const data = new Data(this.active)
                 data.set(tokenizer)
