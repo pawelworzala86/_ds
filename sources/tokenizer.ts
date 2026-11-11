@@ -13,6 +13,12 @@ export class Tokenizer{
         }
         return this.tokens[this.index++]
     }
+    getNA(index:number|null=null){
+        if(index){
+            return this.tokens[index]
+        }
+        return this.tokens[this.index]
+    }
     has(index:number|null=null):boolean{
         if(index){
             return this.tokens[index]?true:false
