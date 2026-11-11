@@ -14,7 +14,26 @@ export class Func extends Base{
         const [name] = tokens
         tokens.splice(0,2)
         this.name = name
-        this.params = []
+
+        let openP = false
+        let params = []
+        console.log('TOKENS: ',tokens)
+        for(const token of tokens){
+            console.log(token)
+            if(token=='('){
+                openP = true
+                continue
+            }
+            if(token==')'){
+                break
+            }
+            if(openP){
+                params.push(token)
+            }
+        }
+        console.log('params',params)
+
+        this.params = params
 
         let open = false
         let values = []
@@ -36,7 +55,7 @@ export class Func extends Base{
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
         Make.compile(this,tokenizer2)
-        console.log('FNC BLOCK',this)
+        //console.log('FNC BLOCK',this)
     }
     asm(){
         console.log('FUNCTION')
