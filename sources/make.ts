@@ -3,6 +3,7 @@ import Base from "./elements/base.ts"
 
 import Data from "./elements/data.ts"
 import Invoke from "./elements/invoke.ts"
+import Declare from "./elements/declare.ts"
 
 export class Make{
     tokenizer:Tokenizer
@@ -31,6 +32,13 @@ export class Make{
                 const invoke = new Invoke(this.active)
                 invoke.set(tokenizer)
                 this.active.children.push(invoke)
+            }
+            if(['declare'].includes(token)){
+                tokenizer.move(-1)
+                console.log('DECLARE')
+                const declare = new Declare(this.active)
+                declare.set(tokenizer)
+                this.active.children.push(declare)
             }
         }
     }

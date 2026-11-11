@@ -1,6 +1,12 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 
+const Invokers = []
+
+export function setInvoke(name:string){
+    Invokers.push(name)
+}
+
 export class Invoke extends Base{
     name:string|null = null
     params:string[] = []
