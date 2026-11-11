@@ -28,7 +28,7 @@ export class Invoke extends Base{
     }
     asm(){
         console.log('INVOKE CALL')
-        const code = `invoke ${this.name} ${this.params.join(', ')}`
+        const code = `invoke ${this.name} addr ${this.params.join(', ')}`
         ASM.addCode(code)
     }
     static test(active:Base,tokenizer:Tokenizer){
