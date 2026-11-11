@@ -28,6 +28,19 @@ export class Invoke extends Base{
     asm(){
         console.log('INVOKE CALL')
     }
+    static test(active:Base,tokenizer:Tokenizer){
+        const token = tokenizer.get()
+        if(['printf'].includes(token)){
+            tokenizer.move(-1)
+            console.log('Declare')
+            const data = new Invoke(active)
+            data.set(tokenizer)
+            active.children.push(data)
+            return data
+        }
+        tokenizer.move(-1)
+        return null
+    }
 }
 
 export default Invoke

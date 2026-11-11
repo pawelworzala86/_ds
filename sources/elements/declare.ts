@@ -28,6 +28,19 @@ export class Declare extends Base{
     asm(){
         console.log('DECLARATION')
     }
+    static test(active:Base,tokenizer:Tokenizer){
+        const token = tokenizer.get()
+        if(['declare'].includes(token)){
+            tokenizer.move(-1)
+            console.log('Declare')
+            const data = new Declare(active)
+            data.set(tokenizer)
+            active.children.push(data)
+            return data
+        }
+        tokenizer.move(-1)
+        return null
+    }
 }
 
 export default Declare

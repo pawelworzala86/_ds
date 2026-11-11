@@ -15,30 +15,13 @@ export class Make{
         this.active = this.root
     }
     compile(){
-        const {tokenizer} = this
+        const {tokenizer,active} = this
         while(tokenizer.has()){
-            const token = tokenizer.get()
-            console.log(token)
-            if(['let','var','const'].includes(token)){
-                tokenizer.move(-1)
-                console.log('DATASET')
-                const data = new Data(this.active)
-                data.set(tokenizer)
-                this.active.children.push(data)
-            }
-            if(['printf'].includes(token)){
-                tokenizer.move(-1)
-                console.log('INVOKE')
-                const invoke = new Invoke(this.active)
-                invoke.set(tokenizer)
-                this.active.children.push(invoke)
-            }
-            if(['declare'].includes(token)){
-                tokenizer.move(-1)
-                console.log('DECLARE')
-                const declare = new Declare(this.active)
-                declare.set(tokenizer)
-                this.active.children.push(declare)
+            if(Data.test(active,tokenizer)){
+            }else if(Declare.test(active,tokenizer)){
+            }else if(Invoke.test(active,tokenizer)){
+            }else{
+                tokenizer.get()
             }
         }
     }

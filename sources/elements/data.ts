@@ -25,6 +25,19 @@ export class Data extends Base{
     asm(){
         console.log('DATA SETTTER')
     }
+    static test(active:Base,tokenizer:Tokenizer){
+        const token = tokenizer.get()
+        if(['let','var','const'].includes(token)){
+            tokenizer.move(-1)
+            console.log('DATASET')
+            const data = new Data(active)
+            data.set(tokenizer)
+            active.children.push(data)
+            return data
+        }
+        tokenizer.move(-1)
+        return null
+    }
 }
 
 export default Data
