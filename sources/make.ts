@@ -4,6 +4,7 @@ import Base from "./elements/base.ts"
 import Data from "./elements/data.ts"
 import Invoke from "./elements/invoke.ts"
 import Declare from "./elements/declare.ts"
+import Func from "./elements/func.ts"
 
 export class Make{
     tokenizer:Tokenizer
@@ -20,6 +21,7 @@ export class Make{
             if(Data.test(active,tokenizer)){
             }else if(Declare.test(active,tokenizer)){
             }else if(Invoke.test(active,tokenizer)){
+            }else if(Func.test(active,tokenizer)){
             }else{
                 tokenizer.get()
             }

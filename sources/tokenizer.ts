@@ -31,11 +31,12 @@ export class Tokenizer{
             }else if(this.tokens[index]=='}'){
                 open--
                 if(open==0){
+                    tokens.push('}')
+                    this.index = index
                     return tokens
                 }
-            }else{
-                tokens.push(this.tokens[index])
             }
+            tokens.push(this.tokens[index])
         }
         return tokens
     }
