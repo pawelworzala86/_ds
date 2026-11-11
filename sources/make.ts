@@ -7,16 +7,9 @@ import Declare from "./elements/declare.ts"
 import Func from "./elements/func.ts"
 
 export class Make{
-    tokenizer:Tokenizer
-    root:Base
-    active:Base
-    constructor(source:string){
-        this.tokenizer = new Tokenizer(source)
-        this.root = new Base(null)
-        this.active = this.root
+    constructor(){
     }
-    compile(){
-        const {tokenizer,active} = this
+    static compile(active:Base,tokenizer:Tokenizer){
         while(tokenizer.has()){
             if(Data.test(active,tokenizer)){
             }else if(Declare.test(active,tokenizer)){
@@ -26,9 +19,6 @@ export class Make{
                 tokenizer.get()
             }
         }
-    }
-    asm(){
-        this.root.asm()
     }
 }
 

@@ -1,19 +1,23 @@
 import fs from 'fs'
 import Make from "./make.ts";
 import ASM from "./asm.ts";
-
 import CompileASM from './../../_winasm/sources/compile.ts'
+import Tokenizer from './tokenizer.ts';
+import Base from './elements/base.ts';
 
 
 
 const source = fs.readFileSync('./examples/test.ts').toString()
 
-const make = new Make(source)
-make.compile()
+const tokenizer = new Tokenizer(source)
+const root = new Base(null)
+let active = root
+
+Make.compile(active,tokenizer)
 
 //console.log(make.active)
 
-make.asm()
+root.asm()
 
 const code = ASM.getCode()
 console.log(code)
