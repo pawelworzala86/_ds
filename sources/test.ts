@@ -7,3 +7,5 @@ const source = fs.readFileSync('./examples/test.ts').toString()
 
 const make = new Make(source)
 make.compile()
+
+make.asm()

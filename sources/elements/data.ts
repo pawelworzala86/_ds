@@ -22,6 +22,9 @@ export class Data extends Base{
         this.type = type
         this.value = value
     }
+    asm(){
+        console.log('DATA SETTTER')
+    }
 }
 
 export default Data
