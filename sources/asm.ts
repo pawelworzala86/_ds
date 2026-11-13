@@ -1,5 +1,6 @@
 const data:any = []
 const code:any = []
+const proc:any = []
 const imp:any = {}
 
 export function addData(_data:string){
@@ -7,6 +8,9 @@ export function addData(_data:string){
 }
 export function addCode(_code:string){
     code.push(_code)
+}
+export function addProc(_proc:string){
+    proc.push(_proc)
 }
 export function addImport(dll:string,func:string){
     if(!imp[dll]){
@@ -16,6 +20,7 @@ export function addImport(dll:string,func:string){
 }
 export function getCode(){
     let codeTxt = code.join('\n')
+    let procTxt = proc.join('\n')
     let dataTxt = data.join('\n')
     let impTxt = ''
     for(let dll of Object.keys(imp)){
@@ -27,6 +32,7 @@ export function getCode(){
     }
     return `.code
     ${codeTxt}
+    ${procTxt}
 .data
     ${dataTxt}
 .import
@@ -39,4 +45,5 @@ export default {
     addCode,
     addImport,
     getCode,
+    addProc,
 }

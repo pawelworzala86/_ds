@@ -4,8 +4,11 @@ declare function ExitProcess(...args:any[]):any//kernel32
 
 let helloTxt:string = 'Hello World!!!'
 
+
 printf(helloTxt)
 
 function testFunc(){
     printf(helloTxt)
 }
+
+testFunc()

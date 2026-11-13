@@ -5,6 +5,7 @@ import Data from "./elements/data.ts"
 import Invoke from "./elements/invoke.ts"
 import Declare from "./elements/declare.ts"
 import Func from "./elements/func.ts"
+import Call from "./elements/call.ts"
 
 export class Make{
     constructor(){
@@ -15,6 +16,7 @@ export class Make{
             }else if(Declare.test(active,tokenizer)){
             }else if(Invoke.test(active,tokenizer)){
             }else if(Func.test(active,tokenizer)){
+            }else if(Call.test(active,tokenizer)){
             }else{
                 tokenizer.get()
             }

@@ -1,6 +1,17 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Make from './../make.ts'
+import ASM from './../asm.ts'
+
+const Funcs:any = []
+
+export function setFunction(name:string){
+    Funcs.push(name)
+}
+
+export function getFuncs(){
+    return Funcs
+}
 
 export class Func extends Base{
     name:string|null = null
@@ -11,7 +22,7 @@ export class Func extends Base{
     set(tokenizer:Tokenizer){
         let tokens:string[] = tokenizer.getBlock()
         console.log(tokens)
-        const [name] = tokens
+        const [fn,name] = tokens
         tokens.splice(0,2)
         this.name = name
 
@@ -56,11 +67,16 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(this,tokenizer2)
         //console.log('FNC BLOCK',this)
+
+        setFunction(name)
     }
     asm(){
         console.log('FUNCTION')
-        //const code = `FUNCTION`
-        //ASM.addCode(code)
+        ASM.addCode(`proc ${this.name}`)
+        for(const node of this.children){
+            node.asm()
+        }
+        ASM.addCode(`endp`)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
