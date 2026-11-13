@@ -1,6 +1,8 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
+import fs from 'fs'
+import Make from '../make.ts'
 
 export class Import extends Base{
     constructor(parent:Base){
@@ -14,6 +16,9 @@ export class Import extends Base{
             tokens.push(token)
         }
         console.log('IMPORT::::::::::')
+        const source = fs.readFileSync('./examples/inc.ts').toString()
+        const newTokenizer = new Tokenizer(source)
+        Make.compile(this.parent!,newTokenizer)
     }
     asm(ASM:Asm){
         console.log('IMPORT')
