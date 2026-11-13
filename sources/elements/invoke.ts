@@ -11,7 +11,7 @@ export function setInvoke(name:string){
 
 export class Invoke extends Base{
     name:string|null = null
-    params:string[] = []
+    params:any[] = []
     constructor(parent:Base){
         super(parent)
     }
