@@ -26,48 +26,11 @@ export class Func extends Base{
         tokens.splice(0,2)
         this.name = name
 
-        /*let openP = false
-        let params = []
-        console.log('TOKENS: ',tokens)
-        for(const token of tokens){
-            console.log(token)
-            if(token=='('){
-                openP = true
-                continue
-            }
-            if(token==')'){
-                break
-            }
-            if(openP){
-                params.push(token)
-            }
-        }
-        console.log('params',params)
-
-        this.params = params*/
         this.params = Tokenizer.getParams(tokens)
-
-        /*let open = false
-        let values = []
-        console.log('TOKENS: ',tokens)
-        for(const token of tokens){
-            console.log(token)
-            if(token=='{'){
-                open = true
-                continue
-            }
-            if(open){
-                values.push(token)
-            }
-        }
-        values.splice(-1)
-        console.log('values',values)*/
-        //process.exit()
 
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
         Make.compile(this,tokenizer2)
-        //console.log('FNC BLOCK',this)
 
         setFunction(name)
     }
