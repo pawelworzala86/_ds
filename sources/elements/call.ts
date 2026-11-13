@@ -1,7 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
-import ASM from './../asm.ts'
 import {getFuncs} from './func.ts'
+import Asm from "./../asm.ts"
 
 export class Call extends Base{
     name:string|null = null
@@ -21,7 +21,7 @@ export class Call extends Base{
         this.name = name
         this.params = tokens
     }
-    asm(){
+    asm(ASM:Asm){
         console.log('CALL FUNCTION')
         const params = this.params.map(param=>{
             const data = this.getData(param)

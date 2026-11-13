@@ -1,6 +1,6 @@
 import fs from 'fs'
 import Make from "./make.ts";
-import ASM from "./asm.ts";
+import Asm from "./asm.ts";
 import CompileASM from './../../_winasm/sources/compile.ts'
 import Tokenizer from './tokenizer.ts';
 import Base from './elements/base.ts';
@@ -17,9 +17,11 @@ Make.compile(active,tokenizer)
 
 //console.log(make.active)
 
-root.asm()
+const ASM:Asm = new Asm()
 
-const code = ASM.getCode()
+root.asm(ASM)
+
+const code = ASM.getASMCode()
 console.log(code)
 
 const exe = CompileASM(code)

@@ -1,6 +1,6 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
-import ASM from './../asm.ts'
+import Asm from "./../asm.ts"
 
 export class Data extends Base{
     kind:string|null = null
@@ -49,7 +49,7 @@ export class Data extends Base{
         }
         this.parent?.setData(name, {name,type,value:values.join(' ')})
     }
-    asm(){
+    asm(ASM:Asm){
         console.log('DATA SETTTER')
         let type = 'dq'
         let value = this.value

@@ -1,4 +1,5 @@
 import Tokenizer from "../tokenizer.ts"
+import Asm from "./../asm.ts"
 
 export class Base{
     parent:Base|null
@@ -8,9 +9,9 @@ export class Base{
         this.parent = parent
     }
     set(tokenizer:Tokenizer){}
-    asm(){
+    asm(ASM:Asm){
         for(const child of this.children){
-            child.asm()
+            child.asm(ASM)
         }
     }
     getData(name:string):any{

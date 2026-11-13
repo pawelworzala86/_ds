@@ -1,7 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Make from './../make.ts'
-import ASM from './../asm.ts'
+import Asm from "./../asm.ts"
 
 const Funcs:any = []
 
@@ -70,11 +70,11 @@ export class Func extends Base{
 
         setFunction(name)
     }
-    asm(){
+    asm(ASM:Asm){
         console.log('FUNCTION')
         ASM.addCode(`proc ${this.name}`)
         for(const node of this.children){
-            node.asm()
+            node.asm(ASM)
         }
         ASM.addCode(`endp`)
     }
