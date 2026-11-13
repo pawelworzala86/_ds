@@ -72,11 +72,14 @@ export class Func extends Base{
     }
     asm(ASM:Asm){
         console.log('FUNCTION')
-        ASM.addCode(`proc ${this.name}`)
+        const asm = new Asm()
+        asm.addCode(`proc ${this.name}`)
         for(const node of this.children){
-            node.asm(ASM)
+            node.asm(asm)
         }
-        ASM.addCode(`endp`)
+        asm.addCode(`endp`)
+        const code = asm.getCode().join('\n')
+        ASM.addProc(code)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()

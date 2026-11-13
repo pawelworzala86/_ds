@@ -1,12 +1,16 @@
 export class Asm{
     data:any = []
     code:any = []
+    proc:any = []
     imp:any = {}
     addData(_data:string){
         this.data.push(_data)
     }
     addCode(_code:string){
         this.code.push(_code)
+    }
+    addProc(_proc:string){
+        this.proc.push(_proc)
     }
     getCode(){
         return this.code
@@ -19,6 +23,7 @@ export class Asm{
     }
     getASMCode(){
         let codeTxt = this.code.join('\n')
+        let procTxt = this.proc.join('\n')
         let dataTxt = this.data.join('\n')
         let impTxt = ''
         for(let dll of Object.keys(this.imp)){
@@ -30,6 +35,7 @@ export class Asm{
         }
         return `.code
         ${codeTxt}
+        ${procTxt}
     .data
         ${dataTxt}
     .import
