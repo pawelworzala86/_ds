@@ -1,6 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
+import Link from './link.ts'
 
 const Invokers:any = []
 
@@ -24,14 +25,15 @@ export class Invoke extends Base{
         const [name] = tokens
         tokens.splice(0,2)
         this.name = name
-        this.params = tokens
+        this.params = tokens.map((token)=>{
+            return Link.data(this,token)
+        })
     }
     asm(ASM:Asm){
         console.log('INVOKE CALL')
-        const params = this.params.map(param=>{
-            const data = this.getData(param)
-            if(data&&(data.type=='string')){
-                return 'addr ' + param
+        const params = this.params.map((param:any)=>{
+            if(typeof param=='object'){
+                return param.getCode()
             }
             return param
         }).join(', ')

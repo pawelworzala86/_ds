@@ -19,6 +19,8 @@ Make.compile(active,tokenizer)
 
 const ASM:Asm = new Asm()
 
+root.testChangeName()
+
 root.asm(ASM)
 
 const code = ASM.getASMCode()

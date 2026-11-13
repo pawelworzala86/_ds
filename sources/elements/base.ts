@@ -24,6 +24,18 @@ export class Base{
     setData(name:string,value:any){
         this.DATA[name] = value
     }
+    testChangeName(){
+        //console.log('DATA::::',this.DATA)
+        //if(this.DATA){
+            for(const key of Object.keys(this.DATA)){
+                const DATA = this.DATA[key]
+                DATA.name = 'X_'+DATA.name
+            }
+        //}
+        for(const child of this.children){
+            child.testChangeName()
+        }
+    }
 }
 
 export default Base

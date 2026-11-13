@@ -2,11 +2,27 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
 
-export class Data extends Base{
+export class DataElement{
     kind:string|null = null
     name:string|null = null
     type:string|null = null
     value:string|null = null
+    constructor(kind:string,name:string,type:string,value:string){
+        this.kind = kind
+        this.name = name
+        this.type = type
+        this.value = value
+    }
+    getCode(){
+        if(this.type=='string'){
+            return 'addr '+this.name
+        }
+        return this.name
+    }
+}
+
+export class Data extends Base{
+    element:DataElement|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -18,10 +34,6 @@ export class Data extends Base{
             tokens.push(token)
         }
         const [kind,name,sep,type,eq,value] = tokens
-        this.kind = kind
-        this.name = name
-        this.type = type
-        this.value = value
         let values = [value]
         if(type=='string'){
             let open = false
@@ -44,20 +56,19 @@ export class Data extends Base{
                 }
                 spec = false
             }
-            console.log('values',values)
-            this.value = values.join(' ')
         }
-        this.parent?.setData(name, {name,type,value:values.join(' ')})
+        this.element = new DataElement(kind,name,type,values.join(' '))
+        this.parent?.setData(name, this.element)
     }
     asm(ASM:Asm){
         console.log('DATA SETTTER')
         let type = 'dq'
-        let value = this.value
-        if(this.type=='string'){
+        let value = this.element!.value
+        if(this.element!.type=='string'){
             type = 'db'
             value = '\''+value+'\',0'
         }
-        const data:string = `${this.name} ${type} ${value}`
+        const data:string = `${this.element!.name} ${type} ${value}`
         ASM.addData(data)
     }
     static test(active:Base,tokenizer:Tokenizer){
