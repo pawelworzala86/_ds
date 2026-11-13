@@ -26,7 +26,7 @@ export class Func extends Base{
         tokens.splice(0,2)
         this.name = name
 
-        let openP = false
+        /*let openP = false
         let params = []
         console.log('TOKENS: ',tokens)
         for(const token of tokens){
@@ -44,9 +44,10 @@ export class Func extends Base{
         }
         console.log('params',params)
 
-        this.params = params
+        this.params = params*/
+        this.params = Tokenizer.getParams(tokens)
 
-        let open = false
+        /*let open = false
         let values = []
         console.log('TOKENS: ',tokens)
         for(const token of tokens){
@@ -60,7 +61,7 @@ export class Func extends Base{
             }
         }
         values.splice(-1)
-        console.log('values',values)
+        console.log('values',values)*/
         //process.exit()
 
         const tokenizer2 = new Tokenizer('')

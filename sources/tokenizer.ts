@@ -40,6 +40,26 @@ export class Tokenizer{
         }
         return tokens
     }
+    static getParams(tokens:string[]){
+        let openP = false
+        let params = []
+        console.log('TOKENS: ',tokens)
+        for(const token of tokens){
+            console.log(token)
+            if(token=='('){
+                openP = true
+                continue
+            }
+            if(token==')'){
+                break
+            }
+            if(openP){
+                params.push(token)
+            }
+        }
+        console.log('params',params)
+        return params
+    }
 }
 
 export default Tokenizer
