@@ -3,20 +3,6 @@ import Base from './base.ts'
 import Make from './../make.ts'
 import Asm from "./../asm.ts"
 
-const Funcs:any = []
-
-export function setFunction(name:string,value:FuncElement){
-    Funcs[name] = value
-}
-
-export function getFuncs(){
-    return Object.keys(Funcs)
-}
-
-export function getFunction(name:string){
-    return Funcs[name]
-}
-
 export class FuncElement{
     name:string|null = null
     params:string[] = []
@@ -48,7 +34,7 @@ export class Func extends Base{
 
         const element = new FuncElement(name,params)
         this.element = element
-        setFunction(name,element)
+        this.parent!.setFunction(name,element)
     }
     asm(ASM:Asm){
         console.log('FUNCTION')

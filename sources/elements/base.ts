@@ -5,6 +5,7 @@ export class Base{
     parent:Base|null
     children:Base[] = []
     DATA:any = []
+    FUNCTIONS:any = []
     constructor(parent:Base|null){
         this.parent = parent
     }
@@ -24,14 +25,26 @@ export class Base{
     setData(name:string,value:any){
         this.DATA[name] = value
     }
+    getFunction(name:string):any{
+        const func = this.FUNCTIONS[name]
+        if(!func){
+            return this.parent?.getFunction(name)
+        }
+        return func
+    }
+    setFunction(name:string,value:any){
+        this.FUNCTIONS[name] = value
+        console.log(this.FUNCTIONS)
+    }
     testChangeName(){
-        //console.log('DATA::::',this.DATA)
-        //if(this.DATA){
-            for(const key of Object.keys(this.DATA)){
-                const DATA = this.DATA[key]
-                DATA.name = 'X_'+DATA.name
-            }
-        //}
+        for(const key of Object.keys(this.DATA)){
+            const DATA = this.DATA[key]
+            DATA.name = 'X_'+DATA.name
+        }
+        for(const key of Object.keys(this.FUNCTIONS)){
+            const FUNCTION = this.FUNCTIONS[key]
+            FUNCTION.name = 'X_'+FUNCTION.name
+        }
         for(const child of this.children){
             child.testChangeName()
         }

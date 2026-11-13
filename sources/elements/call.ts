@@ -1,6 +1,6 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
-import {FuncElement, getFuncs, getFunction} from './func.ts'
+import { FuncElement } from './func.ts'
 import Asm from "./../asm.ts"
 import Link from './link.ts'
 
@@ -17,7 +17,7 @@ export class Call extends Base{
             //console.log('REC::', token)
             tokens.push(token)
         }
-        const func:FuncElement = getFunction(tokens[0])
+        const func:FuncElement = this.getFunction(tokens[0])
         tokens.splice(0,2)
         this.func = func
         this.params = tokens.map((token)=>{
@@ -37,8 +37,9 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        console.log('Call',getFuncs())
-        if(getFuncs().includes(token)){
+        console.log(active.FUNCTIONS)
+        console.log('active.getFunction(token)',active.getFunction(token),token)
+        if(active.getFunction(token)){
             tokenizer.move(-1)
             const data = new Call(active)
             data.set(tokenizer)

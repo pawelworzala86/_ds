@@ -1,6 +1,6 @@
 import Base from "./base.ts";
 import { DataElement } from "./data.ts";
-import { FuncElement, getFunction } from "./func.ts";
+import { FuncElement } from "./func.ts";
 
 export class Link{
     static data(active:Base,name:string){
@@ -8,7 +8,7 @@ export class Link{
         if(data){
             return data
         }
-        const func:FuncElement = getFunction(name)
+        const func:FuncElement = active.getFunction(name)
         if(func){
             return func
         }

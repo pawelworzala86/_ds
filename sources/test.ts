@@ -4,7 +4,6 @@ import Asm from "./asm.ts";
 import CompileASM from './../../_winasm/sources/compile.ts'
 import Tokenizer from './tokenizer.ts';
 import Base from './elements/base.ts';
-import { getFuncs, getFunction } from './elements/func.ts';
 
 
 
@@ -21,10 +20,6 @@ Make.compile(active,tokenizer)
 const ASM:Asm = new Asm()
 
 root.testChangeName()
-for(const key of getFuncs()){
-    const func = getFunction(key)
-    func.name = 'X_'+func.name
-}
 
 root.asm(ASM)
 
@@ -33,3 +28,5 @@ console.log(code)
 
 const exe = CompileASM(code)
 fs.writeFileSync('./dist/test.exe',exe)
+
+console.log(root.FUNCTIONS)
