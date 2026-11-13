@@ -1,12 +1,12 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
-import {getFuncs} from './func.ts'
+import {FuncElement, getFuncs, getFunction} from './func.ts'
 import Asm from "./../asm.ts"
 import Link from './link.ts'
 
 export class Call extends Base{
-    name:string|null = null
-    params:string[] = []
+    func:FuncElement|null = null
+    params:any[] = []
     constructor(parent:Base){
         super(parent)
     }
@@ -17,9 +17,9 @@ export class Call extends Base{
             //console.log('REC::', token)
             tokens.push(token)
         }
-        const [name] = tokens
+        const func:FuncElement = getFunction(tokens[0])
         tokens.splice(0,2)
-        this.name = name
+        this.func = func
         this.params = tokens.map((token)=>{
             return Link.data(this,token)
         })
@@ -32,7 +32,7 @@ export class Call extends Base{
             }
             return param
         }).join(', ')
-        const code = `rvcall ${this.name} ${params}`
+        const code = `rvcall ${this.func!.name} ${params}`
         ASM.addCode(code)
     }
     static test(active:Base,tokenizer:Tokenizer){

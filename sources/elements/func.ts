@@ -5,17 +5,32 @@ import Asm from "./../asm.ts"
 
 const Funcs:any = []
 
-export function setFunction(name:string){
-    Funcs.push(name)
+export function setFunction(name:string,value:FuncElement){
+    Funcs[name] = value
 }
 
 export function getFuncs(){
-    return Funcs
+    return Object.keys(Funcs)
+}
+
+export function getFunction(name:string){
+    return Funcs[name]
+}
+
+export class FuncElement{
+    name:string|null = null
+    params:string[] = []
+    constructor(name:string,params:string[]){
+        this.name = name
+        this.params = params
+    }
+    getCode(){
+        return this.name
+    }
 }
 
 export class Func extends Base{
-    name:string|null = null
-    params:string[] = []
+    element:FuncElement|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -24,20 +39,21 @@ export class Func extends Base{
         console.log(tokens)
         const [fn,name] = tokens
         tokens.splice(0,2)
-        this.name = name
 
-        this.params = Tokenizer.getParams(tokens)
+        const params = Tokenizer.getParams(tokens)
 
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
         Make.compile(this,tokenizer2)
 
-        setFunction(name)
+        const element = new FuncElement(name,params)
+        this.element = element
+        setFunction(name,element)
     }
     asm(ASM:Asm){
         console.log('FUNCTION')
         const asm = new Asm()
-        asm.addCode(`proc ${this.name}`)
+        asm.addCode(`proc ${this.element!.name}`)
         for(const node of this.children){
             node.asm(asm)
         }
