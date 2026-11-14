@@ -25,7 +25,7 @@ export class Invoke extends Base{
     asm(ASM:Asm){
         const params = this.params.map((param:any)=>{
             if(typeof param=='object'){
-                return param.getCode()
+                return param.getCode(true)
             }
             return param
         }).join(', ')

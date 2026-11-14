@@ -10,8 +10,10 @@ class TESTOBJ{
     }
 }
 
+let numA:number = 11
+
 const testObj: TESTOBJ = new TESTOBJ()  
-testObj.show(11)
+testObj.show(numA)
 
 let helloTxt:string = 'Hello World!!!'
 

@@ -10,9 +10,12 @@ export class DataElement{
         this.type = type
         this.value = value
     }
-    getCode(){
+    getCode(byValue=false){
         if(this.type=='string'){
             return 'addr '+this.name
+        }
+        if(byValue&&this.type=='number'){
+            return '['+this.name+']'
         }
         return this.name
     }
