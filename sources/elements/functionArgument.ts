@@ -14,6 +14,7 @@ export class FunctionArgument{
     arrayPointerName:string|null = null
     classPropertyInstance:DataElement|null = null
     classProperty:DataElement|null = null
+    arrayPropertyAccess:{array:DataElement,indexExpression:Expression,property:DataElement,offset:number}|null = null
 
     constructor(active:Base,text:string){
         this.value = Link.data(active,text)
@@ -43,13 +44,40 @@ export class FunctionArgument{
                     this.tempName = `__ds_call_arg_${++argumentId}`
                 }
             }
+            const arrayMember = text.match(/^([a-z_$][\w.$]*)\[([^\]]+)\]\.(\w+)$/i)
+            if(!this.tempName&&arrayMember){
+                const [,arrayName,indexText,propertyName] = arrayMember
+                const array = active.getData(arrayName)
+                const arrayClassType = array?.classType?active.getClass(array.classType):null
+                const property = arrayClassType?.props.find(prop=>prop.name===propertyName)??null
+                if(array&&property&&arrayClassType){
+                    const propertyIndex = arrayClassType.props.findIndex(prop=>prop.name===propertyName)
+                    let offset = 0
+                    for(let index=0;index<propertyIndex;index++){
+                        const previous = arrayClassType.props[index]
+                        const previousSize = previous.type==='string'
+                            ? Math.max(8,(previous.value?.length??0)+1)
+                            : previous.isArray
+                                ? 8 * Math.max(1,(previous.value?.split(',').filter(Boolean).length??1))
+                                : 8
+                        offset += previousSize
+                    }
+                    this.arrayPropertyAccess = {
+                        array,
+                        indexExpression: parseExpression(indexText,active),
+                        property,
+                        offset
+                    }
+                    this.tempName = `__ds_call_arg_${++argumentId}`
+                }
+            }
         }
         if(this.value instanceof DataElement&&this.value.isArray&&this.value.isParameter){
             this.arrayPointerName = `__ds_call_array_${++argumentId}`
         }
         if(this.value instanceof DataElement&&this.value.isParameter&&!this.value.isArray){
             this.tempName = `__ds_call_arg_${++argumentId}`
-        }else if(!this.expression&&!/^['"]/.test(text)&&(/\*\*|[+\-*/%]/.test(text)||/\[[^\]]+\]/.test(text)||/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(text))){
+        }else if(!this.expression&&!this.arrayPropertyAccess&&!/^['"]/.test(text)&&(/\*\*|[+\-*/%]/.test(text)||/\[[^\]]+\]/.test(text)||/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(text))){
             this.expression = parseExpression(text,active)
             this.tempName = `__ds_call_arg_${++argumentId}`
         }
@@ -58,6 +86,23 @@ export class FunctionArgument{
     asm(ASM:Asm){
         if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
             this.value.name = `${this.classPropertyInstance.name}.${this.classProperty.name}`
+        }
+        if(this.arrayPropertyAccess&&this.tempName){
+            const {array,indexExpression,property,offset} = this.arrayPropertyAccess
+            emitExpression(indexExpression,ASM)
+            ASM.addCode('shl rax, 3')
+            ASM.addCode(`lea rdx, [${array.name}]`)
+            ASM.addCode('add rdx, rax')
+            ASM.addCode('mov rax, [rdx]')
+            if(offset){
+                ASM.addCode(`add rax, ${offset}`)
+            }
+            if(property.type!=='string'){
+                ASM.addCode('mov rax, [rax]')
+            }
+            ASM.addData(`${this.tempName} dq 0`)
+            ASM.addCode(`mov [${this.tempName}], rax`)
+            return
         }
         if(this.arrayPointerName&&this.value instanceof DataElement){
             ASM.addData(`${this.arrayPointerName} dq 0`)

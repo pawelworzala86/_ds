@@ -52,4 +52,7 @@ strA[0] = 'test3'
 strA[0] = strA[1]
 msvcrt.printf(',%s ',strA[0])
 
+const objArray:TESTOBJ[] = [new TESTOBJ(),new TESTOBJ()]
+msvcrt.printf(',%i ',objArray[0].propA)
+
 kernel.ExitProcess()

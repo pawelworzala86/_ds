@@ -34,7 +34,12 @@ function splitTopLevelArrayValues(value:string):string[]{
     }
     const trimmed = current.trim()
     if(trimmed){
-        items.push(trimmed)
+        const item = trimmed.startsWith("'")&&trimmed.endsWith("'")
+            ? `'${trimmed.slice(1,-1).trim()}'`
+            : trimmed.startsWith('"')&&trimmed.endsWith('"')
+                ? `"${trimmed.slice(1,-1).trim()}"`
+                : trimmed
+        items.push(item)
     }
     return items
 }
@@ -59,10 +64,20 @@ export class Data extends Base{
         let arrayValues:string[] = []
         if(arrayType){
             const itemType = arrayType[1]
-            if(!['number','string'].includes(itemType)||eq!=='='){
+            const classType = this.parent?.getClass(itemType)
+            const allowedItemTypes = ['number','string']
+            if((!allowedItemTypes.includes(itemType)&&!classType)||eq!=='='){
                 throw new Error(`Array "${name}" must be initialized with an array literal`)
             }
-            const initializer = tokens.slice(classField?4:5).join('').replace(/;$/,'')
+            const initializerStart = tokens.indexOf('=') + 1
+            const initializer = tokens.slice(initializerStart).join(' ')
+                .replace(/\s+/g,' ')
+                .replace(/\s*\(\s*/g,'(')
+                .replace(/\s*\)\s*/g,')')
+                .replace(/\s*,\s*/g,',')
+                .replace(/\s*\[\s*/g,'[')
+                .replace(/\s*\]\s*/g,']')
+                .replace(/;$/,'')
             const arrayLiteral = initializer.match(/^\[([\s\S]*)\]$/)
             if(!arrayLiteral){
                 throw new Error(`Invalid array initializer for "${name}"`)
@@ -73,9 +88,14 @@ export class Data extends Base{
                     throw new Error(`Array "${name}" must contain numeric literals`)
                 }
                 value = arrayValues.join(', ')
-            }else{
+            }else if(itemType==='string'){
                 if(!arrayValues.length||arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
                     throw new Error(`Array "${name}" must contain string literals`)
+                }
+                value = arrayValues.join(', ')
+            }else if(classType){
+                if(!arrayValues.length||arrayValues.some(item=>!item||!new RegExp(`^new\\s+${itemType.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*\\(\\s*\\)$`,`i`).test(item.trim()))){
+                    throw new Error(`Array "${name}" must contain "new ${itemType}()" initializers`)
                 }
                 value = arrayValues.join(', ')
             }
@@ -94,9 +114,10 @@ export class Data extends Base{
                 value = numericExpression
             }
         }
-        const classType = this.parent?.getClass(type)
-        if(classType&&eq==='='&&(value!=='new'||tokens[6]!==type)){
-            throw new Error(`Class instance "${name}" must be initialized with new ${type}()`)
+        const normalizedType = arrayType?arrayType[1]:type
+        const classType = this.parent?.getClass(normalizedType)
+        if(classType&&!arrayType&&eq==='='&&(value!=='new'||tokens[6]!==normalizedType)){
+            throw new Error(`Class instance "${name}" must be initialized with new ${normalizedType}()`)
         }
         let values = [value]
         if(type=='string'){
@@ -119,12 +140,17 @@ export class Data extends Base{
                 spec = false
             }
         }
-        this.element = new DataElement(kind,name,type,arrayType?value:values.join(' ')??'')
+        this.element = new DataElement(kind,name,arrayType?arrayType[1]:type,arrayType?value:values.join(' ')??'')
         if(arrayType){
             this.element.isArray = true
             this.element.numericKind = arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
+            if(classType){
+                this.element.classType = classType.name
+            }
         }
-        this.element.classType = classType?.name??null
+        if(!arrayType){
+            this.element.classType = classType?.name??null
+        }
         this.parent?.addData(this.element)
         if(runtimeInitializer&&numericExpression&&this.parent){
             const initializer = new Assign(this.parent)
@@ -133,13 +159,23 @@ export class Data extends Base{
         }
     }
     asm(ASM:Asm){
-        if(this.element!.classType){
-            ASM.addData(`${this.element!.name} ${this.element!.classType}`)
-            return
-        }
         let type = 'dq'
         let value = this.element!.value
         if(this.element!.isArray){
+            if(this.element!.classType){
+                const instances = splitTopLevelArrayValues(value??'')
+                const labels = instances.map((item,index)=>{
+                    const label = `${this.element!.name}_${index}`
+                    ASM.addData(`${label} ${this.element!.classType}`)
+                    return label
+                })
+                ASM.addData(`${this.element!.name} dq ${Array(instances.length).fill(0).join(', ')}`)
+                labels.forEach((label,index)=>{
+                    ASM.addCode(`lea rax, [${label}]`)
+                    ASM.addCode(`mov [${this.element!.name}+${index*8}], rax`)
+                })
+                return
+            }
             if(this.element!.type==='string'||this.element!.type==='string[]'){
                 const literals = splitTopLevelArrayValues(value??'')
                 const labels = literals.map((item,index)=>{
@@ -161,6 +197,10 @@ export class Data extends Base{
                 }).join(', ')
             }
             ASM.addData(`${this.element!.name} dq ${value}`)
+            return
+        }
+        if(this.element!.classType){
+            ASM.addData(`${this.element!.name} ${this.element!.classType}`)
             return
         }
         if(this.element!.type==='number'&&this.element!.numericKind==='float'&&/e/i.test(value??'')&&!/f$/i.test(value??'')){
