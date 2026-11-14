@@ -17,7 +17,14 @@ export class Export extends Base{
         let name:string|null = null
         if(['let','var','const'].includes(tokens[1])){
             name = tokens[2]
+        }else if(['function'].includes(tokens[1])){
+            name = tokens[2]
+        }else if(['declare'].includes(tokens[1])){
+            if(tokens[2]=='function'){
+                name = tokens[3]
+            }
         }
+        console.log('EXPORT:: ',name)
         this.parent!.addExport(name!)
     }
     static test(active:Base,tokenizer:Tokenizer){

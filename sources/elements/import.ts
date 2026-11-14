@@ -29,13 +29,14 @@ export class Import extends Base{
         if(Object.keys(EXPORT).length){
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
-                const exportName = EXP.name
+                console.log('EXP... ',key,EXP)
+                const exportName = EXP?EXP.name:key
                 //console.log('EXP',EXP)
                 let data:any = this.getData(exportName)
                 if(!data){
                     data = this.getFunction(exportName)
                 }
-                if(!data){
+                if(!data&&EXP){
                     throw new Error(`Unable to resolve imported export "${exportName}"`)
                 }
                 let internalName = ''
@@ -46,9 +47,14 @@ export class Import extends Base{
                     this.getData(internalName) ||
                     this.getFunction(internalName)
                 )
-                data.name = internalName
-                const replaceName = alias+'.'+exportName
-                tokenizer.replace(replaceName, internalName)
+                if(EXP){
+                    data.name = internalName
+                    const replaceName = alias+'.'+exportName
+                    tokenizer.replace(replaceName, internalName)
+                }else{
+                    const replaceName = alias+'.'+exportName
+                    tokenizer.replace(replaceName, exportName)
+                }
             }
         }
     }
