@@ -41,9 +41,12 @@ export class Func extends Base{
         }
         asm.addCode(`endp`)
         const code = asm.getCode().join('\n')
+        for(const data of asm.getData()){
+            ASM.addData(data.trimEnd())
+        }
         ASM.addProc(code)
     }
-    getStructCode(){
+    getStructCode(ASM:Asm){
         const asm = new Asm()
         for(const node of this.children){
             node.asm(asm)
@@ -51,6 +54,9 @@ export class Func extends Base{
         const params = this.element?.params.map((param:any)=>param.name).join(', ')
         const body = asm.getCode().join('').trimEnd()
         const signature = `proc ${this.element!.name}${params?`, ${params}`:''}`
+        for(const data of asm.getData()){
+            ASM.addData(data.trimEnd())
+        }
         return `${signature}${body?`\n${body}`:''}\nendp`
     }
     static test(active:Base,tokenizer:Tokenizer,ASM:Asm,classMethod=false){

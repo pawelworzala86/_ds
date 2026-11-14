@@ -18,6 +18,9 @@ export class Asm{
     getCode(){
         return this.code
     }
+    getData(){
+        return this.data
+    }
     addImport(dll:string,func:string){
         if(!this.imp[dll]){
             this.imp[dll] = []

@@ -35,7 +35,7 @@ export class Class extends Base{
         })
         const methods = this.children
             .filter((child):child is Func=>child instanceof Func)
-            .map(method=>method.getStructCode())
+            .map(method=>method.getStructCode(ASM))
         ASM.addCode([`struct ${this.element!.name}`,...props,...methods,'end struct'].join('\n'))
     }
     testChangeName(){

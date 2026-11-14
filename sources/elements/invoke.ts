@@ -1,7 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
-import Link from './link.ts'
+import FunctionArgument from './functionArgument.ts'
 
 const Invokers:any = []
 
@@ -11,7 +11,7 @@ export function setInvoke(name:string){
 
 export class Invoke extends Base{
     name:string|null = null
-    params:any[] = []
+    params:FunctionArgument[] = []
     constructor(parent:Base){
         super(parent)
     }
@@ -20,14 +20,14 @@ export class Invoke extends Base{
         if(tokenizer.get()!=='('){
             throw new Error(`Expected '(' after function "${this.name}"`)
         }
-        this.params = tokenizer.getCallArguments().map(token=>Link.data(this,token))
+        this.params = tokenizer.getCallArguments().map(token=>new FunctionArgument(this,token))
     }
     asm(ASM:Asm){
-        const params = this.params.map((param:any)=>{
-            if(typeof param=='object'){
-                return param.getCode(true)
-            }
-            return param
+        for(const param of this.params){
+            param.asm(ASM)
+        }
+        const params = this.params.map(param=>{
+            return param.getCode(true)
         }).join(', ')
         const code = `invoke ${this.name} ${params}`
         ASM.addCode(code)

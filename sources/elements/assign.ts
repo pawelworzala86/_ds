@@ -4,9 +4,9 @@ import Asm from './../asm.ts'
 import DataElement, {getNumericKind} from './dataElement.ts'
 
 type BinaryOperator = '+'|'-'|'*'|'/'|'%'|'**'
-type NumericKind = 'integer'|'float'
+export type NumericKind = 'integer'|'float'
 
-type Expression =
+export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
     | {kind:'data',value:DataElement,numericKind:NumericKind}
     | {kind:'unary',operator:'+'|'-',value:Expression,numericKind:NumericKind}
@@ -88,7 +88,7 @@ function emitFloatExpression(expression:Extract<Expression,{kind:'binary'}>,ASM:
     }
 }
 
-function parseExpression(text:string,active:Base):Expression{
+export function parseExpression(text:string,active:Base):Expression{
     const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|[()+\-*/%]/gi)??[]
     if(!tokens.length||tokens.join('')!==text){
         throw new Error(`Invalid numeric expression "${text}"`)
@@ -237,7 +237,7 @@ function emitPower(ASM:Asm){
     ASM.addCode(`${done}:`)
 }
 
-function emitExpression(expression:Expression,ASM:Asm){
+export function emitExpression(expression:Expression,ASM:Asm){
     if(expression.kind==='number'){
         if(expression.numericKind==='float'){
             emitFloatLiteral(ASM,expression.value)

@@ -35,6 +35,6 @@ testFunc(testVar)
 let valFA:number = 1.23
 let valFB:number = 2.23
 let valFC:number = valFA*valFB
-msvcrt.printf(' %f ',valFC)
+msvcrt.printf(' %f ',valFA*valFB)
 
 kernel.ExitProcess()

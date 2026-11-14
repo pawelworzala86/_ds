@@ -1,13 +1,13 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
-import Link from './link.ts'
 import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
+import FunctionArgument from './functionArgument.ts'
 
 export class Call extends Base{
     func:FuncElement|null = null
-    params:any[] = []
+    params:FunctionArgument[] = []
     methodInstance:DataElement|null = null
     constructor(parent:Base){
         super(parent)
@@ -20,14 +20,14 @@ export class Call extends Base{
         const method = Call.getMethod(this,name)
         this.func = method?.func??this.getFunction(name)
         this.methodInstance = method?.instance??null
-        this.params = tokenizer.getCallArguments().map(token=>Link.data(this,token))
+        this.params = tokenizer.getCallArguments().map(token=>new FunctionArgument(this,token))
     }
     asm(ASM:Asm){
-        const params = this.params.map((param:any)=>{
-            if(typeof param=='object'){
-                return param.getCode(this.methodInstance!==null)
-            }
-            return param
+        for(const param of this.params){
+            param.asm(ASM)
+        }
+        const params = this.params.map(param=>{
+            return param.getCode(this.methodInstance!==null)
         }).join(', ')
         const code = this.methodInstance
             ? `invoke ${this.methodInstance.name}.${this.func!.name} ${params}`
