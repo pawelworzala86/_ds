@@ -4,6 +4,9 @@ import { FuncElement } from "./func.ts";
 
 export class Link{
     static data(active:Base,name:string){
+        //const EXPORT = active.getExport()
+        //console.log('EXPORT::::@@@@@@@@@',EXPORT)
+        
         const data:DataElement = active.getData(name)
         if(data){
             return data

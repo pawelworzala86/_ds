@@ -38,6 +38,19 @@ export class Base{
         this.FUNCTIONS[name] = value
         console.log(this.FUNCTIONS)
     }
+    addExport(name:string){
+        this.EXPORT[name] = {name}
+    }
+    getExport():any{
+        if(Object.keys(this.EXPORT).length){
+            return this.EXPORT
+        }
+        if(this.parent){
+            return this.parent!.getExport()
+        }else{
+            return null
+        }
+    }
     testChangeName(){
         for(const key of Object.keys(this.DATA)){
             const DATA = this.DATA[key]

@@ -37,8 +37,8 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        console.log(active.FUNCTIONS)
-        console.log('active.getFunction(token)',active.getFunction(token),token)
+        //console.log(active.FUNCTIONS)
+        //console.log('active.getFunction(token)',active.getFunction(token),token)
         if(active.getFunction(token)){
             tokenizer.move(-1)
             const data = new Call(active)

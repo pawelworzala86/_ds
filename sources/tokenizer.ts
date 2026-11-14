@@ -60,6 +60,13 @@ export class Tokenizer{
         console.log('params',params)
         return params
     }
+    replace(from:string,to:string){
+        for(let i=0;i<this.tokens.length;i++){
+            if(this.tokens[i]==from){
+                this.tokens[i] = to
+            }
+        }
+    }
 }
 
 export default Tokenizer

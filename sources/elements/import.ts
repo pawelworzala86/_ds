@@ -19,6 +19,14 @@ export class Import extends Base{
         const source = fs.readFileSync('./examples/inc.ts').toString()+'\n'
         const newTokenizer = new Tokenizer(source)
         Make.compile(this,newTokenizer)
+        if(Object.keys(this.EXPORT).length){
+            console.log('HAS EXPORTS:::::::::::::::::',this.EXPORT)
+            for(const key of Object.keys(this.EXPORT)){
+                const EXPORT = this.EXPORT[key]
+                const data = this.getData('testVar')
+                tokenizer.replace('inc.testVar',data.name)
+            }
+        }
     }
     /*asm(ASM:Asm){
         console.log('IMPORT')

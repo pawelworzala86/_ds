@@ -10,7 +10,7 @@ let helloTxt:string = 'Hello World!!!'
 printf(helloTxt)
 
 function testFunc(){
-    printf(helloTxt)
+    printf(inc.testVar)
 }
 
 testFunc()

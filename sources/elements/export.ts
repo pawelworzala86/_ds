@@ -18,7 +18,9 @@ export class Export extends Base{
             tokens.push(token)
         }
         tokenizer.index = index+1
-        console.log('EXPORT::::::::::')
+        const name = tokens[2]
+        console.log('EXPORT::::::::::',name)
+        this.parent!.addExport(name)
     }
     /*asm(ASM:Asm){
         console.log('IMPORT')
