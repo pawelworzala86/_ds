@@ -2,15 +2,10 @@ import * as msvcrt from './system/msvcrt.ts'
 import * as kernel from './system/kernel.ts'
 
 import * as inc from './inc.ts'
+import * as obj from './obj1.ts'
 
-class TESTOBJ{
-    propA:number = 123
-    propB:string = 'a1b2c3'
-    propC:number[] = [8,8,8]
-    show(pA:number){
-        msvcrt.printf('%i %i ',this.propA,pA)
-    }
-}
+
+
 
 let numA:number = 11
 let numB:number = 2
@@ -18,7 +13,7 @@ let numC:number = 4
 
 numA = numB*numC
 
-const testObj: TESTOBJ = new TESTOBJ()  
+const testObj: obj.TESTOBJ = new obj.TESTOBJ()  
 testObj.show(numA)
 
 let helloTxt:string = 'Hello World!!!'
@@ -52,10 +47,10 @@ strA[0] = 'test3'
 strA[0] = strA[1]
 msvcrt.printf(',%s ',strA[0])
 
-const objArray:TESTOBJ[] = [new TESTOBJ(),new TESTOBJ()]
+const objArray:obj.TESTOBJ[] = [new obj.TESTOBJ(),new obj.TESTOBJ()]
 msvcrt.printf(',%i ',objArray[0].propA)
 
-const objArrayA:TESTOBJ[] = []
+const objArrayA:obj.TESTOBJ[] = []
 objArrayA.push(objArray[0])
 msvcrt.printf(',%i ',objArrayA[0].propA)
 objArrayA[0].propA = 222
@@ -63,7 +58,7 @@ msvcrt.printf(',%i ',objArray[0].propA)
 
 
 
-prototype TESTOBJ {
+prototype obj.TESTOBJ {
     function test(){
         msvcrt.printf(' test ')
     }

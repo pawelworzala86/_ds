@@ -15,17 +15,25 @@ export class Export extends Base{
         }
         tokenizer.index = index+1
         let name:string|null = null
+        let kind:'data'|'function'|'class' = 'data'
         if(['let','var','const'].includes(tokens[1])){
             name = tokens[2]
         }else if(['function'].includes(tokens[1])){
             name = tokens[2]
+            kind = 'function'
+        }else if(tokens[1]==='class'){
+            name = tokens[2]
+            kind = 'class'
         }else if(['declare'].includes(tokens[1])){
             if(tokens[2]=='function'){
                 name = tokens[3]
+                kind = 'function'
             }
         }
-        console.log('EXPORT:: ',name)
-        this.parent!.addExport(name!)
+        if(!name){
+            throw new Error('Unsupported export declaration')
+        }
+        this.parent!.addExport(name,kind)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()

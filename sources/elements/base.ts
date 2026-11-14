@@ -66,8 +66,8 @@ export class Base{
     addClass(value:ClassElement){
         this.CLASSES.push(value)
     }
-    addExport(name:string){
-        this.EXPORT[name] = {name}
+    addExport(name:string,kind:'data'|'function'|'class'='data'){
+        this.EXPORT[name] = {name,kind}
     }
     getExport():any{
         if(Object.keys(this.EXPORT).length){
@@ -93,8 +93,17 @@ export class Base{
         const EXPORT = this.getExport()
         if(EXPORT){
             for(const key of Object.keys(EXPORT)){
-                const DATA = this.getData(key)
-                EXPORT[key] = DATA
+                const entry = EXPORT[key]
+                if(!entry||!entry.kind){
+                    continue
+                }
+                if(entry.kind==='class'){
+                    EXPORT[key] = this.getClass(entry.name)
+                }else if(entry.kind==='function'){
+                    EXPORT[key] = this.getFunction(entry.name)
+                }else{
+                    EXPORT[key] = this.getData(entry.name)
+                }
             }
         }
     }

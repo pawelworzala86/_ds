@@ -39,37 +39,37 @@ export class Import extends Base{
         }
         //console.log('tokens',tokens)
 
-        const EXPORT = this.getExport()
-        if(Object.keys(EXPORT).length){
-            for(const key of Object.keys(EXPORT)){
-                const EXP = EXPORT[key]
-                //console.log('EXP... ',key,EXP)
-                const exportName = EXP?EXP.name:key
-                //console.log('EXP',EXP)
-                let data:any = this.getData(exportName)
-                if(!data){
-                    data = this.getFunction(exportName)
-                }
-                if(!data&&EXP){
-                    throw new Error(`Unable to resolve imported export "${exportName}"`)
-                }
-                let internalName = ''
-                do{
-                    internalName = `__import_${++Import.symbolID}_${exportName}`
-                }while(
-                    tokenizer.tokens.includes(internalName) ||
-                    this.getData(internalName) ||
-                    this.getFunction(internalName)
-                )
-                if(EXP){
-                    data.name = internalName
-                    const replaceName = alias+'.'+exportName
-                    tokenizer.replace(replaceName, internalName)
-                }else{
-                    const replaceName = alias+'.'+exportName
-                    tokenizer.replace(replaceName, exportName)
-                }
+        const exportNames = Array.from(source.matchAll(/^\s*export\s+(?:(declare\s+function)|function|class|let|var|const)\s+([a-z_$][\w$]*)/gmi),match=>({
+            name:match[2],
+            external:Boolean(match[1])
+        }))
+        for(const {name:exportName,external} of exportNames){
+            if(external){
+                tokenizer.replace(alias+'.'+exportName,exportName)
+                continue
             }
+            const data = this.getData(exportName)
+            const func = this.getFunction(exportName)
+            const classType = this.getClass(exportName)
+            if(classType){
+                tokenizer.replace(alias+'.'+exportName+'[]',exportName+'[]')
+                tokenizer.replace(alias+'.'+exportName,exportName)
+                continue
+            }
+            if(!data&&!func){
+                throw new Error(`Unable to resolve imported export "${exportName}"`)
+            }
+            let internalName = ''
+            do{
+                internalName = `__import_${++Import.symbolID}_${exportName}`
+            }while(
+                tokenizer.tokens.includes(internalName) ||
+                this.getData(internalName) ||
+                this.getFunction(internalName)
+            )
+            const symbol = data??func!
+            symbol.name = internalName
+            tokenizer.replace(alias+'.'+exportName,internalName)
         }
     }
     static test(active:Base,tokenizer:Tokenizer,filePath:string|null=null,ASM:Asm){
