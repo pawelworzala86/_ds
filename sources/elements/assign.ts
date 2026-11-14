@@ -3,7 +3,7 @@ import Base from './base.ts'
 import Asm from './../asm.ts'
 import DataElement from './dataElement.ts'
 import {emitExpression, parseExpression, type Expression} from '../maths.ts'
-import {getClassPropertyOffset} from './clasElement.ts'
+import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 
 let stringAssignId = 0
 
@@ -101,7 +101,7 @@ export class Assign extends Base{
             const array = this.parent?.getData(arrayName)
             const classType = array?.classType?this.parent?.getClass(array.classType):null
             const property = classType?.props.find(prop=>prop.name===propertyName)??null
-            const offset = classType?getClassPropertyOffset(classType,propertyName):null
+            const offset = classType?getClassPropertyOffset(classType,propertyName,name=>this.parent!.getClass(name)):null
             if(!array?.isArray||!classType||!property||offset===null){
                 throw new Error(`Unknown object-array property "${arrayName}[${indexText}].${propertyName}"`)
             }
@@ -122,9 +122,19 @@ export class Assign extends Base{
             throw new Error('Invalid assignment')
         }
         const [,targetName,indexText,expression] = match
-        const target = this.parent?.getData(targetName)
+        const access = this.parent?getClassPropertyAccess(this.parent,targetName):null
+        const target = this.parent?.getData(targetName)??(access
+            ? new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')
+            : null)
         if(!target){
             throw new Error(`Unknown assignment target "${targetName}"`)
+        }
+        if(access){
+            target.classType = access.property.classType
+            target.isArray = access.property.isArray
+            target.numericKind = access.property.numericKind
+            target.classPropertyInstance = access.instance
+            target.classPropertyPath = access.path
         }
         this.setExpression(target,expression,false,indexText)
     }
@@ -132,6 +142,7 @@ export class Assign extends Base{
         if(!this.target){
             throw new Error('Assignment is not initialized')
         }
+        const targetName = this.target.getAccessName()
         if(this.arrayPropertyTarget&&this.expression){
             const {array,index,property,offset} = this.arrayPropertyTarget
             emitExpression(index,ASM)
@@ -162,14 +173,14 @@ export class Assign extends Base{
                 emitExpression(this.targetIndex,ASM)
                 ASM.addCode('shl rax, 3')
                 if(this.target.isParameter){
-                    ASM.addCode(`mov rdx, ${this.target.name}`)
+                    ASM.addCode(`mov rdx, ${targetName}`)
                     if(this.target.dynamicArray){
                         ASM.addCode('mov rdx, [rdx]')
                     }
                 }else if(this.target.dynamicArray){
-                    ASM.addCode(`mov rdx, [${this.target.name}]`)
+                    ASM.addCode(`mov rdx, [${targetName}]`)
                 }else{
-                    ASM.addCode(`lea rdx, [${this.target.name}]`)
+                    ASM.addCode(`lea rdx, [${targetName}]`)
                 }
                 ASM.addCode('add rdx, rax')
                 ASM.addCode('push rdx')
@@ -212,14 +223,14 @@ export class Assign extends Base{
             emitExpression(this.targetIndex,ASM)
             ASM.addCode('shl rax, 3')
             if(this.target!.isParameter){
-                ASM.addCode(`mov rdx, ${this.target!.name}`)
+                ASM.addCode(`mov rdx, ${targetName}`)
                 if(this.target!.dynamicArray){
                     ASM.addCode('mov rdx, [rdx]')
                 }
             }else if(this.target!.dynamicArray){
-                ASM.addCode(`mov rdx, [${this.target!.name}]`)
+                ASM.addCode(`mov rdx, [${targetName}]`)
             }else{
-                ASM.addCode(`lea rdx, [${this.target!.name}]`)
+                ASM.addCode(`lea rdx, [${targetName}]`)
             }
             ASM.addCode('add rdx, rax')
             ASM.addCode('push rdx')
@@ -238,12 +249,12 @@ export class Assign extends Base{
             return
         }
         if(this.expression.numericKind==='float'){
-            ASM.addCode(`movsd qword [${this.target.name}], xmm0`)
+            ASM.addCode(`movsd qword [${targetName}], xmm0`)
         }else if(this.target.numericKind==='float'){
             ASM.addCode('cvtsi2sd xmm0, rax')
-            ASM.addCode(`movsd qword [${this.target.name}], xmm0`)
+            ASM.addCode(`movsd qword [${targetName}], xmm0`)
         }else{
-            ASM.addCode(`mov [${this.target.name}], rax`)
+            ASM.addCode(`mov [${targetName}], rax`)
         }
     }
     static test(active:Base,tokenizer:Tokenizer){
@@ -254,7 +265,7 @@ export class Assign extends Base{
         const propertyAssignment = first.match(/^([a-z_$][\w$]*\[[^\]]+\]\.[a-z_$][\w$]*)=/i)
         const targetName = second==='='?first:compactAssignment?.[1]??propertyAssignment?.[1]
         const dataName = targetName?.match(/^([a-z_$][\w.$]*)/i)?.[1]
-        if(dataName&&active.getData(dataName)){
+        if(dataName&&(active.getData(dataName)||getClassPropertyAccess(active,dataName))){
             const data = new Assign(active)
             data.set(tokenizer)
             active.children.push(data)

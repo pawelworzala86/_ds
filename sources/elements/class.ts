@@ -28,11 +28,24 @@ export class Class extends Base{
         this.parent!.addClass(element)
     }
     asm(ASM:Asm){
-        const props = this.DATA.map(prop=>{
-            const type = prop.type=='string'?'db':'dq'
-            const value = prop.type=='string'?`'${prop.value}',0`:prop.value
-            return `    ${prop.name} ${type} ${value}`
-        })
+        const props:string[] = []
+        const addProperties = (classType:ClassElement,prefix='')=>{
+            for(const prop of classType.props){
+                if(prop.classType&&!prop.isArray){
+                    const nestedClass = this.parent?.getClass(prop.classType)
+                    if(!nestedClass){
+                        throw new Error(`Unknown class type "${prop.classType}" for property "${prop.name}"`)
+                    }
+                    addProperties(nestedClass,`${prefix}${prop.name}_`)
+                    continue
+                }
+                const name = `${prefix}${prop.name}`
+                const type = prop.type==='string'?'db':'dq'
+                const value = prop.type==='string'?`'${prop.value}',0`:prop.value
+                props.push(`    ${name} ${type} ${value}`)
+            }
+        }
+        addProperties(this.element!)
         const methods = this.children
             .filter((child):child is Func=>child instanceof Func)
             .map(method=>method.getStructCode(ASM))

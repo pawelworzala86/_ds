@@ -116,8 +116,11 @@ export class Data extends Base{
         }
         const normalizedType = arrayType?arrayType[1]:type
         const classType = this.parent?.getClass(normalizedType)
-        if(classType&&!arrayType&&eq==='='&&(value!=='new'||tokens[6]!==normalizedType)){
-            throw new Error(`Class instance "${name}" must be initialized with new ${normalizedType}()`)
+        if(classType&&!arrayType&&eq==='='){
+            const initializer = tokens.slice(tokens.indexOf('=')+1)
+            if(initializer.length!==4||initializer[0]!=='new'||initializer[1]!==normalizedType||initializer[2]!=='('||initializer[3]!==')'){
+                throw new Error(`Class instance "${name}" must be initialized with new ${normalizedType}()`)
+            }
         }
         let values = [value]
         if(type=='string'){

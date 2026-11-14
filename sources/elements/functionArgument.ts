@@ -4,7 +4,7 @@ import {emitExpression, parseExpression, type Expression} from '../maths.ts'
 import DataElement from './dataElement.ts'
 import FuncElement from './funcElement.ts'
 import Link from './link.ts'
-import {getClassPropertyOffset} from './clasElement.ts'
+import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 
 let argumentId = 0
 let methodCallbackId = 0
@@ -21,6 +21,7 @@ export class FunctionArgument{
     arrayPointerName:string|null = null
     classPropertyInstance:DataElement|null = null
     classProperty:DataElement|null = null
+    classPropertyPath:string|null = null
     arrayPropertyAccess:{array:DataElement,indexExpression:Expression,property:DataElement,offset:number}|null = null
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
 
@@ -42,19 +43,21 @@ export class FunctionArgument{
                     this.value = new FuncElement(this.methodPointerName, [])
                 }
             }
-            const member = text.match(/^([a-z_$][\w.$]*)\.([a-z_$][\w$]*)(?:\[([^\]]+)\])?$/i)
-            const instance = member?active.getData(member[1]):null
-            const classType = instance?.classType?active.getClass(instance.classType):null
-            const property = member?classType?.props.find(prop=>prop.name===member[2])??null:null
-            if(instance&&property&&member){
-                const propertyValue = new DataElement('let',`${instance.name}.${property.name}`,property.type??'',property.value??'')
+            const member = text.match(/^([a-z_$][\w$]*(?:\.[a-z_$][\w$]*)+)(?:\[([^\]]+)\])?$/i)
+            const access = member?getClassPropertyAccess(active,member[1]):null
+            const instance = access?.instance??null
+            const property = access?.property??null
+            if(instance&&property&&member&&access){
+                const propertyValue = new DataElement('let',`${instance.name}.${access.path}`,property.type??'',property.value??'')
                 propertyValue.numericKind = property.numericKind
                 propertyValue.isArray = property.isArray
+                propertyValue.classType = property.classType
                 this.value = propertyValue
                 this.classPropertyInstance = instance
                 this.classProperty = property
-                if(property.isArray&&member[3]){
-                    const arrayIndex = parseExpression(member[3],active)
+                this.classPropertyPath = access.path
+                if(property.isArray&&member[2]){
+                    const arrayIndex = parseExpression(member[2],active)
                     if(arrayIndex.numericKind!=='integer'){
                         throw new Error('Array index must be an integer')
                     }
@@ -74,7 +77,7 @@ export class FunctionArgument{
                 const arrayClassType = array?.classType?active.getClass(array.classType):null
                 const property = arrayClassType?.props.find(prop=>prop.name===propertyName)??null
                 if(array&&property&&arrayClassType){
-                    const offset = getClassPropertyOffset(arrayClassType,propertyName)
+                    const offset = getClassPropertyOffset(arrayClassType,propertyName,name=>active.getClass(name))
                     if(offset!==null){
                         this.arrayPropertyAccess = {
                             array,
@@ -118,18 +121,19 @@ export class FunctionArgument{
         if(this.methodPointerName&&this.methodInstance&&this.methodName&&this.methodClassType){
             const methodLabel = `${this.methodClassType}.${this.methodName}`
             const body = [`proc ${this.methodPointerName}`]
-            body.push(`lea rcx, [${this.methodInstance.name}]`)
             for(let index=0;index<Math.min(this.methodParamCount,3);index++){
                 const stackOffset = 56 + index * 8
                 body.push(`mov ${['rdx','r8','r9'][index]}, [rbp+${stackOffset}]`)
             }
+            body.push(`lea rcx, [${this.methodInstance.name}]`)
+            body.push('sub rsp, 32')
             body.push(`call ${methodLabel}`)
-            body.push('ret')
+            body.push('add rsp, 32')
             body.push('endp')
             ASM.addProc(body.join('\n'))
         }
         if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
-            this.value.name = `${this.classPropertyInstance.name}.${this.classProperty.name}`
+            this.value.name = `${this.classPropertyInstance.name}.${this.classPropertyPath??this.classProperty.name}`
         }
         if(this.arrayPropertyAccess&&this.tempName){
             const {array,indexExpression,property,offset} = this.arrayPropertyAccess
@@ -208,7 +212,7 @@ export class FunctionArgument{
             return byValue?`[${this.tempName}]`:this.tempName
         }
         if(this.classPropertyInstance&&this.classProperty){
-            const name = `${this.classPropertyInstance.name}.${this.classProperty.name}`
+            const name = `${this.classPropertyInstance.name}.${this.classPropertyPath??this.classProperty.name}`
             if(this.classProperty.type==='string'){
                 return 'addr '+name
             }

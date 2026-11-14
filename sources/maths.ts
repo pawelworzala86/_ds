@@ -1,6 +1,7 @@
 import Base from './elements/base.ts'
 import Asm from './asm.ts'
 import DataElement, {getNumericKind, type NumericKind} from './elements/dataElement.ts'
+import {getClassPropertyAccess} from './elements/clasElement.ts'
 
 type BinaryOperator = '+'|'-'|'*'|'/'|'%'|'**'
 
@@ -111,9 +112,19 @@ export function parseExpression(text:string,active:Base):Expression{
         if(/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(token)){
             return {kind:'number',value:token,numericKind:getNumericKind(token)}
         }
-        const data = active.getData(token)
+        const access = getClassPropertyAccess(active,token)
+        const data = active.getData(token)??(access
+            ? new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')
+            : null)
         if(!data){
             throw new Error(`Unknown numeric value "${token}"`)
+        }
+        if(access){
+            data.classType = access.property.classType
+            data.isArray = access.property.isArray
+            data.numericKind = access.property.numericKind
+            data.classPropertyInstance = access.instance
+            data.classPropertyPath = access.path
         }
         if(tokens[index]==='['){
             if(!data.isArray){
@@ -264,24 +275,24 @@ export function emitExpression(expression:Expression,ASM:Asm){
     }
     if(expression.kind==='data'){
         if(expression.numericKind==='float'){
-            ASM.addCode(`movsd xmm0, qword [${expression.value.name}]`)
+            ASM.addCode(`movsd xmm0, qword [${expression.value.getAccessName()}]`)
             return
         }
-        ASM.addCode(`mov rax, [${expression.value.name}]`)
+        ASM.addCode(`mov rax, [${expression.value.getAccessName()}]`)
         return
     }
     if(expression.kind==='index'){
         emitExpression(expression.index,ASM)
         ASM.addCode('shl rax, 3')
         if(expression.value.isParameter){
-            ASM.addCode(`mov rdx, ${expression.value.name}`)
+            ASM.addCode(`mov rdx, ${expression.value.getAccessName()}`)
             if(expression.value.dynamicArray){
                 ASM.addCode('mov rdx, [rdx]')
             }
         }else if(expression.value.dynamicArray){
-            ASM.addCode(`mov rdx, [${expression.value.name}]`)
+            ASM.addCode(`mov rdx, [${expression.value.getAccessName()}]`)
         }else{
-            ASM.addCode(`lea rdx, [${expression.value.name}]`)
+            ASM.addCode(`lea rdx, [${expression.value.getAccessName()}]`)
         }
         ASM.addCode('add rdx, rax')
         if(expression.numericKind==='float'){

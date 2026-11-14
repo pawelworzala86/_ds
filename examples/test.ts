@@ -78,6 +78,13 @@ function callbackFN(callback:Function){
 //callbackFN(testFN)
 callbackFN(testObj.show)
 
+msvcrt.printf(' ii%i ', testObj.obj.propA)
+msvcrt.printf(' %s ', testObj.obj.propB)
+msvcrt.printf(' %i ', testObj.obj.propC[1])
+msvcrt.printf(' %i ', testObj.obj.propA+1)
+testObj.obj.propA = 46
+msvcrt.printf(' %i ', testObj.obj.propA)
+
 
 
 kernel.ExitProcess()

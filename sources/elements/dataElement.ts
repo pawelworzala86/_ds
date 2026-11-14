@@ -13,6 +13,8 @@ export class DataElement{
     type:string|null = null
     value:string|null = null
     classType:string|null = null
+    classPropertyInstance:DataElement|null = null
+    classPropertyPath:string|null = null
     numericKind:NumericKind = 'integer'
     isArray = false
     dynamicArray = false
@@ -38,6 +40,11 @@ export class DataElement{
             return '['+this.name+']'
         }
         return this.name
+    }
+    getAccessName(){
+        return this.classPropertyInstance&&this.classPropertyPath
+            ? `${this.classPropertyInstance.name}.${this.classPropertyPath}`
+            : this.name
     }
 }
 
