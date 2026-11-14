@@ -1,14 +1,27 @@
+export type NumericKind = 'integer'|'float'
+
+export function getNumericKind(value:string):NumericKind{
+    if(/^[+-]?(?:0x[0-9a-f]+|[0-9a-f]+h)$/i.test(value)){
+        return 'integer'
+    }
+    return /^[+-]?(?:(?:\d+\.\d*|\.\d+)(?:e[+-]?\d+)?|\d+e[+-]?\d+|\d+f)$/i.test(value)?'float':'integer'
+}
+
 export class DataElement{
     kind:string|null = null
     name:string|null = null
     type:string|null = null
     value:string|null = null
     classType:string|null = null
+    numericKind:NumericKind = 'integer'
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
         this.name = name
         this.type = type
         this.value = value
+        if(type==='number'){
+            this.numericKind = getNumericKind(value)
+        }
     }
     getCode(byValue=false){
         if(this.type=='string'){

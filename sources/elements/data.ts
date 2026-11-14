@@ -2,6 +2,7 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
 import DataElement from './dataElement.ts'
+import Assign from './assign.ts'
 
 export class Data extends Base{
     element:DataElement|null = null
@@ -18,6 +19,20 @@ export class Data extends Base{
         if(classField){
             kind = 'let'
             ;[name,sep,type,eq,value] = tokens
+        }
+        let numericExpression:string|null = null
+        let runtimeInitializer = false
+        if(type==='number'&&eq==='='){
+            numericExpression = tokens.slice(classField?4:5).join('').replace(/;$/,'')
+            runtimeInitializer = !/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(numericExpression)
+            if(runtimeInitializer){
+                if(classField){
+                    throw new Error(`Numeric expression initializer is not supported for class field "${name}"`)
+                }
+                value = '0'
+            }else{
+                value = numericExpression
+            }
         }
         const classType = this.parent?.getClass(type)
         if(classType&&eq==='='&&(value!=='new'||tokens[6]!==type)){
@@ -47,6 +62,11 @@ export class Data extends Base{
         this.element = new DataElement(kind,name,type,values.join(' ')??'')
         this.element.classType = classType?.name??null
         this.parent?.addData(this.element)
+        if(runtimeInitializer&&numericExpression&&this.parent){
+            const initializer = new Assign(this.parent)
+            initializer.setExpression(this.element,numericExpression,true)
+            this.parent.children.push(initializer)
+        }
     }
     asm(ASM:Asm){
         if(this.element!.classType){
@@ -55,6 +75,9 @@ export class Data extends Base{
         }
         let type = 'dq'
         let value = this.element!.value
+        if(this.element!.type==='number'&&this.element!.numericKind==='float'&&/e/i.test(value??'')&&!/f$/i.test(value??'')){
+            value += 'f'
+        }
         if(this.element!.type=='string'){
             type = 'db'
             value = '\''+value+'\',0'
