@@ -1,6 +1,6 @@
 import Asm from '../asm.ts'
 import Base from './base.ts'
-import {emitExpression, parseExpression, type Expression} from './assign.ts'
+import {emitExpression, parseExpression, type Expression} from '../maths.ts'
 import DataElement from './dataElement.ts'
 import FuncElement from './funcElement.ts'
 import Link from './link.ts'
