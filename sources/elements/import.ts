@@ -18,12 +18,20 @@ export class Import extends Base{
         const newTokenizer = new Tokenizer(source)
         Make.compile(this.parent!,newTokenizer)
 
+        let alias = tokens[1]
+        if(tokens[1]=='*'){
+            alias = tokens[3]
+        }
+        //console.log('tokens',tokens)
+
         const EXPORT = this.getExport()
         if(Object.keys(EXPORT).length){
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
-                const data = this.getData('testVar')
-                tokenizer.replace('inc.testVar',data!.name!)
+                //console.log('EXP',EXP)
+                const data = this.getData(EXP.name)
+                const replaceName = alias+'.'+EXP.name
+                tokenizer.replace(replaceName, data!.name!)
             }
         }
     }

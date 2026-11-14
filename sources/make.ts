@@ -25,7 +25,7 @@ export class Make{
                 tokenizer.get()
             }
         }
-        console.log('ACTIVE::',active.EXPORT)
+        //console.log('ACTIVE::',active.EXPORT)
         active.linkExports()
     }
 }
