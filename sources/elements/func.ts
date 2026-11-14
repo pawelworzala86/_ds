@@ -9,7 +9,7 @@ export class Func extends Base{
     constructor(parent:Base){
         super(parent)
     }
-    set(tokenizer:Tokenizer){
+    set(tokenizer:Tokenizer,ASM:Asm){
         let tokens:string[] = tokenizer.getBlock()
         const [fn,name] = tokens
         tokens.splice(0,2)
@@ -18,9 +18,13 @@ export class Func extends Base{
         const params:any = Tokenizer.getFunctionParams(tokens)
         //console.log('params',params)
 
+        const bodyStart = tokens.indexOf('{')
+        const bodyEnd = tokens.lastIndexOf('}')
+        tokens = tokens.slice(bodyStart + 1, bodyEnd)
+
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
-        Make.compile(this,tokenizer2,null)
+        Make.compile(ASM,this,tokenizer2,null)
 
         const element:FuncElement = new FuncElement(name,params)
         this.element = element
@@ -39,12 +43,12 @@ export class Func extends Base{
         const code = asm.getCode().join('\n')
         ASM.addProc(code)
     }
-    static test(active:Base,tokenizer:Tokenizer){
+    static test(active:Base,tokenizer:Tokenizer,ASM:Asm){
         const token = tokenizer.get()
         if(['function'].includes(token)){
             tokenizer.move(-1)
             const data = new Func(active)
-            data.set(tokenizer)
+            data.set(tokenizer,ASM)
             active.children.push(data)
             return data
         }

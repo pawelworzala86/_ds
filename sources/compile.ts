@@ -15,10 +15,11 @@ const source = fs.readFileSync(sourceFile).toString()+'\n'
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)
 
-Make.compile(root,tokenizer,sourceFile)
-
-
 const ASM:Asm = new Asm()
+
+Make.compile(ASM,root,tokenizer,sourceFile)
+
+
 
 root.testChangeName()
 

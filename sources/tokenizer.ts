@@ -31,7 +31,7 @@ export class Tokenizer{
                 open--
                 if(open==0){
                     tokens.push('}')
-                    this.index = index
+                    this.index = index + 1
                     return tokens
                 }
             }

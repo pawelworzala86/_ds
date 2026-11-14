@@ -3,6 +3,7 @@ import Base from './base.ts'
 import fs from 'fs'
 import Make from '../make.ts'
 import path from 'path'
+import Asm from '../asm.ts'
 
 function getPath(path:string){
     path = path.replace(/[a-zA-Z0-9\_]+\.ts$/gm,'')
@@ -14,23 +15,23 @@ export class Import extends Base{
     constructor(parent:Base){
         super(parent)
     }
-    set(tokenizer:Tokenizer,filePath:string|null=null){
+    set(tokenizer:Tokenizer,filePath:string|null=null,ASM:Asm){
         let tokens:string[] = []
         let token:any
         while(!['\n'].includes(token = tokenizer.get())){
             tokens.push(token)
         }
-        console.log('tokens',tokens)
+        //console.log('tokens',tokens)
         const fp = tokens[tokens.length-2]
-        console.log('filePath',fp)
+        //console.log('filePath',fp)
 
         const pth = getPath(filePath!)
-        console.log('path',pth)
+        //console.log('path',pth)
 
         const file = path.resolve(pth + fp)
         const source = fs.readFileSync(file).toString()+'\n'
         const newTokenizer = new Tokenizer(source)
-        Make.compile(this.parent!,newTokenizer,file)
+        Make.compile(ASM,this.parent!,newTokenizer,file)
 
         let alias = tokens[1]
         if(tokens[1]=='*'){
@@ -42,7 +43,7 @@ export class Import extends Base{
         if(Object.keys(EXPORT).length){
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
-                console.log('EXP... ',key,EXP)
+                //console.log('EXP... ',key,EXP)
                 const exportName = EXP?EXP.name:key
                 //console.log('EXP',EXP)
                 let data:any = this.getData(exportName)
@@ -71,12 +72,12 @@ export class Import extends Base{
             }
         }
     }
-    static test(active:Base,tokenizer:Tokenizer,filePath:string|null=null){
+    static test(active:Base,tokenizer:Tokenizer,filePath:string|null=null,ASM:Asm){
         const token = tokenizer.get()
         if(['import'].includes(token)){
             tokenizer.move(-1)
             const data = new Import(active)
-            data.set(tokenizer,filePath)
+            data.set(tokenizer,filePath,ASM)
             active.children.push(data)
             return data
         }

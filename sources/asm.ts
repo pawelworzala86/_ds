@@ -4,13 +4,16 @@ export class Asm{
     proc:any = []
     imp:any = {}
     addData(_data:string){
-        this.data.push(_data)
+        this.data.push(_data+'\n')
     }
     addCode(_code:string){
+        this.code.push(_code+'\n')
+    }
+    addCodeNLN(_code:string){
         this.code.push(_code)
     }
     addProc(_proc:string){
-        this.proc.push(_proc)
+        this.proc.push(_proc+'\n')
     }
     getCode(){
         return this.code
@@ -22,9 +25,9 @@ export class Asm{
         this.imp[dll].push(func)
     }
     getASMCode(){
-        let codeTxt = this.code.join('\n')
-        let procTxt = this.proc.join('\n')
-        let dataTxt = this.data.join('\n')
+        let codeTxt = this.code.join('')
+        let procTxt = this.proc.join('')
+        let dataTxt = this.data.join('')
         let impTxt = ''
         for(let dll of Object.keys(this.imp)){
             let functions:any = []

@@ -4,7 +4,6 @@ import * as kernel from './system/kernel.ts'
 import * as inc from './inc.ts'
 
 
-
 let helloTxt:string = 'Hello World!!!'
 
 let testVar:string = 'ttt'
