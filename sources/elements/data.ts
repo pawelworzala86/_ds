@@ -39,9 +39,9 @@ export class Data extends Base{
             let open = false
             let spec = false
             values = []
-            console.log('TOKENS: ',tokens)
+            //console.log('TOKENS: ',tokens)
             for(const token of tokens){
-                console.log(token)
+                //console.log(token)
                 if(spec&&(token=='\'')){
                     values.push(token)
                 }else if(token=='\''){
@@ -61,7 +61,7 @@ export class Data extends Base{
         this.parent?.setData(name, this.element)
     }
     asm(ASM:Asm){
-        console.log('DATA SETTTER')
+        //console.log('DATA SETTTER')
         let type = 'dq'
         let value = this.element!.value
         if(this.element!.type=='string'){

@@ -25,7 +25,7 @@ export class Call extends Base{
         })
     }
     asm(ASM:Asm){
-        console.log('CALL FUNCTION')
+        //console.log('CALL FUNCTION')
         const params = this.params.map((param:any)=>{
             if(typeof param=='object'){
                 return param.getCode()

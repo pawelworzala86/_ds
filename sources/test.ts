@@ -24,9 +24,9 @@ root.testChangeName()
 root.asm(ASM)
 
 const code = ASM.getASMCode()
-console.log(code)
+//console.log(code)
 
 const exe = CompileASM(code)
 fs.writeFileSync('./dist/test.exe',exe)
 
-console.log(root.FUNCTIONS)
+//console.log(root.FUNCTIONS)

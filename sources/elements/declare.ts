@@ -27,7 +27,7 @@ export class Declare extends Base{
         setInvoke(name)
     }
     asm(ASM:Asm){
-        console.log('DECLARATION')
+        //console.log('DECLARATION')
         ASM.addImport(this.dll!,this.name!)
     }
     static test(active:Base,tokenizer:Tokenizer){

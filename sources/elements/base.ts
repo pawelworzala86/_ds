@@ -36,7 +36,7 @@ export class Base{
     }
     setFunction(name:string,value:any){
         this.FUNCTIONS[name] = value
-        console.log(this.FUNCTIONS)
+        //console.log(this.FUNCTIONS)
     }
     addExport(name:string){
         this.EXPORT[name] = {name}
@@ -47,6 +47,16 @@ export class Base{
         }
         if(this.parent){
             return this.parent!.getExport()
+        }else{
+            return null
+        }
+    }
+    getImport():any{
+        if(Object.keys(this.IMPORT).length){
+            return this.IMPORT
+        }
+        if(this.parent){
+            return this.parent!.getImport()
         }else{
             return null
         }

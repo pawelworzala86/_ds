@@ -19,11 +19,11 @@ export class Export extends Base{
         }
         tokenizer.index = index+1
         const name = tokens[2]
-        console.log('EXPORT::::::::::',name)
+        //console.log('EXPORT::::::::::',name)
         this.parent!.addExport(name)
     }
     /*asm(ASM:Asm){
-        console.log('IMPORT')
+        //console.log('IMPORT')
     }*/
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()

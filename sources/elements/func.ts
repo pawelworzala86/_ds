@@ -22,7 +22,7 @@ export class Func extends Base{
     }
     set(tokenizer:Tokenizer){
         let tokens:string[] = tokenizer.getBlock()
-        console.log(tokens)
+        //console.log(tokens)
         const [fn,name] = tokens
         tokens.splice(0,2)
 
@@ -37,7 +37,7 @@ export class Func extends Base{
         this.parent!.setFunction(name,element)
     }
     asm(ASM:Asm){
-        console.log('FUNCTION')
+        //console.log('FUNCTION')
         const asm = new Asm()
         asm.addCode(`proc ${this.element!.name}`)
         for(const node of this.children){

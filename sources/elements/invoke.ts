@@ -30,7 +30,7 @@ export class Invoke extends Base{
         })
     }
     asm(ASM:Asm){
-        console.log('INVOKE CALL')
+        //console.log('INVOKE CALL')
         const params = this.params.map((param:any)=>{
             if(typeof param=='object'){
                 return param.getCode()
