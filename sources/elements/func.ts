@@ -33,6 +33,11 @@ export class Func extends Base{
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
+        for(const data of this.DATA){
+            if(!data.isParameter&&data.type==='number'&&!data.isArray){
+                data.isProcedureLocal = true
+            }
+        }
 
         const element:FuncElement = new FuncElement(name,params.map(param=>({
             ...param,

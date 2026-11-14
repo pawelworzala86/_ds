@@ -160,6 +160,10 @@ export class Data extends Base{
         }
     }
     asm(ASM:Asm){
+        if(this.element!.isProcedureLocal){
+            ASM.addCode(`local ${this.element!.name} dq ${this.element!.value}`)
+            return
+        }
         let type = 'dq'
         let value = this.element!.value
         if(this.element!.isArray){

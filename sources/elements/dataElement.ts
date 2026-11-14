@@ -17,6 +17,7 @@ export class DataElement{
     isArray = false
     dynamicArray = false
     isParameter = false
+    isProcedureLocal = false
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
         this.name = name

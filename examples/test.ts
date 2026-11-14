@@ -72,7 +72,8 @@ function testFN(){
     msvcrt.printf(' testFN ')
 }
 function callbackFN(callback:Function){
-    callback(44)
+    let x:number = 44
+    callback(x)
 }
 //callbackFN(testFN)
 callbackFN(testObj.show)
