@@ -3,6 +3,15 @@ import * as kernel from './system/kernel.ts'
 
 import * as inc from './inc.ts'
 
+class TESTOBJ{
+    propA:number = 123
+    show(pA:number){
+        msvcrt.printf('%i %i ',this.propA,pA)
+    }
+}
+
+const testObj: TESTOBJ = new TESTOBJ()  
+testObj.show(11)
 
 let helloTxt:string = 'Hello World!!!'
 

@@ -16,17 +16,11 @@ export class Invoke extends Base{
         super(parent)
     }
     set(tokenizer:Tokenizer){
-        let tokens:string[] = []
-        let token:any
-        while(![')'].includes(token = tokenizer.get())){
-            tokens.push(token)
+        this.name = tokenizer.get()
+        if(tokenizer.get()!=='('){
+            throw new Error(`Expected '(' after function "${this.name}"`)
         }
-        const [name] = tokens
-        tokens.splice(0,2)
-        this.name = name
-        this.params = tokens.map((token)=>{
-            return Link.data(this,token)
-        })
+        this.params = tokenizer.getCallArguments().map(token=>Link.data(this,token))
     }
     asm(ASM:Asm){
         const params = this.params.map((param:any)=>{

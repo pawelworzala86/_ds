@@ -2,6 +2,7 @@ import Tokenizer from "../tokenizer.ts"
 import Asm from "./../asm.ts"
 import DataElement from './dataElement.ts'
 import FuncElement from "./funcElement.ts"
+import ClassElement from "./clasElement.ts"
 
 let ID = 0
 function getID(){
@@ -13,6 +14,7 @@ export class Base{
     children:Base[] = []
     DATA:DataElement[] = []
     FUNCTIONS:FuncElement[] = []
+    CLASSES:ClassElement[] = []
     IMPORT:any = []
     EXPORT:any = []
     constructor(parent:Base|null){
@@ -53,6 +55,16 @@ export class Base{
     }
     addFunction(value:any){
         this.FUNCTIONS.push(value)
+    }
+    getClass(name:string):ClassElement|null{
+        const found = this.CLASSES.find(value=>value.name===name)
+        if(found){
+            return found
+        }
+        return this.parent?.getClass(name)??null
+    }
+    addClass(value:ClassElement){
+        this.CLASSES.push(value)
     }
     addExport(name:string){
         this.EXPORT[name] = {name}

@@ -9,10 +9,10 @@ export class Func extends Base{
     constructor(parent:Base){
         super(parent)
     }
-    set(tokenizer:Tokenizer,ASM:Asm){
+    set(tokenizer:Tokenizer,ASM:Asm,classMethod=false){
         let tokens:string[] = tokenizer.getBlock()
-        const [fn,name] = tokens
-        tokens.splice(0,2)
+        const name = classMethod?tokens[0]:tokens[1]
+        tokens.splice(0,classMethod?1:2)
         //console.log('tokens',tokens)
 
         const params:any = Tokenizer.getFunctionParams(tokens)
@@ -43,14 +43,35 @@ export class Func extends Base{
         const code = asm.getCode().join('\n')
         ASM.addProc(code)
     }
-    static test(active:Base,tokenizer:Tokenizer,ASM:Asm){
+    getStructCode(){
+        const asm = new Asm()
+        for(const node of this.children){
+            node.asm(asm)
+        }
+        const params = this.element?.params.map((param:any)=>param.name).join(', ')
+        const body = asm.getCode().join('').trimEnd()
+        const signature = `proc ${this.element!.name}${params?`, ${params}`:''}`
+        return `${signature}${body?`\n${body}`:''}\nendp`
+    }
+    static test(active:Base,tokenizer:Tokenizer,ASM:Asm,classMethod=false){
         const token = tokenizer.get()
-        if(['function'].includes(token)){
+        if(token==='function'){
             tokenizer.move(-1)
             const data = new Func(active)
             data.set(tokenizer,ASM)
             active.children.push(data)
             return data
+        }
+        if(classMethod){
+            const next = tokenizer.get()
+            tokenizer.move(-2)
+            if(next==='('){
+                const data = new Func(active)
+                data.set(tokenizer,ASM,true)
+                active.children.push(data)
+                return data
+            }
+            return null
         }
         tokenizer.move(-1)
         return null

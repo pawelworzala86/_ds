@@ -3,6 +3,7 @@ export class DataElement{
     name:string|null = null
     type:string|null = null
     value:string|null = null
+    classType:string|null = null
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
         this.name = name

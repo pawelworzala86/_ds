@@ -8,13 +8,21 @@ export class Data extends Base{
     constructor(parent:Base){
         super(parent)
     }
-    set(tokenizer:Tokenizer){
+    set(tokenizer:Tokenizer,classField=false){
         let tokens:string[] = []
         let token:any
         while(!['\n','\;'].includes(token = tokenizer.get())){
             tokens.push(token)
         }
-        const [kind,name,sep,type,eq,value] = tokens
+        let [kind,name,sep,type,eq,value] = tokens
+        if(classField){
+            kind = 'let'
+            ;[name,sep,type,eq,value] = tokens
+        }
+        const classType = this.parent?.getClass(type)
+        if(classType&&eq==='='&&(value!=='new'||tokens[6]!==type)){
+            throw new Error(`Class instance "${name}" must be initialized with new ${type}()`)
+        }
         let values = [value]
         if(type=='string'){
             let open = false
@@ -36,10 +44,15 @@ export class Data extends Base{
                 spec = false
             }
         }
-        this.element = new DataElement(kind,name,type,values.join(' '))
+        this.element = new DataElement(kind,name,type,values.join(' ')??'')
+        this.element.classType = classType?.name??null
         this.parent?.addData(this.element)
     }
     asm(ASM:Asm){
+        if(this.element!.classType){
+            ASM.addData(`${this.element!.name} ${this.element!.classType}`)
+            return
+        }
         let type = 'dq'
         let value = this.element!.value
         if(this.element!.type=='string'){
@@ -49,16 +62,17 @@ export class Data extends Base{
         const data:string = `${this.element!.name} ${type} ${value}`
         ASM.addData(data)
     }
-    static test(active:Base,tokenizer:Tokenizer){
+    static test(active:Base,tokenizer:Tokenizer,classField=false){
         const token = tokenizer.get()
-        if(['let','var','const'].includes(token)){
-            tokenizer.move(-1)
+        const next = tokenizer.get()
+        tokenizer.move(-2)
+        const isClassField = classField&&next===':'
+        if(['let','var','const'].includes(token)||isClassField){
             const data = new Data(active)
-            data.set(tokenizer)
+            data.set(tokenizer,isClassField)
             active.children.push(data)
             return data
         }
-        tokenizer.move(-1)
         return null
     }
 }

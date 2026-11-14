@@ -4,7 +4,7 @@ export class Tokenizer{
     index:number = 0
     constructor(text:string){
         this.original = text
-        this.tokens = text.split(/\ |\r|\t|(\n)|(\:)|(\()|(\))|(\')|(\")/gm).filter(t=>t)
+        this.tokens = text.split(/\ |\r|\t|(\n)|(\:)|(\()|(\))|(\')|(\")|(\{)|(\})/gm).filter(t=>t)
     }
     get(index:number|null=null){
         if(index){
@@ -24,7 +24,8 @@ export class Tokenizer{
     getBlock(){
         let tokens:string[] = []
         let open:number = 0
-        for(let index=this.index;index<this.tokens.length;index++){
+        let index = this.index
+        for(index=this.index;index<this.tokens.length;index++){
             if(this.tokens[index]=='{'){
                 open++
             }else if(this.tokens[index]=='}'){
@@ -37,7 +38,70 @@ export class Tokenizer{
             }
             tokens.push(this.tokens[index])
         }
+        this.index = index
         return tokens
+    }
+    getCallArguments(){
+        const args:string[] = []
+        let current = ''
+        let nested = 0
+        let quote:string|null = null
+        let lastQuotedWord = false
+        const pushArg = ()=>{
+            if(current.length){
+                args.push(current)
+            }
+            current = ''
+            lastQuotedWord = false
+        }
+        while(this.has()){
+            const token = this.get()
+            if(quote){
+                if(token===quote){
+                    current += token
+                    quote = null
+                    lastQuotedWord = false
+                }else{
+                    const isWord = /^[\w]+$/.test(token)
+                    if(lastQuotedWord&&isWord){
+                        current += ' '
+                    }
+                    current += token
+                    lastQuotedWord = isWord
+                }
+                continue
+            }
+            if(token=="'"||token=='"'){
+                quote = token
+                current += token
+                lastQuotedWord = false
+                continue
+            }
+            if(token=='('){
+                nested++
+                current += token
+                continue
+            }
+            if(token==')'){
+                if(nested===0){
+                    pushArg()
+                    return args
+                }
+                nested--
+                current += token
+                continue
+            }
+            let start = 0
+            for(let index=0;index<token.length;index++){
+                if(token[index]===','&&nested===0){
+                    current += token.slice(start,index)
+                    pushArg()
+                    start = index+1
+                }
+            }
+            current += token.slice(start)
+        }
+        throw new Error('Unterminated function call')
     }
     static getParams(tokens:string[]){
         let openP = false
@@ -64,22 +128,19 @@ export class Tokenizer{
         }
     }
     static getFunctionParams(tokens:string[]){
-        let openP = false
-        let params = []
-        for(let i=0;i<tokens.length;i+=2){
-            const token = tokens[i]
-            if(token=='('){
-                openP = true
-                continue
-            }
-            if(token==')'){
-                break
-            }
-            if(openP){
-                params.push({name:tokens[i-1],type:tokens[i+1]})
-            }
+        const open = tokens.indexOf('(')
+        const close = tokens.indexOf(')',open+1)
+        if(open===-1||close===-1){
+            return []
         }
-        return params
+        const signature = tokens.slice(open+1,close).join('')
+        if(!signature){
+            return []
+        }
+        return signature.split(',').map(param=>{
+            const [name,...type] = param.split(':')
+            return {name,type:type.join(':')}
+        })
     }
 }
 
