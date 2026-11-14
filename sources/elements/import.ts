@@ -5,6 +5,7 @@ import fs from 'fs'
 import Make from '../make.ts'
 
 export class Import extends Base{
+    static symbolID = 0
     constructor(parent:Base){
         super(parent)
     }
@@ -28,13 +29,26 @@ export class Import extends Base{
         if(Object.keys(EXPORT).length){
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
+                const exportName = EXP.name
                 //console.log('EXP',EXP)
-                let data:any = this.getData(EXP.name)
+                let data:any = this.getData(exportName)
                 if(!data){
-                    data = this.getFunction(EXP.name)
+                    data = this.getFunction(exportName)
                 }
-                const replaceName = alias+'.'+EXP.name
-                tokenizer.replace(replaceName, data!.name!)
+                if(!data){
+                    throw new Error(`Unable to resolve imported export "${exportName}"`)
+                }
+                let internalName = ''
+                do{
+                    internalName = `__import_${++Import.symbolID}_${exportName}`
+                }while(
+                    tokenizer.tokens.includes(internalName) ||
+                    this.getData(internalName) ||
+                    this.getFunction(internalName)
+                )
+                data.name = internalName
+                const replaceName = alias+'.'+exportName
+                tokenizer.replace(replaceName, internalName)
             }
         }
     }
