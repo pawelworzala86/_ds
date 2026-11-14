@@ -13,6 +13,7 @@ export class Call extends Base{
     params:FunctionArgument[] = []
     methodInstance:DataElement|null = null
     builtinArray:DataElement|null = null
+    functionVariable:DataElement|null = null
     prototypeMethod = false
     prototypeReceiver = false
     arrayPushId:number|null = null
@@ -26,8 +27,10 @@ export class Call extends Base{
         }
         const method = Call.getMethod(this,name)
         const prototype = Call.getPrototypeMethod(this,name)
+        const variable = this.getData(name)
         this.func = method?.func??(prototype?.method.kind==='function'?prototype.method.func:null)??this.getFunction(name)
         this.methodInstance = method?.instance??null
+        this.functionVariable = variable && (variable.type==='Function'||variable.type==='function') ? variable : null
         this.prototypeMethod = prototype?.method.kind==='function'
         this.prototypeReceiver = this.prototypeMethod&&Boolean(prototype&&!prototype.type.startsWith('class:'))
         this.builtinArray = prototype?.method.kind==='builtin'&&prototype.method.name==='push'
@@ -71,6 +74,39 @@ export class Call extends Base{
         }
         if(this.builtinArray){
             this.emitArrayPush(ASM)
+            return
+        }
+        if(this.functionVariable){
+            for(let index=0;index<this.params.length;index++){
+                const param = this.params[index]
+                const value = param.getCode()
+                if(value===null){
+                    throw new Error('Unable to resolve function pointer argument')
+                }
+                if(value.startsWith('addr ')){
+                    ASM.addCode(`lea rax, [${value.replace(/^addr\s+/,'')}]`)
+                }else if(param.value instanceof DataElement&&param.value.type==='Function'){
+                    ASM.addCode(`mov rax, [${param.value.name}]`)
+                }else if(param.value instanceof DataElement&&param.value.isArray){
+                    if(param.value.dynamicArray){
+                        ASM.addCode(`mov rax, [${param.value.name}]`)
+                    }else{
+                        ASM.addCode(`lea rax, [${param.value.name}]`)
+                    }
+                }else if(param.tempName){
+                    ASM.addCode(`mov rax, [${param.tempName}]`)
+                }else if(param.arrayPointerName){
+                    ASM.addCode(`mov rax, [${param.arrayPointerName}]`)
+                }else{
+                    ASM.addCode(`mov rax, [${value}]`)
+                }
+                ASM.addCode('push rax')
+            }
+            const shadowSpace = 32+(this.params.length%2)*8
+            ASM.addCode(`sub rsp, ${shadowSpace}`)
+            ASM.addCode(`mov rax, [${this.functionVariable.name}]`)
+            ASM.addCode('call rax')
+            ASM.addCode(`add rsp, ${shadowSpace+this.params.length*8}`)
             return
         }
         const canEmitArguments = this.params.every(param=>
@@ -317,7 +353,7 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        if(active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)){
+        if(active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
             tokenizer.move(-1)
             const data = new Call(active)
             data.set(tokenizer)

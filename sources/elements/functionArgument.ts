@@ -7,9 +7,15 @@ import Link from './link.ts'
 import {getClassPropertyOffset} from './clasElement.ts'
 
 let argumentId = 0
+let methodCallbackId = 0
 
 export class FunctionArgument{
     value:ReturnType<typeof Link.data>
+    methodPointerName:string|null = null
+    methodInstance:DataElement|null = null
+    methodName:string|null = null
+    methodClassType:string|null = null
+    methodParamCount = 0
     expression:Expression|null = null
     tempName:string|null = null
     arrayPointerName:string|null = null
@@ -21,6 +27,21 @@ export class FunctionArgument{
     constructor(active:Base,text:string){
         this.value = Link.data(active,text)
         if(typeof this.value==='string'){
+            const methodRef = text.match(/^([a-z_$][\w.$]*)\.([a-z_$][\w$]*)$/i)
+            if(methodRef){
+                const [,instanceName,methodName] = methodRef
+                const instance = active.getData(instanceName)
+                const classType = instance?.classType?active.getClass(instance.classType):null
+                const method = classType?.getFunction(methodName) ?? null
+                if(instance&&method){
+                    this.methodPointerName = `__ds_method_callback_${++methodCallbackId}`
+                    this.methodInstance = instance
+                    this.methodName = methodName
+                    this.methodClassType = classType?.name ?? null
+                    this.methodParamCount = method.params.length
+                    this.value = new FuncElement(this.methodPointerName, [])
+                }
+            }
             const member = text.match(/^([a-z_$][\w.$]*)\.([a-z_$][\w$]*)(?:\[([^\]]+)\])?$/i)
             const instance = member?active.getData(member[1]):null
             const classType = instance?.classType?active.getClass(instance.classType):null
@@ -94,6 +115,19 @@ export class FunctionArgument{
     }
 
     asm(ASM:Asm){
+        if(this.methodPointerName&&this.methodInstance&&this.methodName&&this.methodClassType){
+            const methodLabel = `${this.methodClassType}.${this.methodName}`
+            const body = [`proc ${this.methodPointerName}`]
+            body.push(`lea rcx, [${this.methodInstance.name}]`)
+            for(let index=0;index<Math.min(this.methodParamCount,3);index++){
+                const stackOffset = 56 + index * 8
+                body.push(`mov ${['rdx','r8','r9'][index]}, [rbp+${stackOffset}]`)
+            }
+            body.push(`call ${methodLabel}`)
+            body.push('ret')
+            body.push('endp')
+            ASM.addProc(body.join('\n'))
+        }
         if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
             this.value.name = `${this.classPropertyInstance.name}.${this.classProperty.name}`
         }
@@ -190,7 +224,7 @@ export class FunctionArgument{
             return this.value.getCode(byValue)
         }
         if(this.value instanceof FuncElement){
-            return this.value.getCode()
+            return `addr ${this.value.getCode()}`
         }
         return this.value
     }

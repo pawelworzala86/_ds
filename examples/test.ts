@@ -68,10 +68,14 @@ testObj.test()
 */
 
 
-
-
-
-
+function testFN(){
+    msvcrt.printf(' testFN ')
+}
+function callbackFN(callback:Function){
+    callback(44)
+}
+//callbackFN(testFN)
+callbackFN(testObj.show)
 
 
 
