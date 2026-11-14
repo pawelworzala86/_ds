@@ -61,4 +61,21 @@ msvcrt.printf(',%i ',objArrayA[0].propA)
 objArrayA[0].propA = 222
 msvcrt.printf(',%i ',objArray[0].propA)
 
+
+
+prototype TESTOBJ {
+    function test(){
+        msvcrt.printf(' test ')
+    }
+}
+testObj.test()
+
+
+
+
+
+
+
+
+
 kernel.ExitProcess()

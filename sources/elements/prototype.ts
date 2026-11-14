@@ -14,10 +14,15 @@ export class Prototype extends Base{
 
     set(tokenizer:Tokenizer,ASM:Asm){
         const tokens = tokenizer.getBlock()
-        const type = tokens[1]?.toLowerCase()
-        if(!['number','string','array'].includes(type)){
+        const declaredType = tokens[1]??''
+        const normalizedType = declaredType.toLowerCase()
+        const classType = ['number','string','array'].includes(normalizedType)
+            ? null
+            : this.parent?.getClass(declaredType)??null
+        if(!['number','string','array'].includes(normalizedType)&&!classType){
             throw new Error(`Unknown prototype type "${tokens[1]}"`)
         }
+        const type = classType?`class:${classType.name}`:normalizedType
         this.type = type
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
@@ -31,15 +36,18 @@ export class Prototype extends Base{
             if(!(child instanceof Func)||!child.element?.name){
                 throw new Error(`Only functions can be declared in prototype "${type}"`)
             }
-            const receiverType = child.element.params[0]?.type
-            const validReceiver = type==='array'
-                ? /^[a-z_$][\w$]*\[\]$/i.test(receiverType??'')
-                : receiverType?.toLowerCase()===type
-            if(!validReceiver){
-                throw new Error(`Prototype method "${child.element.name}" must declare its first parameter as ${type==='array'?'an array type':`"${type}"`}`)
+            if(!classType){
+                const receiverType = child.element.params[0]?.type
+                const validReceiver = type==='array'
+                    ? /^[a-z_$][\w$]*\[\]$/i.test(receiverType??'')
+                    : receiverType?.toLowerCase()===type
+                if(!validReceiver){
+                    throw new Error(`Prototype method "${child.element.name}" must declare its first parameter as ${type==='array'?'an array type':`"${type}"`}`)
+                }
             }
             const functionName = child.element.name
-            child.element.name = `__ds_proto_${type}_${functionName}`
+            const functionType = type.replace(/[^a-z0-9_$]/gi,'_')
+            child.element.name = `__ds_proto_${functionType}_${functionName}`
             TypePrototypeRegistry.registerFunction(type,functionName,child.element)
         }
     }

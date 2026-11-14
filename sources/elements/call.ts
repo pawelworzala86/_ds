@@ -14,6 +14,7 @@ export class Call extends Base{
     methodInstance:DataElement|null = null
     builtinArray:DataElement|null = null
     prototypeMethod = false
+    prototypeReceiver = false
     arrayPushId:number|null = null
     constructor(parent:Base){
         super(parent)
@@ -28,11 +29,12 @@ export class Call extends Base{
         this.func = method?.func??(prototype?.method.kind==='function'?prototype.method.func:null)??this.getFunction(name)
         this.methodInstance = method?.instance??null
         this.prototypeMethod = prototype?.method.kind==='function'
+        this.prototypeReceiver = this.prototypeMethod&&Boolean(prototype&&!prototype.type.startsWith('class:'))
         this.builtinArray = prototype?.method.kind==='builtin'&&prototype.method.name==='push'
             ? prototype.instance
             : null
         this.params = tokenizer.getCallArguments().map(token=>new FunctionArgument(this,token))
-        if(this.prototypeMethod&&prototype){
+        if(this.prototypeReceiver&&prototype){
             this.params.unshift(new FunctionArgument(this,prototype.instance.name??''))
         }
         if(this.builtinArray){
@@ -296,7 +298,7 @@ export class Call extends Base{
         const func = classType?.getFunction(name.slice(separator+1))
         return func?{func,instance}:null
     }
-    static getPrototypeMethod(active:Base,name:string):{method:PrototypeMethod,instance:DataElement}|null{
+    static getPrototypeMethod(active:Base,name:string):{method:PrototypeMethod,instance:DataElement,type:string}|null{
         const separator = name.lastIndexOf('.')
         if(separator<1||separator===name.length-1){
             return null
@@ -305,9 +307,13 @@ export class Call extends Base{
         if(!instance){
             return null
         }
-        const type = instance.isArray?'array':instance.type??''
+        const type = instance.isArray
+            ? 'array'
+            : instance.classType
+                ? `class:${instance.classType}`
+                : instance.type??''
         const method = TypePrototypeRegistry.resolve(type,name.slice(separator+1))
-        return method?{method,instance}:null
+        return method?{method,instance,type}:null
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
