@@ -84,17 +84,17 @@ export class Data extends Base{
             }
             arrayValues = splitTopLevelArrayValues(arrayLiteral[1])
             if(itemType==='number'){
-                if(!arrayValues.length||arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
+                if(arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
                     throw new Error(`Array "${name}" must contain numeric literals`)
                 }
                 value = arrayValues.join(', ')
             }else if(itemType==='string'){
-                if(!arrayValues.length||arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
+                if(arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
                     throw new Error(`Array "${name}" must contain string literals`)
                 }
                 value = arrayValues.join(', ')
             }else if(classType){
-                if(!arrayValues.length||arrayValues.some(item=>!item||!new RegExp(`^new\\s+${itemType.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*\\(\\s*\\)$`,`i`).test(item.trim()))){
+                if(arrayValues.some(item=>!item||!new RegExp(`^new\\s+${itemType.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*\\(\\s*\\)$`,`i`).test(item.trim()))){
                     throw new Error(`Array "${name}" must contain "new ${itemType}()" initializers`)
                 }
                 value = arrayValues.join(', ')
@@ -143,6 +143,7 @@ export class Data extends Base{
         this.element = new DataElement(kind,name,arrayType?arrayType[1]:type,arrayType?value:values.join(' ')??'')
         if(arrayType){
             this.element.isArray = true
+            this.element.dynamicArray = arrayValues.length===0
             this.element.numericKind = arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
             if(classType){
                 this.element.classType = classType.name
@@ -162,6 +163,67 @@ export class Data extends Base{
         let type = 'dq'
         let value = this.element!.value
         if(this.element!.isArray){
+            if(this.element!.dynamicArray){
+                const values = splitTopLevelArrayValues(value??'')
+                const capacity = Math.max(4,values.length)
+                const lengthName = `${this.element!.name}__length`
+                const capacityName = `${this.element!.name}__capacity`
+                ASM.addData(`${this.element!.name} dq 0`)
+                ASM.addData(`${lengthName} dq ${values.length}`)
+                ASM.addData(`${capacityName} dq ${capacity}`)
+                ASM.addImport('msvcrt','malloc')
+                ASM.addCode(`mov rcx, ${capacity*8}`)
+                ASM.addCode('sub rsp, 40')
+                ASM.addCode('call [malloc]')
+                ASM.addCode('add rsp, 40')
+                const allocationError = `__ds_array_init_error_${this.element!.name}`
+                const allocationReady = `__ds_array_init_ready_${this.element!.name}`
+                ASM.addCode('test rax, rax')
+                ASM.addCode(`jz ${allocationError}`)
+                ASM.addCode(`mov [${this.element!.name}], rax`)
+                if(this.element!.classType){
+                    values.forEach((item,index)=>{
+                        const label = `${this.element!.name}_${index}`
+                        ASM.addData(`${label} ${this.element!.classType}`)
+                        ASM.addCode(`lea rax, [${label}]`)
+                        ASM.addCode(`mov rdx, [${this.element!.name}]`)
+                        ASM.addCode(`mov [rdx+${index*8}], rax`)
+                    })
+                }else if(this.element!.type==='string'){
+                    values.forEach((item,index)=>{
+                        const label = `${this.element!.name}_${index}`
+                        ASM.addData(`${label} db ${item},0`)
+                        ASM.addCode(`lea rax, [${label}]`)
+                        ASM.addCode(`mov rdx, [${this.element!.name}]`)
+                        ASM.addCode(`mov [rdx+${index*8}], rax`)
+                    })
+                }else{
+                    values.forEach((item,index)=>{
+                        const literal = this.element!.numericKind==='float'&&getNumericKind(item)==='integer'
+                            ? `${Number(item)}.0`
+                            : item
+                        if(this.element!.numericKind==='float'){
+                            ASM.addCode(`movsd xmm0, qword [__ds_array_literal_${this.element!.name}_${index}]`)
+                            ASM.addCode(`mov rdx, [${this.element!.name}]`)
+                            ASM.addCode(`movsd qword [rdx+${index*8}], xmm0`)
+                            ASM.addData(`__ds_array_literal_${this.element!.name}_${index} dq ${literal}`)
+                        }else{
+                            ASM.addCode(`mov rax, ${literal}`)
+                            ASM.addCode(`mov rdx, [${this.element!.name}]`)
+                            ASM.addCode(`mov [rdx+${index*8}], rax`)
+                        }
+                    })
+                }
+                ASM.addCode(`jmp ${allocationReady}`)
+                ASM.addCode(`${allocationError}:`)
+                ASM.addCode('mov ecx, 1')
+                ASM.addCode('sub rsp, 40')
+                ASM.addImport('kernel32','ExitProcess')
+                ASM.addCode('call [ExitProcess]')
+                ASM.addCode('add rsp, 40')
+                ASM.addCode(`${allocationReady}:`)
+                return
+            }
             if(this.element!.classType){
                 const instances = splitTopLevelArrayValues(value??'')
                 const labels = instances.map((item,index)=>{

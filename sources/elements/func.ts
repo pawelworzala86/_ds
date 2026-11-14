@@ -16,7 +16,7 @@ export class Func extends Base{
         tokens.splice(0,classMethod?1:2)
         //console.log('tokens',tokens)
 
-        const params:any = Tokenizer.getFunctionParams(tokens)
+        const params = Tokenizer.getFunctionParams(tokens)
 
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
@@ -24,7 +24,7 @@ export class Func extends Base{
 
         for(const param of params){
             const arrayType = param.type.match(/^([a-z_$][\w$]*)\[\]$/i)
-            const type = arrayType?`${arrayType[1]}[]`:param.type
+            const type = arrayType?arrayType[1]:param.type
             const element = new DataElement('let',param.name,type,'0')
             element.isArray = Boolean(arrayType)
             element.isParameter = true
@@ -34,7 +34,10 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
 
-        const element:FuncElement = new FuncElement(name,params)
+        const element:FuncElement = new FuncElement(name,params.map(param=>({
+            ...param,
+            dynamicArray:Boolean(this.getData(param.name)?.dynamicArray)
+        })))
         this.element = element
         this.parent!.addFunction(element)
     }

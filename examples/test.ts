@@ -55,4 +55,10 @@ msvcrt.printf(',%s ',strA[0])
 const objArray:TESTOBJ[] = [new TESTOBJ(),new TESTOBJ()]
 msvcrt.printf(',%i ',objArray[0].propA)
 
+const objArrayA:TESTOBJ[] = []
+objArrayA.push(objArray[0])
+msvcrt.printf(',%i ',objArrayA[0].propA)
+objArrayA[0].propA = 222
+msvcrt.printf(',%i ',objArray[0].propA)
+
 kernel.ExitProcess()

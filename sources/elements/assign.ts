@@ -3,6 +3,7 @@ import Base from './base.ts'
 import Asm from './../asm.ts'
 import DataElement from './dataElement.ts'
 import {emitExpression, parseExpression, type Expression} from '../maths.ts'
+import {getClassPropertyOffset} from './clasElement.ts'
 
 let stringAssignId = 0
 
@@ -13,6 +14,7 @@ export class Assign extends Base{
     stringValue:string|null = null
     stringSource:DataElement|null = null
     stringSourceIndex:Expression|null = null
+    arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -93,6 +95,28 @@ export class Assign extends Base{
             tokens.push(token)
         }
         const statement = tokens.join('').replace(/;$/,'')
+        const arrayProperty = statement.match(/^([a-z_$][\w$]*)\[([^\]]+)\]\.(\w+)=(.+?);?$/i)
+        if(arrayProperty){
+            const [,arrayName,indexText,propertyName,expression] = arrayProperty
+            const array = this.parent?.getData(arrayName)
+            const classType = array?.classType?this.parent?.getClass(array.classType):null
+            const property = classType?.props.find(prop=>prop.name===propertyName)??null
+            const offset = classType?getClassPropertyOffset(classType,propertyName):null
+            if(!array?.isArray||!classType||!property||offset===null){
+                throw new Error(`Unknown object-array property "${arrayName}[${indexText}].${propertyName}"`)
+            }
+            if(property.type!=='number'){
+                throw new Error('Only numeric object-array properties can be assigned')
+            }
+            const index = parseExpression(indexText,this.parent!)
+            if(index.numericKind!=='integer'){
+                throw new Error('Array index must be an integer')
+            }
+            this.target = array
+            this.expression = parseExpression(expression,this.parent!)
+            this.arrayPropertyTarget = {array,index,property,offset}
+            return
+        }
         const match = statement.match(/^([a-z_$][\w.$]*)(?:\[([^\]]+)\])?=(.+?);?$/i)
         if(!match){
             throw new Error('Invalid assignment')
@@ -108,12 +132,42 @@ export class Assign extends Base{
         if(!this.target){
             throw new Error('Assignment is not initialized')
         }
+        if(this.arrayPropertyTarget&&this.expression){
+            const {array,index,property,offset} = this.arrayPropertyTarget
+            emitExpression(index,ASM)
+            ASM.addCode('shl rax, 3')
+            ASM.addCode(array.dynamicArray
+                ? `mov rdx, [${array.name}]`
+                : `lea rdx, [${array.name}]`)
+            ASM.addCode('add rdx, rax')
+            ASM.addCode('mov rdx, [rdx]')
+            if(offset){
+                ASM.addCode(`add rdx, ${offset}`)
+            }
+            ASM.addCode('push rdx')
+            emitExpression(this.expression,ASM)
+            ASM.addCode('pop rdx')
+            if(this.expression.numericKind==='float'||property.numericKind==='float'){
+                if(this.expression.numericKind==='integer'){
+                    ASM.addCode('cvtsi2sd xmm0, rax')
+                }
+                ASM.addCode('movsd qword [rdx], xmm0')
+            }else{
+                ASM.addCode('mov [rdx], rax')
+            }
+            return
+        }
         if(this.target.isArray && (this.target.type==='string'||this.target.type==='string[]')){
             if(this.targetIndex){
                 emitExpression(this.targetIndex,ASM)
                 ASM.addCode('shl rax, 3')
                 if(this.target.isParameter){
                     ASM.addCode(`mov rdx, ${this.target.name}`)
+                    if(this.target.dynamicArray){
+                        ASM.addCode('mov rdx, [rdx]')
+                    }
+                }else if(this.target.dynamicArray){
+                    ASM.addCode(`mov rdx, [${this.target.name}]`)
                 }else{
                     ASM.addCode(`lea rdx, [${this.target.name}]`)
                 }
@@ -129,7 +183,16 @@ export class Assign extends Base{
             }else if(this.stringSourceIndex&&this.stringSource){
                 emitExpression(this.stringSourceIndex,ASM)
                 ASM.addCode('shl rax, 3')
-                ASM.addCode(`lea rdx, [${this.stringSource.name}]`)
+                if(this.stringSource.isParameter){
+                    ASM.addCode(`mov rdx, ${this.stringSource.name}`)
+                    if(this.stringSource.dynamicArray){
+                        ASM.addCode('mov rdx, [rdx]')
+                    }
+                }else{
+                    ASM.addCode(this.stringSource.dynamicArray
+                        ? `mov rdx, [${this.stringSource.name}]`
+                        : `lea rdx, [${this.stringSource.name}]`)
+                }
                 ASM.addCode('add rdx, rax')
                 ASM.addCode('mov rax, [rdx]')
             }else if(this.stringSource){
@@ -150,6 +213,11 @@ export class Assign extends Base{
             ASM.addCode('shl rax, 3')
             if(this.target!.isParameter){
                 ASM.addCode(`mov rdx, ${this.target!.name}`)
+                if(this.target!.dynamicArray){
+                    ASM.addCode('mov rdx, [rdx]')
+                }
+            }else if(this.target!.dynamicArray){
+                ASM.addCode(`mov rdx, [${this.target!.name}]`)
             }else{
                 ASM.addCode(`lea rdx, [${this.target!.name}]`)
             }
@@ -183,9 +251,8 @@ export class Assign extends Base{
         const second = tokenizer.get()
         tokenizer.move(-2)
         const compactAssignment = first.match(/^([a-z_$][\w.$]*(?:\[[^\]]+\])?)=/i)
-        const targetName = second==='='
-            ? first
-            : compactAssignment?.[1]
+        const propertyAssignment = first.match(/^([a-z_$][\w$]*\[[^\]]+\]\.[a-z_$][\w$]*)=/i)
+        const targetName = second==='='?first:compactAssignment?.[1]??propertyAssignment?.[1]
         const dataName = targetName?.match(/^([a-z_$][\w.$]*)/i)?.[1]
         if(dataName&&active.getData(dataName)){
             const data = new Assign(active)

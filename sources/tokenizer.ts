@@ -146,7 +146,7 @@ export class Tokenizer{
             }
         }
     }
-    static getFunctionParams(tokens:string[]){
+    static getFunctionParams(tokens:string[]):{name:string,type:string}[]{
         const open = tokens.indexOf('(')
         const close = tokens.indexOf(')',open+1)
         if(open===-1||close===-1){
@@ -156,7 +156,7 @@ export class Tokenizer{
         if(!signature){
             return []
         }
-        return signature.split(',').map(param=>{
+        return signature.split(',').map((param:string)=>{
             const [name,...type] = param.split(':')
             return {name,type:type.join(':')}
         })

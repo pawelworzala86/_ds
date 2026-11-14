@@ -15,6 +15,7 @@ export class DataElement{
     classType:string|null = null
     numericKind:NumericKind = 'integer'
     isArray = false
+    dynamicArray = false
     isParameter = false
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind

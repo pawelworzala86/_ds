@@ -275,6 +275,11 @@ export function emitExpression(expression:Expression,ASM:Asm){
         ASM.addCode('shl rax, 3')
         if(expression.value.isParameter){
             ASM.addCode(`mov rdx, ${expression.value.name}`)
+            if(expression.value.dynamicArray){
+                ASM.addCode('mov rdx, [rdx]')
+            }
+        }else if(expression.value.dynamicArray){
+            ASM.addCode(`mov rdx, [${expression.value.name}]`)
         }else{
             ASM.addCode(`lea rdx, [${expression.value.name}]`)
         }

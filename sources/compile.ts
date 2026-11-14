@@ -4,6 +4,7 @@ import Asm from "./asm.ts";
 import CompileASM from './../../_winasm/sources/compile.ts'
 import Tokenizer from './tokenizer.ts';
 import Base from './elements/base.ts';
+import TypePrototypeRegistry from './elements/typePrototype.ts'
 
 
 const sourceFile = process.argv[2]
@@ -14,6 +15,7 @@ const source = fs.readFileSync(sourceFile).toString()+'\n'
 
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)
+TypePrototypeRegistry.reset()
 
 const ASM:Asm = new Asm()
 

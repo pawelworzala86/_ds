@@ -11,6 +11,7 @@ import Call from "./elements/call.ts"
 import Import from "./elements/import.ts"
 import Export from "./elements/export.ts"
 import Class from "./elements/class.ts"
+import Prototype from "./elements/prototype.ts"
 
 export class Make{
     constructor(){
@@ -26,6 +27,7 @@ export class Make{
             }else if(Import.test(active,tokenizer,filePath,ASM)){
             }else if(Export.test(active,tokenizer)){
             }else if(Class.test(active,tokenizer,ASM)){
+            }else if(Prototype.test(active,tokenizer,ASM)){
             }else{
                 const token = tokenizer.get()
                 ASM.addCodeNLN(token+' ')

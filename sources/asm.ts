@@ -25,7 +25,9 @@ export class Asm{
         if(!this.imp[dll]){
             this.imp[dll] = []
         }
-        this.imp[dll].push(func)
+        if(!this.imp[dll].includes(func)){
+            this.imp[dll].push(func)
+        }
     }
     getASMCode(){
         let codeTxt = this.code.join('')
