@@ -1,8 +1,5 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
-import Asm from "./../asm.ts"
-import fs from 'fs'
-import Make from '../make.ts'
 
 export class Export extends Base{
     constructor(parent:Base){
@@ -17,8 +14,11 @@ export class Export extends Base{
             tokens.push(token)
         }
         tokenizer.index = index+1
-        const name = tokens[2]
-        this.parent!.addExport(name)
+        let name:string|null = null
+        if(['let','var','const'].includes(tokens[1])){
+            name = tokens[2]
+        }
+        this.parent!.addExport(name!)
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
