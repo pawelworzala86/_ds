@@ -13,8 +13,10 @@ export class Func extends Base{
         let tokens:string[] = tokenizer.getBlock()
         const [fn,name] = tokens
         tokens.splice(0,2)
+        //console.log('tokens',tokens)
 
-        const params = Tokenizer.getParams(tokens)
+        const params:any = Tokenizer.getFunctionParams(tokens)
+        //console.log('params',params)
 
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
@@ -26,7 +28,10 @@ export class Func extends Base{
     }
     asm(ASM:Asm){
         const asm = new Asm()
-        asm.addCode(`proc ${this.element!.name}`)
+        const params = this.element?.params.map((param:any)=>{
+            return param.name
+        }).join(',')
+        asm.addCode(`proc ${this.element!.name} ${params}`)
         for(const node of this.children){
             node.asm(asm)
         }

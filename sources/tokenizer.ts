@@ -63,6 +63,24 @@ export class Tokenizer{
             }
         }
     }
+    static getFunctionParams(tokens:string[]){
+        let openP = false
+        let params = []
+        for(let i=0;i<tokens.length;i+=2){
+            const token = tokens[i]
+            if(token=='('){
+                openP = true
+                continue
+            }
+            if(token==')'){
+                break
+            }
+            if(openP){
+                params.push({name:tokens[i-1],type:tokens[i+1]})
+            }
+        }
+        return params
+    }
 }
 
 export default Tokenizer

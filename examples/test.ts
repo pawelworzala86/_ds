@@ -10,10 +10,11 @@ let testVar:string = 'ttt'
 
 printf(helloTxt)
 
-function testFunc(){
+function testFunc(variable:string){
     printf(inc.testVar)
+    printf(variable)
 }
 
-testFunc()
+testFunc(testVar)
 
 ExitProcess()
