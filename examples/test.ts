@@ -57,13 +57,15 @@ objArrayA[0].propA = 222
 msvcrt.printf(',%i ',objArray[0].propA)
 
 
-
+//COMMENT
+/*
 prototype obj.TESTOBJ {
     function test(){
         msvcrt.printf(' test ')
     }
 }
 testObj.test()
+*/
 
 
 

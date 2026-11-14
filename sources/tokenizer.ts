@@ -4,7 +4,110 @@ export class Tokenizer{
     index:number = 0
     constructor(text:string){
         this.original = text
-        this.tokens = text.split(/\ |\r|\t|(\n)|(\:)|(\()|(\))|(\')|(\")|(\{)|(\})/gm).filter(t=>t)
+        this.tokens = Tokenizer.tokenize(Tokenizer.removeComments(text))
+    }
+    static tokenize(text:string){
+        const tokens:string[] = []
+        let token = ''
+        let quote:string|null = null
+        const pushToken = ()=>{
+            if(token){
+                tokens.push(token)
+                token = ''
+            }
+        }
+        for(let index=0;index<text.length;index++){
+            const char = text[index]
+            if(quote){
+                if(char==='\\'&&index+1<text.length){
+                    token += char+text[++index]
+                }else if(char===quote){
+                    pushToken()
+                    tokens.push(char)
+                    quote = null
+                }else{
+                    token += char
+                }
+                continue
+            }
+            if(char==='"'||char==="'"){
+                pushToken()
+                tokens.push(char)
+                quote = char
+            }else if(char===' '||char==='\r'||char==='\t'||char==='\n'||char===':'||char==='('||char===')'||char==='{'||char==='}'){
+                pushToken()
+                if(char==='\n'||char===':'||char==='('||char===')'||char==='{'||char==='}'){
+                    tokens.push(char)
+                }
+            }else{
+                token += char
+            }
+        }
+        pushToken()
+        return tokens
+    }
+    static removeComments(text:string){
+        let result = ''
+        let quote:string|null = null
+        let lineComment = false
+        let blockComment = false
+        let lineStart = 0
+        for(let index=0;index<text.length;index++){
+            const char = text[index]
+            const next = text[index+1]
+            if(lineComment){
+                if(char==='\n'){
+                    result += '\n'
+                    lineComment = false
+                    lineStart = index+1
+                }
+                continue
+            }
+            if(blockComment){
+                if(char==='*'&&next==='/'){
+                    result += ' '
+                    blockComment = false
+                    index++
+                }else if(char==='\n'){
+                    result += '\n'
+                    lineStart = index+1
+                }
+                continue
+            }
+            if(quote){
+                result += char
+                if(char==='\\'){
+                    result += text[++index]??''
+                }else if(char===quote){
+                    quote = null
+                }
+                continue
+            }
+            if(char==='"'||char==="'"){
+                quote = char
+                result += char
+            }else if(char==='/'&&next==='*'){
+                result += ' '
+                blockComment = true
+                index++
+            }else if(char==='/'&&next==='/'){
+                const linePrefix = text.slice(lineStart,index)
+                if(/\bdeclare\b/.test(linePrefix)&&/\bany$/.test(linePrefix)){
+                    result += '//'
+                    index++
+                }else{
+                    result += ' '
+                    lineComment = true
+                    index++
+                }
+            }else{
+                result += char
+                if(char==='\n'){
+                    lineStart = index+1
+                }
+            }
+        }
+        return result
     }
     get(index:number|null=null){
         if(index){
