@@ -11,6 +11,9 @@ class TESTOBJ{
 }
 
 let numA:number = 11
+let numB:number = 0
+
+numA = numB
 
 const testObj: TESTOBJ = new TESTOBJ()  
 testObj.show(numA)

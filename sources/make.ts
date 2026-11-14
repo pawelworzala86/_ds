@@ -3,6 +3,7 @@ import Asm from "./asm.ts"
 import Base from "./elements/base.ts"
 
 import Data from "./elements/data.ts"
+import Assign from "./elements/assign.ts"
 import Invoke from "./elements/invoke.ts"
 import Declare from "./elements/declare.ts"
 import Func from "./elements/func.ts"
@@ -17,6 +18,7 @@ export class Make{
     static compile(ASM:Asm,active:Base,tokenizer:Tokenizer,filePath:string|null=null){
         while(tokenizer.has()){
             if(Data.test(active,tokenizer,active instanceof Class)){
+            }else if(Assign.test(active,tokenizer)){
             }else if(Declare.test(active,tokenizer)){
             }else if(Invoke.test(active,tokenizer)){
             }else if(Func.test(active,tokenizer,ASM,active instanceof Class)){
