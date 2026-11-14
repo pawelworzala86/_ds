@@ -7,7 +7,7 @@ import Base from './elements/base.ts';
 
 
 
-const source = fs.readFileSync('./examples/test.ts').toString()
+const source = fs.readFileSync('./examples/test.ts').toString()+'\n'
 
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)

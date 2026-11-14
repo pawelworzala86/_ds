@@ -16,7 +16,7 @@ export class Import extends Base{
             tokens.push(token)
         }
         console.log('IMPORT::::::::::')
-        const source = fs.readFileSync('./examples/inc.ts').toString()
+        const source = fs.readFileSync('./examples/inc.ts').toString()+'\n'
         const newTokenizer = new Tokenizer(source)
         Make.compile(this,newTokenizer)
     }

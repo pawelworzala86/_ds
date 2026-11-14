@@ -7,6 +7,7 @@ import Declare from "./elements/declare.ts"
 import Func from "./elements/func.ts"
 import Call from "./elements/call.ts"
 import Import from "./elements/import.ts"
+import Export from "./elements/export.ts"
 
 export class Make{
     constructor(){
@@ -19,6 +20,7 @@ export class Make{
             }else if(Func.test(active,tokenizer)){
             }else if(Call.test(active,tokenizer)){
             }else if(Import.test(active,tokenizer)){
+            }else if(Export.test(active,tokenizer)){
             }else{
                 tokenizer.get()
             }
