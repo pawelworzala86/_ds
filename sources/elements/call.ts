@@ -32,15 +32,25 @@ export class Call extends Base{
         if(canEmitArguments&&!this.methodInstance){
             for(const param of this.params){
                 if(param.value instanceof DataElement&&param.value.isArray&&!param.arrayPointerName){
-                    ASM.addCode(`lea rax, [${param.value.name}]`)
+                    const value = param.getCode()
+                    if(value===null){
+                        throw new Error('Unable to resolve function argument')
+                    }
+                    ASM.addCode(value.startsWith('addr ')
+                        ? `lea rax, [${value.replace(/^addr\s+/,'')}]`
+                        : `mov rax, [${value}]`)
                 }else if(param.arrayPointerName){
                     ASM.addCode(`mov rax, [${param.arrayPointerName}]`)
                 }else if(param.tempName){
                     ASM.addCode(`mov rax, [${param.tempName}]`)
-                }else if(param.value instanceof DataElement&&param.value.type==='string'){
-                    ASM.addCode(`lea rax, [${param.value.name}]`)
                 }else{
-                    ASM.addCode(`mov rax, [${param.getCode()}]`)
+                    const value = param.getCode()
+                    if(value===null){
+                        throw new Error('Unable to resolve function argument')
+                    }
+                    ASM.addCode(value.startsWith('addr ')
+                        ? `lea rax, [${value.replace(/^addr\s+/,'')}]`
+                        : `mov rax, [${value}]`)
                 }
                 ASM.addCode('push rax')
             }

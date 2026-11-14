@@ -4,6 +4,41 @@ import Asm from "./../asm.ts"
 import DataElement, {getNumericKind} from './dataElement.ts'
 import Assign from './assign.ts'
 
+function splitTopLevelArrayValues(value:string):string[]{
+    const items:string[] = []
+    let current = ''
+    let quote:string|null = null
+    for(let index=0;index<value.length;index++){
+        const char = value[index]
+        if(quote){
+            current += char
+            if(char===quote && value[index-1]!=='\\'){
+                quote = null
+            }
+            continue
+        }
+        if(char==="'"||char==='"'){
+            quote = char
+            current += char
+            continue
+        }
+        if(char===','){
+            const trimmed = current.trim()
+            if(trimmed){
+                items.push(trimmed)
+            }
+            current = ''
+            continue
+        }
+        current += char
+    }
+    const trimmed = current.trim()
+    if(trimmed){
+        items.push(trimmed)
+    }
+    return items
+}
+
 export class Data extends Base{
     element:DataElement|null = null
     constructor(parent:Base){
@@ -23,19 +58,27 @@ export class Data extends Base{
         const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
         let arrayValues:string[] = []
         if(arrayType){
-            if(arrayType[1]!=='number'||eq!=='='){
-                throw new Error(`Array "${name}" must be initialized with a numeric array literal`)
+            const itemType = arrayType[1]
+            if(!['number','string'].includes(itemType)||eq!=='='){
+                throw new Error(`Array "${name}" must be initialized with an array literal`)
             }
             const initializer = tokens.slice(classField?4:5).join('').replace(/;$/,'')
             const arrayLiteral = initializer.match(/^\[([\s\S]*)\]$/)
             if(!arrayLiteral){
                 throw new Error(`Invalid array initializer for "${name}"`)
             }
-            arrayValues = arrayLiteral[1].split(',').map(item=>item.trim())
-            if(!arrayValues.length||arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
-                throw new Error(`Array "${name}" must contain numeric literals`)
+            arrayValues = splitTopLevelArrayValues(arrayLiteral[1])
+            if(itemType==='number'){
+                if(!arrayValues.length||arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
+                    throw new Error(`Array "${name}" must contain numeric literals`)
+                }
+                value = arrayValues.join(', ')
+            }else{
+                if(!arrayValues.length||arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
+                    throw new Error(`Array "${name}" must contain string literals`)
+                }
+                value = arrayValues.join(', ')
             }
-            value = arrayValues.join(', ')
         }
         let numericExpression:string|null = null
         let runtimeInitializer = false
@@ -79,7 +122,7 @@ export class Data extends Base{
         this.element = new DataElement(kind,name,type,arrayType?value:values.join(' ')??'')
         if(arrayType){
             this.element.isArray = true
-            this.element.numericKind = arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
+            this.element.numericKind = arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
         }
         this.element.classType = classType?.name??null
         this.parent?.addData(this.element)
@@ -97,6 +140,20 @@ export class Data extends Base{
         let type = 'dq'
         let value = this.element!.value
         if(this.element!.isArray){
+            if(this.element!.type==='string'||this.element!.type==='string[]'){
+                const literals = splitTopLevelArrayValues(value??'')
+                const labels = literals.map((item,index)=>{
+                    const label = `${this.element!.name}_${index}`
+                    ASM.addData(`${label} db ${item},0`)
+                    return label
+                })
+                ASM.addData(`${this.element!.name} dq ${Array(literals.length).fill(0).join(', ')}`)
+                labels.forEach((label,index)=>{
+                    ASM.addCode(`lea rax, [${label}]`)
+                    ASM.addCode(`mov [${this.element!.name}+${index*8}], rax`)
+                })
+                return
+            }
             if(this.element!.numericKind==='float'){
                 value = value!.split(',').map(item=>{
                     const literal = item.trim()
