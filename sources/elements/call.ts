@@ -26,6 +26,30 @@ export class Call extends Base{
         for(const param of this.params){
             param.asm(ASM)
         }
+        const canEmitArguments = this.params.every(param=>
+            param.value instanceof DataElement||param.tempName!==null||param.arrayPointerName!==null
+        )
+        if(canEmitArguments&&!this.methodInstance){
+            for(const param of this.params){
+                if(param.value instanceof DataElement&&param.value.isArray&&!param.arrayPointerName){
+                    ASM.addCode(`lea rax, [${param.value.name}]`)
+                }else if(param.arrayPointerName){
+                    ASM.addCode(`mov rax, [${param.arrayPointerName}]`)
+                }else if(param.tempName){
+                    ASM.addCode(`mov rax, [${param.tempName}]`)
+                }else if(param.value instanceof DataElement&&param.value.type==='string'){
+                    ASM.addCode(`lea rax, [${param.value.name}]`)
+                }else{
+                    ASM.addCode(`mov rax, [${param.getCode()}]`)
+                }
+                ASM.addCode('push rax')
+            }
+            const shadowSpace = 32+(this.params.length%2)*8
+            ASM.addCode(`sub rsp, ${shadowSpace}`)
+            ASM.addCode(`call ${this.func!.name}`)
+            ASM.addCode(`add rsp, ${shadowSpace+this.params.length*8}`)
+            return
+        }
         const params = this.params.map(param=>{
             return param.getCode(this.methodInstance!==null)
         }).join(', ')

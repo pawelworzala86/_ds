@@ -1,7 +1,7 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
-import DataElement from './dataElement.ts'
+import DataElement, {getNumericKind} from './dataElement.ts'
 import Assign from './assign.ts'
 
 export class Data extends Base{
@@ -19,6 +19,23 @@ export class Data extends Base{
         if(classField){
             kind = 'let'
             ;[name,sep,type,eq,value] = tokens
+        }
+        const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
+        let arrayValues:string[] = []
+        if(arrayType){
+            if(arrayType[1]!=='number'||eq!=='='){
+                throw new Error(`Array "${name}" must be initialized with a numeric array literal`)
+            }
+            const initializer = tokens.slice(classField?4:5).join('').replace(/;$/,'')
+            const arrayLiteral = initializer.match(/^\[([\s\S]*)\]$/)
+            if(!arrayLiteral){
+                throw new Error(`Invalid array initializer for "${name}"`)
+            }
+            arrayValues = arrayLiteral[1].split(',').map(item=>item.trim())
+            if(!arrayValues.length||arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
+                throw new Error(`Array "${name}" must contain numeric literals`)
+            }
+            value = arrayValues.join(', ')
         }
         let numericExpression:string|null = null
         let runtimeInitializer = false
@@ -59,7 +76,11 @@ export class Data extends Base{
                 spec = false
             }
         }
-        this.element = new DataElement(kind,name,type,values.join(' ')??'')
+        this.element = new DataElement(kind,name,type,arrayType?value:values.join(' ')??'')
+        if(arrayType){
+            this.element.isArray = true
+            this.element.numericKind = arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
+        }
         this.element.classType = classType?.name??null
         this.parent?.addData(this.element)
         if(runtimeInitializer&&numericExpression&&this.parent){
@@ -75,6 +96,16 @@ export class Data extends Base{
         }
         let type = 'dq'
         let value = this.element!.value
+        if(this.element!.isArray){
+            if(this.element!.numericKind==='float'){
+                value = value!.split(',').map(item=>{
+                    const literal = item.trim()
+                    return getNumericKind(literal)==='integer'?`${Number(literal)}.0`:literal
+                }).join(', ')
+            }
+            ASM.addData(`${this.element!.name} dq ${value}`)
+            return
+        }
         if(this.element!.type==='number'&&this.element!.numericKind==='float'&&/e/i.test(value??'')&&!/f$/i.test(value??'')){
             value += 'f'
         }

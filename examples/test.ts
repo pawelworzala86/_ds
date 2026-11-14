@@ -37,4 +37,8 @@ let valFB:number = 2.23
 let valFC:number = valFA*valFB
 msvcrt.printf(' %f ',valFA*valFB)
 
+
+let arrayA:number[] = [1,2,3,4,5]
+msvcrt.printf(',%f ',valFC*arrayA[0])
+
 kernel.ExitProcess()

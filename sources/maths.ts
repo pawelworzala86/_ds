@@ -7,6 +7,7 @@ type BinaryOperator = '+'|'-'|'*'|'/'|'%'|'**'
 export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
     | {kind:'data',value:DataElement,numericKind:NumericKind}
+    | {kind:'index',value:DataElement,index:Expression,numericKind:NumericKind}
     | {kind:'unary',operator:'+'|'-',value:Expression,numericKind:NumericKind}
     | {kind:'binary',operator:BinaryOperator,left:Expression,right:Expression,numericKind:NumericKind}
 
@@ -87,7 +88,7 @@ function emitFloatExpression(expression:Extract<Expression,{kind:'binary'}>,ASM:
 }
 
 export function parseExpression(text:string,active:Base):Expression{
-    const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|[()+\-*/%]/gi)??[]
+    const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|[()[\]+\-*/%]/gi)??[]
     if(!tokens.length||tokens.join('')!==text){
         throw new Error(`Invalid numeric expression "${text}"`)
     }
@@ -113,6 +114,23 @@ export function parseExpression(text:string,active:Base):Expression{
         const data = active.getData(token)
         if(!data){
             throw new Error(`Unknown numeric value "${token}"`)
+        }
+        if(tokens[index]==='['){
+            if(!data.isArray){
+                throw new Error(`Value "${token}" is not an array`)
+            }
+            index++
+            const arrayIndex = parseAdditive()
+            if(tokens[index++]!==']'){
+                throw new Error(`Unclosed index for array "${token}"`)
+            }
+            if(arrayIndex.numericKind!=='integer'){
+                throw new Error('Array index must be an integer')
+            }
+            return {kind:'index',value:data,index:arrayIndex,numericKind:data.numericKind}
+        }
+        if(data.isArray){
+            throw new Error(`Array "${token}" must be accessed with an index`)
         }
         if(data.type!=='number'){
             throw new Error(`Value "${token}" is not a number`)
@@ -250,6 +268,22 @@ export function emitExpression(expression:Expression,ASM:Asm){
             return
         }
         ASM.addCode(`mov rax, [${expression.value.name}]`)
+        return
+    }
+    if(expression.kind==='index'){
+        emitExpression(expression.index,ASM)
+        ASM.addCode('shl rax, 3')
+        if(expression.value.isParameter){
+            ASM.addCode(`mov rdx, ${expression.value.name}`)
+        }else{
+            ASM.addCode(`lea rdx, [${expression.value.name}]`)
+        }
+        ASM.addCode('add rdx, rax')
+        if(expression.numericKind==='float'){
+            ASM.addCode('movsd xmm0, qword [rdx]')
+        }else{
+            ASM.addCode('mov rax, [rdx]')
+        }
         return
     }
     if(expression.kind==='unary'){

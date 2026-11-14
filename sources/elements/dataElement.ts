@@ -14,6 +14,8 @@ export class DataElement{
     value:string|null = null
     classType:string|null = null
     numericKind:NumericKind = 'integer'
+    isArray = false
+    isParameter = false
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
         this.name = name
@@ -24,6 +26,9 @@ export class DataElement{
         }
     }
     getCode(byValue=false){
+        if(this.isArray){
+            return this.isParameter?this.name:'addr '+this.name
+        }
         if(this.type=='string'){
             return 'addr '+this.name
         }

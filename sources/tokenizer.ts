@@ -45,6 +45,7 @@ export class Tokenizer{
         const args:string[] = []
         let current = ''
         let nested = 0
+        let nestedArray = 0
         let quote:string|null = null
         let lastQuotedWord = false
         const pushArg = ()=>{
@@ -91,9 +92,27 @@ export class Tokenizer{
                 current += token
                 continue
             }
+            if(token=='['){
+                nestedArray++
+                current += token
+                continue
+            }
+            if(token==']'){
+                nestedArray--
+                current += token
+                continue
+            }
             let start = 0
             for(let index=0;index<token.length;index++){
-                if(token[index]===','&&nested===0){
+                if(token[index]==='['){
+                    nestedArray++
+                    continue
+                }
+                if(token[index]===']'){
+                    nestedArray--
+                    continue
+                }
+                if(token[index]===','&&nested===0&&nestedArray===0){
                     current += token.slice(start,index)
                     pushArg()
                     start = index+1

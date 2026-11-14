@@ -3,6 +3,7 @@ import Base from './base.ts'
 import Make from './../make.ts'
 import Asm from "./../asm.ts"
 import FuncElement from './funcElement.ts'
+import DataElement from './dataElement.ts'
 
 export class Func extends Base{
     element:FuncElement|null = null
@@ -16,12 +17,19 @@ export class Func extends Base{
         //console.log('tokens',tokens)
 
         const params:any = Tokenizer.getFunctionParams(tokens)
-        //console.log('params',params)
 
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
         tokens = tokens.slice(bodyStart + 1, bodyEnd)
 
+        for(const param of params){
+            const arrayType = param.type.match(/^([a-z_$][\w$]*)\[\]$/i)
+            const type = arrayType?`${arrayType[1]}[]`:param.type
+            const element = new DataElement('let',param.name,type,'0')
+            element.isArray = Boolean(arrayType)
+            element.isParameter = true
+            this.addData(element)
+        }
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)

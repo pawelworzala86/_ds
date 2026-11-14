@@ -100,7 +100,9 @@ export class Base{
     }
     testChangeName(){
         for(const DATA of this.DATA){
-            DATA.name = 'X'+getID()+'_'+DATA.name
+            if(!DATA.isParameter){
+                DATA.name = 'X'+getID()+'_'+DATA.name
+            }
         }
         for(const FUNCTION of this.FUNCTIONS){
             FUNCTION.name = 'X'+getID()+'_'+FUNCTION.name
