@@ -61,6 +61,17 @@ export class Base{
             return null
         }
     }
+    linkExports(){
+        const EXPORT = this.getExport()
+        if(EXPORT){
+            for(const key of Object.keys(EXPORT)){
+                //const EXP = EXPORT[key]
+                const DATA = this.getData(key)
+                EXPORT[key] = DATA
+            }
+        }
+        //console.log('linkExports',this.getExport())
+    }
     testChangeName(){
         for(const key of Object.keys(this.DATA)){
             const DATA = this.DATA[key]

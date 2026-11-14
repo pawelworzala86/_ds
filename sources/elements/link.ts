@@ -4,8 +4,8 @@ import { FuncElement } from "./func.ts";
 
 export class Link{
     static data(active:Base,name:string){
-        const IMPORT = active.getImport()
-        console.log(active)
+        /*const IMPORT = active.getImport()
+        //console.log(active)
         console.log('IMPORT:::::::::::::::::',IMPORT)
         if(IMPORT&&Object.keys(IMPORT).length){
             console.log('HAS IMPORT:::::::::::::::::',IMPORT)
@@ -17,8 +17,7 @@ export class Link{
                 }
                 //tokenizer.replace('inc.testVar',data.name)
             }
-        }
-
+        }*/
         const data:DataElement = active.getData(name)
         if(data){
             return data

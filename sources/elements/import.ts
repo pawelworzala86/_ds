@@ -18,17 +18,17 @@ export class Import extends Base{
         //console.log('IMPORT::::::::::')
         const source = fs.readFileSync('./examples/inc.ts').toString()+'\n'
         const newTokenizer = new Tokenizer(source)
-        Make.compile(this,newTokenizer)
+        Make.compile(this.parent!,newTokenizer)
 
-        /*const EXPORT = this.getExport()
+        const EXPORT = this.getExport()
         if(Object.keys(EXPORT).length){
-            //console.log('HAS EXPORTS:::::::::::::::::',EXPORT)
+            console.log('HAS EXPORTS:::::::::::::::::',EXPORT)
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
                 const data = this.getData('testVar')
                 tokenizer.replace('inc.testVar',data.name)
             }
-        }*/
+        }
     }
     /*asm(ASM:Asm){
         //console.log('IMPORT')
