@@ -1,0 +1,1 @@
+export declare function ExitProcess(...args:any[]):any//kernel32

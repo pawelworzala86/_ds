@@ -20,7 +20,7 @@ export class Func extends Base{
 
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
-        Make.compile(this,tokenizer2)
+        Make.compile(this,tokenizer2,null)
 
         const element:FuncElement = new FuncElement(name,params)
         this.element = element

@@ -12,14 +12,14 @@ import Export from "./elements/export.ts"
 export class Make{
     constructor(){
     }
-    static compile(active:Base,tokenizer:Tokenizer){
+    static compile(active:Base,tokenizer:Tokenizer,filePath:string|null=null){
         while(tokenizer.has()){
             if(Data.test(active,tokenizer)){
             }else if(Declare.test(active,tokenizer)){
             }else if(Invoke.test(active,tokenizer)){
             }else if(Func.test(active,tokenizer)){
             }else if(Call.test(active,tokenizer)){
-            }else if(Import.test(active,tokenizer)){
+            }else if(Import.test(active,tokenizer,filePath)){
             }else if(Export.test(active,tokenizer)){
             }else{
                 tokenizer.get()

@@ -18,7 +18,7 @@ export class Base{
     constructor(parent:Base|null){
         this.parent = parent
     }
-    set(tokenizer:Tokenizer){}
+    //set(tokenizer:Tokenizer){}
     asm(ASM:Asm){
         for(const child of this.children){
             child.asm(ASM)

@@ -1,16 +1,21 @@
+import * as msvcrt from './system/msvcrt.ts'
+import * as kernel from './system/kernel.ts'
+
 import * as inc from './inc.ts'
+
+
 
 let helloTxt:string = 'Hello World!!!'
 
 let testVar:string = 'ttt'
 
-inc.printf(helloTxt)
+msvcrt.printf(helloTxt)
 
 function testFunc(variable:string){
-    inc.printf(inc.testVar)
-    inc.printf(variable)
+    msvcrt.printf(inc.testVar)
+    msvcrt.printf(variable)
 }
 
 testFunc(testVar)
 
-inc.ExitProcess()
+kernel.ExitProcess()

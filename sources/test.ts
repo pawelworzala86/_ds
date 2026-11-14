@@ -12,7 +12,7 @@ const source = fs.readFileSync('./examples/test.ts').toString()+'\n'
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)
 
-Make.compile(root,tokenizer)
+Make.compile(root,tokenizer,'./examples/test.ts')
 
 
 const ASM:Asm = new Asm()

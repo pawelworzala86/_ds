@@ -19,8 +19,9 @@
     "url": "https://github.com/pawelworzala86/_ds/issues"
   },
   "homepage": "https://github.com/pawelworzala86/_ds#readme",
-    "dependencies": {
-    "fs": "^0.0.1-security"
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
