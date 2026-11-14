@@ -18,11 +18,11 @@ export class Import extends Base{
         console.log('IMPORT::::::::::')
         const source = fs.readFileSync('./examples/inc.ts').toString()
         const newTokenizer = new Tokenizer(source)
-        Make.compile(this.parent!,newTokenizer)
+        Make.compile(this,newTokenizer)
     }
-    asm(ASM:Asm){
+    /*asm(ASM:Asm){
         console.log('IMPORT')
-    }
+    }*/
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
         if(['import'].includes(token)){

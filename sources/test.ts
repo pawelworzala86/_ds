@@ -11,9 +11,9 @@ const source = fs.readFileSync('./examples/test.ts').toString()
 
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)
-let active = root
+//let active = root
 
-Make.compile(active,tokenizer)
+Make.compile(root,tokenizer)
 
 //console.log(make.active)
 

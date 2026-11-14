@@ -6,6 +6,8 @@ export class Base{
     children:Base[] = []
     DATA:any = []
     FUNCTIONS:any = []
+    IMPORT:any = []
+    EXPORT:any = []
     constructor(parent:Base|null){
         this.parent = parent
     }
