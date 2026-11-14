@@ -5,7 +5,6 @@ export class Tokenizer{
     constructor(text:string){
         this.original = text
         this.tokens = text.split(/\ |\r|\t|(\n)|(\:)|(\()|(\))|(\')|(\")/gm).filter(t=>t)
-        //console.log(this.tokens)
     }
     get(index:number|null=null){
         if(index){
@@ -43,9 +42,7 @@ export class Tokenizer{
     static getParams(tokens:string[]){
         let openP = false
         let params = []
-        //console.log('TOKENS: ',tokens)
         for(const token of tokens){
-            //console.log(token)
             if(token=='('){
                 openP = true
                 continue
@@ -57,7 +54,6 @@ export class Tokenizer{
                 params.push(token)
             }
         }
-        //console.log('params',params)
         return params
     }
     replace(from:string,to:string){

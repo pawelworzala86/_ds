@@ -11,11 +11,9 @@ const source = fs.readFileSync('./examples/test.ts').toString()+'\n'
 
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)
-//let active = root
 
 Make.compile(root,tokenizer)
 
-//console.log(make.active)
 
 const ASM:Asm = new Asm()
 
@@ -28,5 +26,3 @@ console.log(code)
 
 const exe = CompileASM(code)
 fs.writeFileSync('./dist/test.exe',exe)
-
-//console.log(root.FUNCTIONS)

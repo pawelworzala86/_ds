@@ -1,8 +1,8 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
-import { FuncElement } from './func.ts'
 import Asm from "./../asm.ts"
 import Link from './link.ts'
+import FuncElement from './funcElement.ts'
 
 export class Call extends Base{
     func:FuncElement|null = null
@@ -14,10 +14,9 @@ export class Call extends Base{
         let tokens:string[] = []
         let token:any
         while(![')'].includes(token = tokenizer.get())){
-            //console.log('REC::', token)
             tokens.push(token)
         }
-        const func:FuncElement = this.getFunction(tokens[0])
+        const func:FuncElement|null = this.getFunction(tokens[0])
         tokens.splice(0,2)
         this.func = func
         this.params = tokens.map((token)=>{
@@ -25,7 +24,6 @@ export class Call extends Base{
         })
     }
     asm(ASM:Asm){
-        //console.log('CALL FUNCTION')
         const params = this.params.map((param:any)=>{
             if(typeof param=='object'){
                 return param.getCode()
@@ -37,8 +35,6 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        //console.log(active.FUNCTIONS)
-        //console.log('active.getFunction(token)',active.getFunction(token),token)
         if(active.getFunction(token)){
             tokenizer.move(-1)
             const data = new Call(active)

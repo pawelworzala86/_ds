@@ -19,7 +19,6 @@ export class Invoke extends Base{
         let tokens:string[] = []
         let token:any
         while(![')'].includes(token = tokenizer.get())){
-            //console.log('REC::', token)
             tokens.push(token)
         }
         const [name] = tokens
@@ -30,7 +29,6 @@ export class Invoke extends Base{
         })
     }
     asm(ASM:Asm){
-        //console.log('INVOKE CALL')
         const params = this.params.map((param:any)=>{
             if(typeof param=='object'){
                 return param.getCode()
@@ -44,7 +42,6 @@ export class Invoke extends Base{
         const token = tokenizer.get()
         if(Invokers.includes(token)){
             tokenizer.move(-1)
-            //console.log('Declare')
             const data = new Invoke(active)
             data.set(tokenizer)
             active.children.push(data)

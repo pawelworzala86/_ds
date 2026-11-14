@@ -12,27 +12,21 @@ export class Import extends Base{
         let tokens:string[] = []
         let token:any
         while(!['\n'].includes(token = tokenizer.get())){
-            //console.log('REC::', token)
             tokens.push(token)
         }
-        //console.log('IMPORT::::::::::')
         const source = fs.readFileSync('./examples/inc.ts').toString()+'\n'
         const newTokenizer = new Tokenizer(source)
         Make.compile(this.parent!,newTokenizer)
 
         const EXPORT = this.getExport()
         if(Object.keys(EXPORT).length){
-            console.log('HAS EXPORTS:::::::::::::::::',EXPORT)
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
                 const data = this.getData('testVar')
-                tokenizer.replace('inc.testVar',data.name)
+                tokenizer.replace('inc.testVar',data!.name!)
             }
         }
     }
-    /*asm(ASM:Asm){
-        //console.log('IMPORT')
-    }*/
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
         if(['import'].includes(token)){

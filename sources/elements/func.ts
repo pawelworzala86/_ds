@@ -2,18 +2,7 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Make from './../make.ts'
 import Asm from "./../asm.ts"
-
-export class FuncElement{
-    name:string|null = null
-    params:string[] = []
-    constructor(name:string,params:string[]){
-        this.name = name
-        this.params = params
-    }
-    getCode(){
-        return this.name
-    }
-}
+import FuncElement from './funcElement.ts'
 
 export class Func extends Base{
     element:FuncElement|null = null
@@ -22,7 +11,6 @@ export class Func extends Base{
     }
     set(tokenizer:Tokenizer){
         let tokens:string[] = tokenizer.getBlock()
-        //console.log(tokens)
         const [fn,name] = tokens
         tokens.splice(0,2)
 
@@ -32,12 +20,11 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(this,tokenizer2)
 
-        const element = new FuncElement(name,params)
+        const element:FuncElement = new FuncElement(name,params)
         this.element = element
-        this.parent!.setFunction(name,element)
+        this.parent!.addFunction(element)
     }
     asm(ASM:Asm){
-        //console.log('FUNCTION')
         const asm = new Asm()
         asm.addCode(`proc ${this.element!.name}`)
         for(const node of this.children){
@@ -51,7 +38,6 @@ export class Func extends Base{
         const token = tokenizer.get()
         if(['function'].includes(token)){
             tokenizer.move(-1)
-            //console.log('Declare')
             const data = new Func(active)
             data.set(tokenizer)
             active.children.push(data)

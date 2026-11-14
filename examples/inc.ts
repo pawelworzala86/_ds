@@ -1,1 +1,1 @@
-export let testVar:string = 'test ;)'
+export let testVar:string = 'test'

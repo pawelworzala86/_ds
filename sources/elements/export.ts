@@ -14,17 +14,12 @@ export class Export extends Base{
         let index:number = 0
         index = tokenizer.index
         while(!['\n'].includes(token = tokenizer.get())){
-            //console.log('REC::', token)
             tokens.push(token)
         }
         tokenizer.index = index+1
         const name = tokens[2]
-        //console.log('EXPORT::::::::::',name)
         this.parent!.addExport(name)
     }
-    /*asm(ASM:Asm){
-        //console.log('IMPORT')
-    }*/
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
         if(['export'].includes(token)){

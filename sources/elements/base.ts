@@ -1,11 +1,13 @@
 import Tokenizer from "../tokenizer.ts"
 import Asm from "./../asm.ts"
+import DataElement from './dataElement.ts'
+import FuncElement from "./funcElement.ts"
 
 export class Base{
     parent:Base|null
     children:Base[] = []
-    DATA:any = []
-    FUNCTIONS:any = []
+    DATA:DataElement[] = []
+    FUNCTIONS:FuncElement[] = []
     IMPORT:any = []
     EXPORT:any = []
     constructor(parent:Base|null){
@@ -17,26 +19,35 @@ export class Base{
             child.asm(ASM)
         }
     }
-    getData(name:string):any{
-        const data = this.DATA[name]
+    getData(name:string):DataElement|null{
+        let data = null
+        for(const DATA of this.DATA){
+            if(DATA.name==name){
+                data = DATA
+            }
+        }
         if(!data){
-            return this.parent?.getData(name)
+            return this.parent?.getData(name)!
         }
         return data
     }
-    setData(name:string,value:any){
-        this.DATA[name] = value
+    addData(value:any){
+        this.DATA.push(value)
     }
-    getFunction(name:string):any{
-        const func = this.FUNCTIONS[name]
+    getFunction(name:string):FuncElement|null{
+        let func = null
+        for(const FUNCTION of this.FUNCTIONS){
+            if(FUNCTION.name==name){
+                func = FUNCTION
+            }
+        }
         if(!func){
-            return this.parent?.getFunction(name)
+            return this.parent?.getFunction(name)!
         }
         return func
     }
-    setFunction(name:string,value:any){
-        this.FUNCTIONS[name] = value
-        //console.log(this.FUNCTIONS)
+    addFunction(value:any){
+        this.FUNCTIONS.push(value)
     }
     addExport(name:string){
         this.EXPORT[name] = {name}
@@ -65,20 +76,16 @@ export class Base{
         const EXPORT = this.getExport()
         if(EXPORT){
             for(const key of Object.keys(EXPORT)){
-                //const EXP = EXPORT[key]
                 const DATA = this.getData(key)
                 EXPORT[key] = DATA
             }
         }
-        //console.log('linkExports',this.getExport())
     }
     testChangeName(){
-        for(const key of Object.keys(this.DATA)){
-            const DATA = this.DATA[key]
+        for(const DATA of this.DATA){
             DATA.name = 'X_'+DATA.name
         }
-        for(const key of Object.keys(this.FUNCTIONS)){
-            const FUNCTION = this.FUNCTIONS[key]
+        for(const FUNCTION of this.FUNCTIONS){
             FUNCTION.name = 'X_'+FUNCTION.name
         }
         for(const child of this.children){
