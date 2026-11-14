@@ -3,6 +3,11 @@ import Asm from "./../asm.ts"
 import DataElement from './dataElement.ts'
 import FuncElement from "./funcElement.ts"
 
+let ID = 0
+function getID(){
+    return ++ID
+}
+
 export class Base{
     parent:Base|null
     children:Base[] = []
@@ -83,10 +88,10 @@ export class Base{
     }
     testChangeName(){
         for(const DATA of this.DATA){
-            DATA.name = 'X_'+DATA.name
+            DATA.name = 'X'+getID()+'_'+DATA.name
         }
         for(const FUNCTION of this.FUNCTIONS){
-            FUNCTION.name = 'X_'+FUNCTION.name
+            FUNCTION.name = 'X'+getID()+'_'+FUNCTION.name
         }
         for(const child of this.children){
             child.testChangeName()

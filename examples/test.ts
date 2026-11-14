@@ -6,6 +6,7 @@ declare function ExitProcess(...args:any[]):any//kernel32
 
 let helloTxt:string = 'Hello World!!!'
 
+let testVar:string = 'ttt'
 
 printf(helloTxt)
 
