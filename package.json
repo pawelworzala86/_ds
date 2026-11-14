@@ -7,7 +7,7 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "node ./sources/test.ts"
+    "compile": "node ./sources/compile.ts"
   },
   "repository": {
     "type": "git",

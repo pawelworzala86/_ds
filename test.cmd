@@ -1,6 +1,6 @@
 @echo off
 
-npm run test .\examples\test.ts .\dist\test.exe
+npm run compile .\examples\test.ts .\dist\test.exe
 
 if %errorlevel% neq 0 goto koniec
 

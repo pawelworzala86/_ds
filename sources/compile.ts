@@ -6,13 +6,16 @@ import Tokenizer from './tokenizer.ts';
 import Base from './elements/base.ts';
 
 
+const sourceFile = process.argv[2]
+const targetFile = process.argv[3]
 
-const source = fs.readFileSync('./examples/test.ts').toString()+'\n'
+
+const source = fs.readFileSync(sourceFile).toString()+'\n'
 
 const tokenizer = new Tokenizer(source)
 const root = new Base(null)
 
-Make.compile(root,tokenizer,'./examples/test.ts')
+Make.compile(root,tokenizer,sourceFile)
 
 
 const ASM:Asm = new Asm()
@@ -25,4 +28,4 @@ const code = ASM.getASMCode()
 console.log(code)
 
 const exe = CompileASM(code)
-fs.writeFileSync('./dist/test.exe',exe)
+fs.writeFileSync(targetFile,exe)
