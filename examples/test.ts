@@ -69,7 +69,8 @@ testObj.test()
 
 
 function testFN(){
-    msvcrt.printf(' testFN ')
+    let x:obj.TESTOBJ = new obj.TESTOBJ()
+    msvcrt.printf(' testFN %i ', x.propA)
 }
 function callbackFN(callback:Function){
     let x:number = 44
@@ -85,6 +86,7 @@ msvcrt.printf(' %i ', testObj.obj.propA+1)
 testObj.obj.propA = 46
 msvcrt.printf(' %i ', testObj.obj.propA)
 
+testFN()
 
 
 kernel.ExitProcess()
