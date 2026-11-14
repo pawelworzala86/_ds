@@ -29,7 +29,10 @@ export class Import extends Base{
             for(const key of Object.keys(EXPORT)){
                 const EXP = EXPORT[key]
                 //console.log('EXP',EXP)
-                const data = this.getData(EXP.name)
+                let data:any = this.getData(EXP.name)
+                if(!data){
+                    data = this.getFunction(EXP.name)
+                }
                 const replaceName = alias+'.'+EXP.name
                 tokenizer.replace(replaceName, data!.name!)
             }
