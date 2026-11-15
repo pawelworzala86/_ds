@@ -134,6 +134,7 @@ export class FunctionArgument{
             body.push('sub rsp, 32')
             body.push(`call ${methodLabel}`)
             body.push('add rsp, 32')
+            body.push('ret')
             body.push('endp')
             ASM.addProc(body.join('\n'))
         }

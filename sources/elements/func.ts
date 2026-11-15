@@ -60,6 +60,7 @@ export class Func extends Base{
             node.asm(asm)
         }
         asm.addCode(`${this.returnLabel}:`)
+        asm.addCode('ret')
         asm.addCode(`endp`)
         const code = asm.getCode().join('\n')
         for(const data of asm.getData()){
@@ -74,13 +75,14 @@ export class Func extends Base{
             node.asm(asm)
         }
         asm.addCode(`${this.returnLabel}:`)
+        asm.addCode('ret')
         const params = this.element?.params.map((param:any)=>param.name).join(', ')
         const body = asm.getCode().join('').trimEnd()
         const signature = `proc ${this.element!.name}${params?`, ${params}`:''}`
         for(const data of asm.getData()){
             ASM.addData(data.trimEnd())
         }
-        return `${signature}${body?`\n${body}`:''}\nendp`
+        return `${signature}${body?`\n${body}`:''}\nret\nendp`
     }
     static test(active:Base,tokenizer:Tokenizer,ASM:Asm,classMethod=false){
         const token = tokenizer.get()
