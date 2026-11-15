@@ -157,6 +157,15 @@ export class Assign extends Base{
             target.numericKind = access.property.numericKind
             target.classPropertyInstance = access.instance
             target.classPropertyPath = access.path
+            if(access.instance.classType){
+                const classType = this.parent?.getClass(access.instance.classType)
+                target.classPropertyOffset = classType
+                    ? getClassPropertyOffset(classType,access.path,name=>this.parent!.getClass(name))
+                    : null
+                if(target.classPropertyOffset===null){
+                    throw new Error(`Unable to resolve local struct property "${access.path}"`)
+                }
+            }
         }
         if(operator!=='='&&target.type!=='number'){
             throw new Error('Compound assignment is only supported for number variables')
@@ -181,21 +190,35 @@ export class Assign extends Base{
             throw new Error('Assignment is not initialized')
         }
         const targetName = this.target.getAccessName()
+        const storeTarget = (value:string,asFloat=false)=>{
+            const instance = this.target?.classPropertyInstance
+            const offset = this.target?.classPropertyOffset
+            if(instance?.isProcedureLocal&&offset!==null&&offset!==undefined){
+                ASM.addCode(`lea rdx, [${instance.name}]`)
+                ASM.addCode(asFloat
+                    ? `movsd qword [rdx+${offset}], ${value}`
+                    : `mov [rdx+${offset}], ${value}`)
+                return
+            }
+            ASM.addCode(asFloat
+                ? `movsd qword [${targetName}], ${value}`
+                : `mov [${targetName}], ${value}`)
+        }
         if(this.stringPropertyTarget){
             const valueLabel = `__ds_str_assign_${++stringAssignId}`
             ASM.addData(`${valueLabel} db ${this.stringValue},0`)
             ASM.addCode(`lea rax, [${valueLabel}]`)
-            ASM.addCode(`mov [${targetName}], rax`)
+            storeTarget('rax')
             return
         }
         if(this.addressLabel){
             ASM.addCode(`lea rax, [${this.addressLabel}]`)
-            ASM.addCode(`mov [${targetName}], rax`)
+            storeTarget('rax')
             return
         }
         if(this.invokeExpression){
             this.invokeExpression.asm(ASM)
-            ASM.addCode(`mov [${targetName}], rax`)
+            storeTarget('rax')
             return
         }
         if(this.arrayPropertyTarget&&this.expression){
@@ -304,12 +327,12 @@ export class Assign extends Base{
             return
         }
         if(this.expression.numericKind==='float'){
-            ASM.addCode(`movsd qword [${targetName}], xmm0`)
+            storeTarget('xmm0',true)
         }else if(this.target.numericKind==='float'){
             ASM.addCode('cvtsi2sd xmm0, rax')
-            ASM.addCode(`movsd qword [${targetName}], xmm0`)
+            storeTarget('xmm0',true)
         }else{
-            ASM.addCode(`mov [${targetName}], rax`)
+            storeTarget('rax')
         }
     }
     static test(active:Base,tokenizer:Tokenizer){

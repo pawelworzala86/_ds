@@ -139,7 +139,7 @@ export class FunctionArgument{
             ASM.addProc(body.join('\n'))
         }
         if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
-            this.value.name = `${this.classPropertyInstance.name}.${this.classPropertyPath??this.classProperty.name}`
+            this.value.name = this.getClassPropertyAccessName()
         }
         if(this.classPropertyInstance?.isParameter&&this.classProperty&&!this.classProperty.isArray&&this.tempName){
             const classType = this.classPropertyInstance.classType
@@ -232,7 +232,7 @@ export class FunctionArgument{
             return byValue?`[${this.tempName}]`:this.tempName
         }
         if(this.classPropertyInstance&&this.classProperty){
-            const name = `${this.classPropertyInstance.name}.${this.classPropertyPath??this.classProperty.name}`
+            const name = this.getClassPropertyAccessName()
             if(this.classProperty.type==='string'){
                 return `[${name}]`
             }
@@ -251,6 +251,26 @@ export class FunctionArgument{
             return `addr ${this.value.getCode()}`
         }
         return this.value
+    }
+
+    getClassPropertyAccessName(){
+        const instance = this.classPropertyInstance
+        const property = this.classProperty
+        if(!instance||!property){
+            throw new Error('Struct property access is not initialized')
+        }
+        const path = this.classPropertyPath??property.name??''
+        if(instance.isProcedureLocal&&instance.classType){
+            const classType = this.scope.getClass(instance.classType)
+            const offset = classType
+                ? getClassPropertyOffset(classType,path,name=>this.scope.getClass(name))
+                : null
+            if(offset===null){
+                throw new Error(`Unable to resolve local struct property "${path}"`)
+            }
+            return `${instance.name}+${offset}`
+        }
+        return `${instance.name}.${path}`
     }
 }
 

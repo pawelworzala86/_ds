@@ -29,6 +29,31 @@ function initializeStructStrings(ASM:Asm,instanceName:string,properties:DataElem
     }
 }
 
+function getStructFields(properties:DataElement[],getClass:(name:string)=>ClassElement|null):DataElement[]{
+    return properties.flatMap(property=>{
+        if(property.classType&&!property.isArray){
+            const nestedClass = getClass(property.classType)
+            if(nestedClass){
+                return getStructFields(nestedClass.props,getClass)
+            }
+        }
+        return [property]
+    })
+}
+
+function initializeStackStructStrings(ASM:Asm,instanceName:string,properties:DataElement[]){
+    properties.forEach((property,index)=>{
+        if(property.type!=='string'){
+            return
+        }
+        const label = `__ds_object_string_${++objectStringLabelId}`
+        ASM.addData(`${label} db '${property.value??''}',0`)
+        ASM.addCode(`lea rax, [${label}]`)
+        ASM.addCode(`lea rdx, [${instanceName}]`)
+        ASM.addCode(`mov [rdx+${index*8}], rax`)
+    })
+}
+
 function parseObjectLiteral(tokens:string[]):ObjectLiteralProperty[]{
     if(tokens[0]!=='{'||tokens[tokens.length-1]!=='}'){
         throw new Error('Invalid struct initializer')
@@ -365,6 +390,52 @@ export class Data extends Base{
     }
     asm(ASM:Asm){
         if(!this.element){
+            return
+        }
+        if(this.element!.isProcedureLocal&&this.element!.isArray&&this.element!.type==='number'&&!this.element!.dynamicArray){
+            const values = splitTopLevelArrayValues(this.element!.value??'')
+            if(this.element!.numericKind==='float'){
+                ASM.addCode(`local ${this.element!.name} dq ${values.map(()=>0).join(', ')}`)
+                values.forEach((value,index)=>{
+                    const literal = getNumericKind(value)==='integer'?`${Number(value)}.0`:value
+                    const label = `__ds_local_array_literal_${this.element!.name}_${index}`
+                    ASM.addData(`${label} dq ${literal}`)
+                    ASM.addCode(`movsd xmm0, qword [${label}]`)
+                    ASM.addCode(`movsd qword [${this.element!.name}+${index*8}], xmm0`)
+                })
+            }else{
+                ASM.addCode(`local ${this.element!.name} dq ${values.join(', ')}`)
+            }
+            return
+        }
+        if(this.element!.isProcedureLocal&&this.element!.classType&&!this.element!.isArray){
+            const classType = this.parent?.getClass(this.element!.classType)
+            const properties = this.element!.classLayoutProps??classType?.props
+            if(!properties){
+                throw new Error(`Unknown class type "${this.element!.classType}" for local "${this.element!.name}"`)
+            }
+            const fields = this.element!.classLayoutProps
+                ? properties
+                : getStructFields(properties,name=>this.parent!.getClass(name))
+            ASM.addCode(`local ${this.element!.name} dq ${fields.map(()=>0).join(', ')||'0'}`)
+            fields.forEach((property,index)=>{
+                const value = property.type==='string'?null:property.value
+                if(!value||value==='0'){
+                    return
+                }
+                if(property.type==='number'&&getNumericKind(value)==='float'){
+                    const label = `__ds_local_struct_literal_${this.element!.name}_${index}`
+                    ASM.addData(`${label} dq ${value}`)
+                    ASM.addCode(`movsd xmm0, qword [${label}]`)
+                    ASM.addCode(`lea rdx, [${this.element!.name}]`)
+                    ASM.addCode(`movsd qword [rdx+${index*8}], xmm0`)
+                }else{
+                    ASM.addCode(`mov rax, ${value}`)
+                    ASM.addCode(`lea rdx, [${this.element!.name}]`)
+                    ASM.addCode(`mov [rdx+${index*8}], rax`)
+                }
+            })
+            initializeStackStructStrings(ASM,this.element!.name!,fields)
             return
         }
         if(this.element!.isProcedureLocal){

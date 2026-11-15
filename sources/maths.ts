@@ -1,7 +1,7 @@
 import Base from './elements/base.ts'
 import Asm from './asm.ts'
 import DataElement, {getNumericKind, type NumericKind} from './elements/dataElement.ts'
-import {getClassPropertyAccess} from './elements/clasElement.ts'
+import {getClassPropertyAccess, getClassPropertyOffset} from './elements/clasElement.ts'
 
 type BinaryOperator = '+'|'-'|'*'|'/'|'%'|'**'
 
@@ -125,6 +125,15 @@ export function parseExpression(text:string,active:Base):Expression{
             data.numericKind = access.property.numericKind
             data.classPropertyInstance = access.instance
             data.classPropertyPath = access.path
+            if(access.instance.classType){
+                const classType = active.getClass(access.instance.classType)
+                data.classPropertyOffset = classType
+                    ? getClassPropertyOffset(classType,access.path,name=>active.getClass(name))
+                    : null
+                if(data.classPropertyOffset===null){
+                    throw new Error(`Unable to resolve local struct property "${access.path}"`)
+                }
+            }
         }
         if(tokens[index]==='['){
             if(!data.isArray){

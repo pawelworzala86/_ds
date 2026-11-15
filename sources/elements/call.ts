@@ -102,7 +102,7 @@ export class Call extends Base{
                 }
                 ASM.addCode('push rax')
             }
-            const shadowSpace = 32+(this.params.length%2)*8
+            const shadowSpace = 32+(this.params.length%2===0?8:0)
             ASM.addCode(`sub rsp, ${shadowSpace}`)
             ASM.addCode(`mov rax, [${this.functionVariable.name}]`)
             ASM.addCode('call rax')
@@ -131,7 +131,7 @@ export class Call extends Base{
                 }else if(param.tempName){
                     ASM.addCode(`mov rax, [${param.tempName}]`)
                 }else if(param.classPropertyInstance&&param.classProperty?.type==='string'){
-                    const name = `${param.classPropertyInstance.name}.${param.classPropertyPath??param.classProperty.name}`
+                    const name = param.getClassPropertyAccessName()
                     ASM.addCode(`mov rax, [${name}]`)
                 }else if(param.value instanceof DataElement&&param.value.classType&&expected?.type===param.value.classType){
                     ASM.addCode(`lea rax, [${param.value.name}]`)
@@ -146,7 +146,7 @@ export class Call extends Base{
                 }
                 ASM.addCode('push rax')
             }
-            const shadowSpace = 32+(this.params.length%2)*8
+            const shadowSpace = 32+(this.params.length%2===0?8:0)
             ASM.addCode(`sub rsp, ${shadowSpace}`)
             ASM.addCode(`call ${this.func!.name}`)
             ASM.addCode(`add rsp, ${shadowSpace+this.params.length*8}`)

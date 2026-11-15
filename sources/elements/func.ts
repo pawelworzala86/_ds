@@ -37,7 +37,11 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
         for(const data of this.DATA){
-            if(!data.isParameter&&data.type==='number'&&!data.isArray){
+            if(!data.isParameter&&(
+                data.type==='number'&&!data.isArray
+                ||data.type==='number'&&data.isArray&&!data.dynamicArray
+                ||Boolean(data.classType)&&!data.isArray
+            )){
                 data.isProcedureLocal = true
             }
         }

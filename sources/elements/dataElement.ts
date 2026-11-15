@@ -22,6 +22,7 @@ export class DataElement{
     dynamicArray = false
     isParameter = false
     isProcedureLocal = false
+    classPropertyOffset:number|null = null
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
         this.name = name
@@ -35,6 +36,9 @@ export class DataElement{
         if(this.isArray){
             return this.isParameter?this.name:'addr '+this.name
         }
+        if(this.classType&&this.isProcedureLocal){
+            return 'addr '+this.name
+        }
         if(this.type=='string'){
             return 'addr '+this.name
         }
@@ -45,7 +49,9 @@ export class DataElement{
     }
     getAccessName(){
         return this.classPropertyInstance&&this.classPropertyPath
-            ? `${this.classPropertyInstance.name}.${this.classPropertyPath}`
+            ? this.classPropertyInstance.isProcedureLocal&&this.classPropertyOffset!==null
+                ? `${this.classPropertyInstance.name}+${this.classPropertyOffset}`
+                : `${this.classPropertyInstance.name}.${this.classPropertyPath}`
             : this.name
     }
 }
