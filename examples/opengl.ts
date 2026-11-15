@@ -33,11 +33,6 @@ interface MSG {
     part5: number
 }
 
-//.code
-//    jmp __ds_main
-main()
-kernel.ExitProcess(0)
-
 function WndProc(hwnd: number, message: number, wParam: number, lParam: number) {
     if(message==15){
         let paint: number[] = [0,0,0,0,0,0,0,0,0]
@@ -195,8 +190,6 @@ function main() {
 
     kernel.ExitProcess(0)
 }
-/*
-__ds_main:
+
 main()
 kernel.ExitProcess(0)
-*/
