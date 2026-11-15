@@ -1,4 +1,3 @@
-import * as msvcrt from './system/msvcrt.ts'
 import * as kernel from './system/kernel.ts'
 import * as gdi from './system/gdi.ts'
 import * as user from './system/user.ts'
@@ -56,7 +55,7 @@ import * as opengl from './system/opengl.ts'
         call    [CreateWindowExA]
         add     rsp, 104
 
-        mov     rdi, rax                ; zachowaj hWnd przed wywołaniem printf
+        mov     rdi, rax                ; zachowaj hWnd
         mov     rax, rdi
 
         test    rax, rax

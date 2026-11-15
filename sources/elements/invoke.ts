@@ -34,7 +34,9 @@ export class Invoke extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        if(Invokers.includes(token)){
+        const lineStart = tokenizer.tokens.lastIndexOf('\n',tokenizer.index-2)+1
+        const lineComment = tokenizer.tokens[lineStart]?.startsWith(';')??false
+        if(Invokers.includes(token)&&tokenizer.tokens[tokenizer.index]==='('&&!lineComment){
             tokenizer.move(-1)
             const data = new Invoke(active)
             data.set(tokenizer)
