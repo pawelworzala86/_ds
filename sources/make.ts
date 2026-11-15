@@ -13,6 +13,8 @@ import Export from "./elements/export.ts"
 import Class from "./elements/class.ts"
 import Prototype from "./elements/prototype.ts"
 import Iff from "./elements/iff.ts"
+import While from "./elements/while.ts"
+import Break from "./elements/break.ts"
 import Return from "./elements/return.ts"
 
 export class Make{
@@ -31,6 +33,8 @@ export class Make{
             }else if(Class.test(active,tokenizer,ASM)){
             }else if(Prototype.test(active,tokenizer,ASM)){
             }else if(Iff.test(active,tokenizer)){
+            }else if(While.test(active,tokenizer)){
+            }else if(Break.test(active,tokenizer)){
             }else if(Return.test(active,tokenizer)){
             }else{
                 const token = tokenizer.get()

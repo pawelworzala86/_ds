@@ -94,7 +94,13 @@ export class Assign extends Base{
         while(!['\n',';'].includes(token = tokenizer.get())){
             tokens.push(token)
         }
-        const statement = tokens.join('').replace(/;$/,'')
+        let statement = tokens.join('').replace(/;$/,'')
+        const postfixUpdate = statement.match(/^([a-z_$][\w.$]*)(?:\[([^\]]+)\])?(\+\+|--)$/i)
+        if(postfixUpdate){
+            const [,targetName,indexText,operator] = postfixUpdate
+            const target = `${targetName}${indexText?`[${indexText}]`:''}`
+            statement = `${target}=${target}${operator==='++'?'+':'-'}1`
+        }
         const arrayProperty = statement.match(/^([a-z_$][\w$]*)\[([^\]]+)\]\.(\w+)=(.+?);?$/i)
         if(arrayProperty){
             const [,arrayName,indexText,propertyName,expression] = arrayProperty
@@ -117,11 +123,11 @@ export class Assign extends Base{
             this.arrayPropertyTarget = {array,index,property,offset}
             return
         }
-        const match = statement.match(/^([a-z_$][\w.$]*)(?:\[([^\]]+)\])?=(.+?);?$/i)
+        const match = statement.match(/^([a-z_$][\w.$]*)(?:\[([^\]]+)\])?(\*\*=|\+=|-=|\*=|\/=|%=|=)(.+?);?$/i)
         if(!match){
             throw new Error('Invalid assignment')
         }
-        const [,targetName,indexText,expression] = match
+        const [,targetName,indexText,operator,expression] = match
         const access = this.parent?getClassPropertyAccess(this.parent,targetName):null
         const target = this.parent?.getData(targetName)??(access
             ? new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')
@@ -136,7 +142,13 @@ export class Assign extends Base{
             target.classPropertyInstance = access.instance
             target.classPropertyPath = access.path
         }
-        this.setExpression(target,expression,false,indexText)
+        if(operator!=='='&&target.type!=='number'){
+            throw new Error('Compound assignment is only supported for number variables')
+        }
+        const assignmentExpression = operator==='='
+            ? expression
+            : `${targetName}${indexText?`[${indexText}]`:''}${operator.slice(0,-1)}(${expression})`
+        this.setExpression(target,assignmentExpression,false,indexText)
     }
     asm(ASM:Asm){
         if(!this.target){
@@ -261,9 +273,11 @@ export class Assign extends Base{
         const first = tokenizer.get()
         const second = tokenizer.get()
         tokenizer.move(-2)
-        const compactAssignment = first.match(/^([a-z_$][\w.$]*(?:\[[^\]]+\])?)=/i)
-        const propertyAssignment = first.match(/^([a-z_$][\w$]*\[[^\]]+\]\.[a-z_$][\w$]*)=/i)
-        const targetName = second==='='?first:compactAssignment?.[1]??propertyAssignment?.[1]
+        const compactAssignment = first.match(/^([a-z_$][\w.$]*(?:\[[^\]]+\])?)(?:\*\*=|\+=|-=|\*=|\/=|%=|=)/i)
+        const postfixUpdate = first.match(/^([a-z_$][\w.$]*(?:\[[^\]]+\])?)(?:\+\+|--)$/i)
+        const propertyAssignment = first.match(/^([a-z_$][\w$]*\[[^\]]+\]\.[a-z_$][\w$]*)(?:\*\*=|\+=|-=|\*=|\/=|%=|=)/i)
+        const isAssignmentOperator = second==='='||['+=','-=','*=','/=','%=','**='].includes(second)
+        const targetName = isAssignmentOperator?first:compactAssignment?.[1]??postfixUpdate?.[1]??propertyAssignment?.[1]
         const dataName = targetName?.match(/^([a-z_$][\w.$]*)/i)?.[1]
         if(dataName&&(active.getData(dataName)||getClassPropertyAccess(active,dataName))){
             const data = new Assign(active)

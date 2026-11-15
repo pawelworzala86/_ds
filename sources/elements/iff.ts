@@ -14,6 +14,7 @@ type Condition =
     | {kind:'and',left:Condition,right:Condition}
     | {kind:'or',left:Condition,right:Condition}
     | {kind:'not',value:Condition}
+    | {kind:'boolean',value:boolean}
     | {kind:'compare',left:Expression|StringOperand,right:Expression|StringOperand,operator:string,calls:ConditionCall[]}
     | {kind:'truthy',value:Expression,calls:ConditionCall[]}
 
@@ -158,6 +159,18 @@ export class Iff extends Base{
         super(parent)
     }
 
+    static isConditionExpression(source:string){
+        let text = source.trim()
+        while(isWrapped(text)){
+            text = text.slice(1,-1).trim()
+        }
+        return text==='true'||text==='false'
+            ||(text.startsWith('!')&&!text.startsWith('!='))
+            ||findTopLevel(text,'||')!==-1
+            ||findTopLevel(text,'&&')!==-1
+            ||findComparison(text)!==null
+    }
+
     set(tokenizer:Tokenizer){
         if(tokenizer.get()!=='if'||tokenizer.get()!=='('){
             throw new Error('Invalid if statement')
@@ -237,6 +250,9 @@ export class Iff extends Base{
         }
         if(text.startsWith('!')&&!text.startsWith('!=')){
             return {kind:'not',value:this.parseCondition(text.slice(1))}
+        }
+        if(text==='true'||text==='false'){
+            return {kind:'boolean',value:text==='true'}
         }
         const comparison = findComparison(text)
         if(comparison){
@@ -391,6 +407,10 @@ export class Iff extends Base{
             this.emitBranch(condition.left,ASM,trueLabel,next)
             ASM.addCode(`${next}:`)
             this.emitBranch(condition.right,ASM,trueLabel,falseLabel)
+            return
+        }
+        if(condition.kind==='boolean'){
+            ASM.addCode(`jmp ${condition.value?trueLabel:falseLabel}`)
             return
         }
         if(condition.kind==='truthy'){

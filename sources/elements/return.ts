@@ -2,9 +2,13 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from '../asm.ts'
 import {emitExpression,parseExpression,type Expression} from '../maths.ts'
+import Iff from './iff.ts'
+
+let returnConditionId = 0
 
 export class Return extends Base{
     expression:Expression|null = null
+    condition:Iff|null = null
 
     constructor(parent:Base){
         super(parent)
@@ -26,12 +30,29 @@ export class Return extends Base{
         }
         const expression = tokens.join('').replace(/;$/,'')
         if(expression){
-            this.expression = parseExpression(expression,this)
+            if(Iff.isConditionExpression(expression)){
+                this.condition = new Iff(this)
+                this.condition.condition = this.condition.parseCondition(expression)
+            }else{
+                this.expression = parseExpression(expression,this)
+            }
         }
     }
 
     asm(ASM:Asm){
-        if(this.expression){
+        if(this.condition?.condition){
+            const id = ++returnConditionId
+            const trueLabel = `__ds_return_true_${id}`
+            const falseLabel = `__ds_return_false_${id}`
+            const endLabel = `__ds_return_end_${id}`
+            this.condition.emitBranch(this.condition.condition,ASM,trueLabel,falseLabel)
+            ASM.addCode(`${trueLabel}:`)
+            ASM.addCode('mov rax, 1')
+            ASM.addCode(`jmp ${endLabel}`)
+            ASM.addCode(`${falseLabel}:`)
+            ASM.addCode('xor rax, rax')
+            ASM.addCode(`${endLabel}:`)
+        }else if(this.expression){
             emitExpression(this.expression,ASM)
         }
         let parent = this.parent
