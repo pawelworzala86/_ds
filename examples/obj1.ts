@@ -1,4 +1,4 @@
-import * as msvcrt from './system/msvcrt.ts'
+import * as msvcrt from './system/lib/msvcrt.ts'
 
 export class tOBJ{
     propA:number = 45

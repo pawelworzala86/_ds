@@ -1,5 +1,5 @@
-import * as msvcrt from './system/msvcrt.ts'
-import * as kernel from './system/kernel.ts'
+import * as msvcrt from './system/lib/msvcrt.ts'
+import * as kernel from './system/lib/kernel.ts'
 
 prototype number {
     function show(value:number){
