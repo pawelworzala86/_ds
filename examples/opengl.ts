@@ -33,16 +33,10 @@ interface MSG {
     part5: number
 }
 
-interface GLState {
-    deviceContext: number
-    context: number
-}
-
 .code
     jmp __ds_main
 
 WndProc:
-    ; Callback musi zachować ABI Win64; procedury TS używają konwencji stosowej.
     sub rsp, 32
     cmp rdx, 15
     je .wm_paint
@@ -58,34 +52,10 @@ WndProc:
     mov r10, [rsp + 104]
     lea rax, [rsp + 32]
     invoke BeginPaint, r10, rax
-    mov [rsp + 112], rax
-
-    mov r10, [rsp + 104]
-    invoke GetWindowLongPtrA, r10, -21
-    mov [rsp + 120], rax
-
-    mov rax, [rsp + 120]
-    mov r10, [rax]
-    mov r11, [rax + 8]
-    invoke wglMakeCurrent, r10, r11
-    test eax, eax
-    jz .wm_paint_done
-    invoke glClear, 04000h
-    invoke glBegin, 4
-    invoke glColor3fv, addr redColor
-    invoke glVertex3fv, addr topVertex
-    invoke glColor3fv, addr greenColor
-    invoke glVertex3fv, addr leftVertex
-    invoke glColor3fv, addr blueColor
-    invoke glVertex3fv, addr rightVertex
-    invoke glEnd
-    mov rax, [rsp + 120]
-    mov r10, [rax]
-    invoke SwapBuffers, r10
-.wm_paint_done:
     mov r10, [rsp + 104]
     lea rax, [rsp + 32]
     invoke EndPaint, r10, rax
+
     xor eax, eax
     add rsp, 128
     add rsp, 32
@@ -177,15 +147,38 @@ if(glContextSet==0){
     kernel.ExitProcess(7)
 }
 
-let glState:GLState = {
-    deviceContext: 0,
-    context: 0,
+let redColorAddress:number = &redColor
+let greenColorAddress:number = &greenColor
+let blueColorAddress:number = &blueColor
+let topVertexAddress:number = &topVertex
+let leftVertexAddress:number = &leftVertex
+let rightVertexAddress:number = &rightVertex
+
+function renderTriangle(){
+    let contextSet:number = opengl.wglMakeCurrent(windowDC, glContext)
+    if(contextSet==0){
+        kernel.ExitProcess(9)
+    }
+
+    opengl.glClear(0x4000)
+    opengl.glBegin(4)
+    opengl.glColor3fv(redColorAddress)
+    opengl.glVertex3fv(topVertexAddress)
+    opengl.glColor3fv(greenColorAddress)
+    opengl.glVertex3fv(leftVertexAddress)
+    opengl.glColor3fv(blueColorAddress)
+    opengl.glVertex3fv(rightVertexAddress)
+    opengl.glEnd()
+
+    let buffersSwapped:number = gdi.SwapBuffers(windowDC)
+    if(buffersSwapped==0){
+        kernel.ExitProcess(10)
+    }
 }
-glState.deviceContext = windowDC
-glState.context = glContext
-user.SetWindowLongPtrA(hWnd, -21, glState)
+
 user.ShowWindow(hWnd, 1)
 user.UpdateWindow(hWnd)
+renderTriangle()
 
 let messageResult:number = 1
 while(true){
@@ -198,6 +191,9 @@ while(true){
     }
     user.TranslateMessage(msg)
     user.DispatchMessageA(msg)
+    if(msg.part1==15){
+        renderTriangle()
+    }
 }
 
 kernel.ExitProcess(0)
