@@ -4,6 +4,7 @@ import Asm from './../asm.ts'
 import DataElement from './dataElement.ts'
 import {emitExpression, parseExpression, type Expression} from '../maths.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
+import Invoke, {isInvoke} from './invoke.ts'
 
 let stringAssignId = 0
 
@@ -16,6 +17,8 @@ export class Assign extends Base{
     stringSource:DataElement|null = null
     stringSourceIndex:Expression|null = null
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
+    addressLabel:string|null = null
+    invokeExpression:Invoke|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -77,6 +80,18 @@ export class Assign extends Base{
                 return
             }
             throw new Error(`String array assignment requires a string literal, string variable, or string-array element: "${expression}"`)
+        }
+        const address = !indexText?expression.trim().match(/^&([a-z_$][\w.$]*)$/i):null
+        if(address){
+            this.addressLabel = address[1]
+            return
+        }
+        const nativeCall = !indexText?expression.trim().match(/^([a-z_$][\w$]*)\(([\s\S]*)\)$/i):null
+        if(nativeCall&&isInvoke(nativeCall[1])){
+            this.invokeExpression = new Invoke(this.parent!)
+            this.invokeExpression.set(new Tokenizer(expression.trim()))
+            target.numericKind = 'integer'
+            return
         }
         this.expression = parseExpression(expression,this.parent!)
         if(indexText){
@@ -170,6 +185,16 @@ export class Assign extends Base{
             const valueLabel = `__ds_str_assign_${++stringAssignId}`
             ASM.addData(`${valueLabel} db ${this.stringValue},0`)
             ASM.addCode(`lea rax, [${valueLabel}]`)
+            ASM.addCode(`mov [${targetName}], rax`)
+            return
+        }
+        if(this.addressLabel){
+            ASM.addCode(`lea rax, [${this.addressLabel}]`)
+            ASM.addCode(`mov [${targetName}], rax`)
+            return
+        }
+        if(this.invokeExpression){
+            this.invokeExpression.asm(ASM)
             ASM.addCode(`mov [${targetName}], rax`)
             return
         }

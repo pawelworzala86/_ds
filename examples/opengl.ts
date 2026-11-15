@@ -3,113 +3,73 @@ import * as gdi from './system/gdi.ts'
 import * as user from './system/user.ts'
 import * as opengl from './system/opengl.ts'
 
+interface WNDCLASSEXA {
+    sizeStyle: number
+    lpfnWndProc: number
+    extra: number
+    hInstance: number
+    hIcon: number
+    hCursor: number
+    hbrBackground: number
+    lpszMenuName: number
+    lpszClassName: string
+    hIconSm: number
+}
+
+interface PIXELFORMATDESCRIPTOR {
+    header: number
+    pixels0: number
+    pixels1: number
+    pixels2: number
+    pixels3: number
+}
+
+interface MSG {
+    part0: number
+    part1: number
+    part2: number
+    part3: number
+    part4: number
+    part5: number
+}
+
+interface GLState {
+    deviceContext: number
+    context: number
+}
+
 .code
-    invoke GetModuleHandleA, 0
-    mov [hInstance], rax
+    jmp __ds_main
 
-    lea rax, [WndProc]
-    mov [WindowClass.lpfnWndProc], rax
-    mov rax, [hInstance]
-    mov [WindowClass.hInstance], rax
-    lea rax, [_className]
-    mov [WindowClass.lpszClassName], rax
-    invoke RegisterClassExA, addr WindowClass
-    test eax, eax
-    jz exit
-
-    sub rsp, 8
-    call CreateMainWindow
-    add rsp, 8
-    test rax, rax
-    jz exit
-    mov [hWnd], rax
-
-    invoke GetDC, [hWnd]
-    test rax, rax
-    jz exit
-    mov [windowDC], rax
-
-    invoke ChoosePixelFormat, [windowDC], addr PixelFormat
-    test eax, eax
-    jz exit
-    mov [pixelFormatIndex], rax
-
-    invoke SetPixelFormat, [windowDC], [pixelFormatIndex], addr PixelFormat
-    test eax, eax
-    jz exit
-
-    invoke wglCreateContext, [windowDC]
-    test rax, rax
-    jz exit
-    mov [glContext], rax
-
-    invoke wglMakeCurrent, [windowDC], [glContext]
-    test eax, eax
-    jz exit
-
-    invoke ShowWindow, [hWnd], 1
-    invoke UpdateWindow, [hWnd]
-
-msg_loop:
-    invoke GetMessageA, addr msg, 0, 0, 0
-    test eax, eax
-    jz exit
-    cmp eax, -1
-    je exit
-    invoke TranslateMessage, addr msg
-    invoke DispatchMessageA, addr msg
-    jmp msg_loop
-
-exit:
-    invoke ExitProcess, 0
-
-proc CreateMainWindow
-    ; CreateWindowExA ma 12 argumentów i wymaga ręcznego ułożenia stosu.
-    sub rsp, 96
-    xor ecx, ecx
-    lea rdx, [_className]
-    lea r8, [_windowName]
-    mov r9, 010CF0000h
-
-    mov rax, 080000000h
-    mov [rsp + 32], rax
-    mov [rsp + 40], rax
-    mov qword [rsp + 48], 640
-    mov qword [rsp + 56], 480
-    mov qword [rsp + 64], 0
-    mov qword [rsp + 72], 0
-    mov rax, [hInstance]
-    mov [rsp + 80], rax
-    mov qword [rsp + 88], 0
-
-    call [CreateWindowExA]
-    add rsp, 96
-endp
-
-proc WndProc
-    local savedHwnd dq
-    local savedMessage dq
-    local savedWParam dq
-    local savedLParam dq
-    ; Dodatkowe 8 bajtów utrzymuje wyrównanie stosu przy wywołaniach API.
-    local alignment dq
-
-    mov [savedHwnd], rcx
-    mov [savedMessage], rdx
-    mov [savedWParam], r8
-    mov [savedLParam], r9
-
-    cmp qword [savedMessage], 15
+WndProc:
+    ; Callback musi zachować ABI Win64; procedury TS używają konwencji stosowej.
+    sub rsp, 32
+    cmp rdx, 15
     je .wm_paint
-    cmp qword [savedMessage], 2
+    cmp rdx, 2
     je .wm_destroy
-
-    invoke DefWindowProcA, [savedHwnd], [savedMessage], [savedWParam], [savedLParam]
-    jmp .done
+    invoke DefWindowProcA, rcx, rdx, r8, r9
+    add rsp, 32
+    ret
 
 .wm_paint:
-    invoke BeginPaint, [savedHwnd], addr paintStruct
-    invoke wglMakeCurrent, [windowDC], [glContext]
+    sub rsp, 128
+    mov [rsp + 104], rcx
+    mov r10, [rsp + 104]
+    lea rax, [rsp + 32]
+    invoke BeginPaint, r10, rax
+    mov [rsp + 112], rax
+
+    mov r10, [rsp + 104]
+    invoke GetWindowLongPtrA, r10, -21
+    mov [rsp + 120], rax
+
+    mov rax, [rsp + 120]
+    mov r10, [rax]
+    mov r11, [rax + 8]
+    invoke wglMakeCurrent, r10, r11
+    test eax, eax
+    jz .wm_paint_done
     invoke glClear, 04000h
     invoke glBegin, 4
     invoke glColor3fv, addr redColor
@@ -119,62 +79,125 @@ proc WndProc
     invoke glColor3fv, addr blueColor
     invoke glVertex3fv, addr rightVertex
     invoke glEnd
-    invoke SwapBuffers, [windowDC]
-    invoke EndPaint, [savedHwnd], addr paintStruct
+    mov rax, [rsp + 120]
+    mov r10, [rax]
+    invoke SwapBuffers, r10
+.wm_paint_done:
+    mov r10, [rsp + 104]
+    lea rax, [rsp + 32]
+    invoke EndPaint, r10, rax
     xor eax, eax
-    jmp .done
+    add rsp, 128
+    add rsp, 32
+    ret
 
 .wm_destroy:
     invoke PostQuitMessage, 0
     xor eax, eax
-
-.done:
-endp
+    add rsp, 32
+    ret
 
 .data
-struct WNDCLASSEXA
-    cbSizeStyle dd 80, 0x23
-    lpfnWndProc dq 0
-    extra dd 0, 0
-    hInstance dq 0
-    handles dq 0, 0, 0
-    lpszMenuName dq 0
-    lpszClassName dq 0
-    hIconSm dq 0
-end struct
+redColor dd 1.0f, 0.0f, 0.0f
+greenColor dd 0.0f, 1.0f, 0.0f
+blueColor dd 0.0f, 0.0f, 1.0f
+topVertex dd 0.0f, 0.7f, 0.0f
+leftVertex dd -0.7f, -0.7f, 0.0f
+rightVertex dd 0.7f, -0.7f, 0.0f
+.code
 
-struct PIXELFORMATDESCRIPTOR
-    header dw 40, 1
-    flags dd 0x25
-    pixelFormat db 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 8, 0, 0, 0
-    layerMasks dd 0, 0, 0
-end struct
+__ds_main:
+// Pola obiektów TS zajmują 8 bajtów; krótsze pola WinAPI są spakowane w qwordach.
+let windowClass:WNDCLASSEXA = {
+    sizeStyle: 0x2300000050,
+    lpfnWndProc: 0,
+    extra: 0,
+    hInstance: 0,
+    hIcon: 0,
+    hCursor: 0,
+    hbrBackground: 0,
+    lpszMenuName: 0,
+    lpszClassName: 'MinimalClass64',
+    hIconSm: 0,
+}
 
-struct MSG
-    hwnd dq 0
-    messageAndPadding dd 0, 0
-    parameters dq 0, 0
-    timeAndPoint dd 0, 0, 0
-    private dd 0
-end struct
+let pixelFormat:PIXELFORMATDESCRIPTOR = {
+    header: 0x2500010028,
+    pixels0: 0x2000,
+    pixels1: 0x1800000000000000,
+    pixels2: 8,
+    pixels3: 0,
+}
 
-WindowClass WNDCLASSEXA
-PixelFormat PIXELFORMATDESCRIPTOR
-msg MSG
-paintStruct dq 0,0,0,0,0,0,0,0,0
+let msg:MSG = {
+    part0: 0,
+    part1: 0,
+    part2: 0,
+    part3: 0,
+    part4: 0,
+    part5: 0,
+}
 
-hInstance dq 0
-hWnd dq 0
-windowDC dq 0
-glContext dq 0
-pixelFormatIndex dq 0
+let hInstance:number = kernel.GetModuleHandleA(0)
+windowClass.lpfnWndProc = &WndProc
+windowClass.hInstance = hInstance
 
-_className db 77,105,110,105,109,97,108,67,108,97,115,115,54,52,0
-_windowName db 87,105,110,65,83,77,32,79,112,101,110,71,76,32,84,114,105,97,110,103,108,101,0
+let registeredClass:number = user.RegisterClassExA(windowClass)
+if(registeredClass==0){
+    kernel.ExitProcess(1)
+}
 
-redColor dd 1.0f,0.0f,0.0f
-greenColor dd 0.0f,1.0f,0.0f
-blueColor dd 0.0f,0.0f,1.0f
-topVertex dd 0.0f,0.7f,0.0f
-leftVertex dd -0.7f,-0.7f,0.0f
-rightVertex dd 0.7f,-0.7f,0.0f
+let hWnd:number = user.CreateWindowExA(0, 'MinimalClass64', 'WinASM OpenGL Triangle', 0x10CF0000, 0x80000000, 0x80000000, 640, 480, 0, 0, hInstance, 0)
+if(hWnd==0){
+    kernel.ExitProcess(2)
+}
+
+let windowDC:number = user.GetDC(hWnd)
+if(windowDC==0){
+    kernel.ExitProcess(3)
+}
+
+let pixelFormatIndex:number = gdi.ChoosePixelFormat(windowDC, pixelFormat)
+if(pixelFormatIndex==0){
+    kernel.ExitProcess(4)
+}
+
+let pixelFormatSet:number = gdi.SetPixelFormat(windowDC, pixelFormatIndex, pixelFormat)
+if(pixelFormatSet==0){
+    kernel.ExitProcess(5)
+}
+
+let glContext:number = opengl.wglCreateContext(windowDC)
+if(glContext==0){
+    kernel.ExitProcess(6)
+}
+
+let glContextSet:number = opengl.wglMakeCurrent(windowDC, glContext)
+if(glContextSet==0){
+    kernel.ExitProcess(7)
+}
+
+let glState:GLState = {
+    deviceContext: 0,
+    context: 0,
+}
+glState.deviceContext = windowDC
+glState.context = glContext
+user.SetWindowLongPtrA(hWnd, -21, glState)
+user.ShowWindow(hWnd, 1)
+user.UpdateWindow(hWnd)
+
+let messageResult:number = 1
+while(true){
+    messageResult = user.GetMessageA(msg, 0, 0, 0)
+    if(messageResult==0){
+        break
+    }
+    if(messageResult==0xFFFFFFFF){
+        kernel.ExitProcess(8)
+    }
+    user.TranslateMessage(msg)
+    user.DispatchMessageA(msg)
+}
+
+kernel.ExitProcess(0)

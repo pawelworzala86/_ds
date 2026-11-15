@@ -9,6 +9,10 @@ export function setInvoke(name:string){
     Invokers.push(name)
 }
 
+export function isInvoke(name:string){
+    return Invokers.includes(name)
+}
+
 export class Invoke extends Base{
     name:string|null = null
     params:FunctionArgument[] = []
