@@ -34,9 +34,9 @@ export class Tokenizer{
                 pushToken()
                 tokens.push(char)
                 quote = char
-            }else if(char===' '||char==='\r'||char==='\t'||char==='\n'||char===':'||char==='('||char===')'||char==='{'||char==='}'){
+            }else if(char===' '||char==='\r'||char==='\t'||char==='\n'||char===':'||char==='('||char===')'||char==='{'||char==='}'||char===','||char===';'){
                 pushToken()
-                if(char==='\n'||char===':'||char==='('||char===')'||char==='{'||char==='}'){
+                if(char==='\n'||char===':'||char==='('||char===')'||char==='{'||char==='}'||char===','||char===';'){
                     tokens.push(char)
                 }
             }else{

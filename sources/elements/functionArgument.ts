@@ -10,6 +10,7 @@ let argumentId = 0
 let methodCallbackId = 0
 
 export class FunctionArgument{
+    scope:Base
     value:ReturnType<typeof Link.data>
     methodPointerName:string|null = null
     methodInstance:DataElement|null = null
@@ -26,6 +27,7 @@ export class FunctionArgument{
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
 
     constructor(active:Base,text:string){
+        this.scope = active
         this.value = Link.data(active,text)
         if(typeof this.value==='string'){
             const methodRef = text.match(/^([a-z_$][\w.$]*)\.([a-z_$][\w$]*)$/i)
@@ -56,6 +58,9 @@ export class FunctionArgument{
                 this.classPropertyInstance = instance
                 this.classProperty = property
                 this.classPropertyPath = access.path
+                if(instance.isParameter&&!property.isArray){
+                    this.tempName = `__ds_call_arg_${++argumentId}`
+                }
                 if(property.isArray&&member[2]){
                     const arrayIndex = parseExpression(member[2],active)
                     if(arrayIndex.numericKind!=='integer'){
@@ -135,6 +140,22 @@ export class FunctionArgument{
         if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
             this.value.name = `${this.classPropertyInstance.name}.${this.classPropertyPath??this.classProperty.name}`
         }
+        if(this.classPropertyInstance?.isParameter&&this.classProperty&&!this.classProperty.isArray&&this.tempName){
+            const classType = this.classPropertyInstance.classType
+                ? this.scope.getClass(this.classPropertyInstance.classType)
+                : null
+            const offset = classType
+                ? getClassPropertyOffset(classType,this.classPropertyPath??this.classProperty.name??'',name=>this.scope.getClass(name))
+                : null
+            if(offset===null){
+                throw new Error(`Unable to resolve struct parameter property "${this.classProperty.name}"`)
+            }
+            ASM.addCode(`mov rdx, ${this.classPropertyInstance.name}`)
+            ASM.addCode(`mov rax, [rdx+${offset}]`)
+            ASM.addData(`${this.tempName} dq 0`)
+            ASM.addCode(`mov [${this.tempName}], rax`)
+            return
+        }
         if(this.arrayPropertyAccess&&this.tempName){
             const {array,indexExpression,property,offset} = this.arrayPropertyAccess
             emitExpression(indexExpression,ASM)
@@ -154,9 +175,7 @@ export class FunctionArgument{
             if(offset){
                 ASM.addCode(`add rax, ${offset}`)
             }
-            if(property.type!=='string'){
-                ASM.addCode('mov rax, [rax]')
-            }
+            ASM.addCode('mov rax, [rax]')
             ASM.addData(`${this.tempName} dq 0`)
             ASM.addCode(`mov [${this.tempName}], rax`)
             return
@@ -214,7 +233,7 @@ export class FunctionArgument{
         if(this.classPropertyInstance&&this.classProperty){
             const name = `${this.classPropertyInstance.name}.${this.classPropertyPath??this.classProperty.name}`
             if(this.classProperty.type==='string'){
-                return 'addr '+name
+                return `[${name}]`
             }
             if(this.classProperty.isArray){
                 return 'addr '+name

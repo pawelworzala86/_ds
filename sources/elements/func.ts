@@ -28,6 +28,7 @@ export class Func extends Base{
             const arrayType = param.type.match(/^([a-z_$][\w$]*)\[\]$/i)
             const type = arrayType?arrayType[1]:param.type
             const element = new DataElement('let',param.name,type,'0')
+            element.classType = this.parent?.getClass(type)?.name??null
             element.isArray = Boolean(arrayType)
             element.isParameter = true
             this.addData(element)

@@ -39,7 +39,7 @@ export class Import extends Base{
         }
         //console.log('tokens',tokens)
 
-        const exportNames = Array.from(Tokenizer.removeComments(source).matchAll(/^\s*export\s+(?:(declare\s+function)|function|class|let|var|const)\s+([a-z_$][\w$]*)/gmi),match=>({
+        const exportNames = Array.from(Tokenizer.removeComments(source).matchAll(/^\s*export\s+(?:(declare\s+function)|function|class|interface|let|var|const)\s+([a-z_$][\w$]*)/gmi),match=>({
             name:match[2],
             external:Boolean(match[1])
         }))

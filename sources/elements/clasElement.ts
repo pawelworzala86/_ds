@@ -55,7 +55,7 @@ function getClassPropertySize(property:DataElement,getClass?:((name:string)=>Cla
         }
     }
     if(property.type==='string'){
-        return new TextEncoder().encode(property.value??'').length+1
+        return 8
     }
     if(property.isArray){
         return 8*Math.max(1,(property.value?.split(',').filter(Boolean).length??1))

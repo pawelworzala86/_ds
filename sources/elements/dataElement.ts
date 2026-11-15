@@ -13,6 +13,8 @@ export class DataElement{
     type:string|null = null
     value:string|null = null
     classType:string|null = null
+    classLayoutType:string|null = null
+    classLayoutProps:DataElement[]|null = null
     classPropertyInstance:DataElement|null = null
     classPropertyPath:string|null = null
     numericKind:NumericKind = 'integer'

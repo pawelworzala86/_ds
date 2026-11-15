@@ -40,8 +40,8 @@ export class Class extends Base{
                     continue
                 }
                 const name = `${prefix}${prop.name}`
-                const type = prop.type==='string'?'db':'dq'
-                const value = prop.type==='string'?`'${prop.value}',0`:prop.value
+                const value = prop.type==='string'?'0':prop.value||'0'
+                const type = 'dq'
                 props.push(`    ${name} ${type} ${value}`)
             }
         }
@@ -58,7 +58,7 @@ export class Class extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer,ASM:Asm){
         const token = tokenizer.get()
-        if(['class'].includes(token)){
+        if(['class','interface'].includes(token)){
             tokenizer.move(-1)
             const data = new Class(active)
             data.set(tokenizer,ASM)

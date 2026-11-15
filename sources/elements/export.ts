@@ -24,6 +24,9 @@ export class Export extends Base{
         }else if(tokens[1]==='class'){
             name = tokens[2]
             kind = 'class'
+        }else if(tokens[1]==='interface'){
+            name = tokens[2]
+            kind = 'class'
         }else if(['declare'].includes(tokens[1])){
             if(tokens[2]=='function'){
                 name = tokens[3]

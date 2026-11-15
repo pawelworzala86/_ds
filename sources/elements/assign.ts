@@ -12,6 +12,7 @@ export class Assign extends Base{
     expression:Expression|null = null
     targetIndex:Expression|null = null
     stringValue:string|null = null
+    stringPropertyTarget = false
     stringSource:DataElement|null = null
     stringSourceIndex:Expression|null = null
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
@@ -145,6 +146,16 @@ export class Assign extends Base{
         if(operator!=='='&&target.type!=='number'){
             throw new Error('Compound assignment is only supported for number variables')
         }
+        if(access?.property.type==='string'&&!access.property.isArray){
+            const literal = expression.trim().match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
+            if(operator!=='='||!literal){
+                throw new Error('Struct string properties can only be assigned a string literal')
+            }
+            this.target = target
+            this.stringValue = literal[0]
+            this.stringPropertyTarget = true
+            return
+        }
         const assignmentExpression = operator==='='
             ? expression
             : `${targetName}${indexText?`[${indexText}]`:''}${operator.slice(0,-1)}(${expression})`
@@ -155,6 +166,13 @@ export class Assign extends Base{
             throw new Error('Assignment is not initialized')
         }
         const targetName = this.target.getAccessName()
+        if(this.stringPropertyTarget){
+            const valueLabel = `__ds_str_assign_${++stringAssignId}`
+            ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+            ASM.addCode(`lea rax, [${valueLabel}]`)
+            ASM.addCode(`mov [${targetName}], rax`)
+            return
+        }
         if(this.arrayPropertyTarget&&this.expression){
             const {array,index,property,offset} = this.arrayPropertyTarget
             emitExpression(index,ASM)

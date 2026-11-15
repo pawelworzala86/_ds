@@ -130,6 +130,11 @@ export class Call extends Base{
                     ASM.addCode(`mov rax, [${param.arrayPointerName}]`)
                 }else if(param.tempName){
                     ASM.addCode(`mov rax, [${param.tempName}]`)
+                }else if(param.classPropertyInstance&&param.classProperty?.type==='string'){
+                    const name = `${param.classPropertyInstance.name}.${param.classPropertyPath??param.classProperty.name}`
+                    ASM.addCode(`mov rax, [${name}]`)
+                }else if(param.value instanceof DataElement&&param.value.classType&&expected?.type===param.value.classType){
+                    ASM.addCode(`lea rax, [${param.value.name}]`)
                 }else{
                     const value = param.getCode()
                     if(value===null){

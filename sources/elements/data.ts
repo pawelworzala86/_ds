@@ -3,6 +3,121 @@ import Base from './base.ts'
 import Asm from "./../asm.ts"
 import DataElement, {getNumericKind} from './dataElement.ts'
 import Assign from './assign.ts'
+import ClassElement from './clasElement.ts'
+
+let structLayoutId = 0
+let objectStringLabelId = 0
+
+type ObjectLiteralProperty = {name:string,type:'number'|'string',value:string}
+
+function initializeStructStrings(ASM:Asm,instanceName:string,properties:DataElement[],getClass:(name:string)=>ClassElement|null,prefix=''){
+    for(const property of properties){
+        if(property.classType&&!property.isArray){
+            const nestedClass = getClass(property.classType)
+            if(nestedClass){
+                initializeStructStrings(ASM,instanceName,nestedClass.props,getClass,`${prefix}${property.name}_`)
+            }
+            continue
+        }
+        if(property.type!=='string'){
+            continue
+        }
+        const label = `__ds_object_string_${++objectStringLabelId}`
+        ASM.addData(`${label} db '${property.value??''}',0`)
+        ASM.addCode(`lea rax, [${label}]`)
+        ASM.addCode(`mov [${instanceName}.${prefix}${property.name}], rax`)
+    }
+}
+
+function parseObjectLiteral(tokens:string[]):ObjectLiteralProperty[]{
+    if(tokens[0]!=='{'||tokens[tokens.length-1]!=='}'){
+        throw new Error('Invalid struct initializer')
+    }
+    const properties:ObjectLiteralProperty[] = []
+    let index = 1
+    while(index<tokens.length-1){
+        if(tokens[index]===','){
+            index++
+            continue
+        }
+        const name = tokens[index++]
+        if(!/^[a-z_$][\w$]*$/i.test(name??'')||tokens[index++]!==':'){
+            throw new Error('Invalid property in struct initializer')
+        }
+        const valueTokens:string[] = []
+        let quote:string|null = null
+        while(index<tokens.length-1){
+            const token = tokens[index]
+            if(quote){
+                valueTokens.push(token)
+                if(token===quote){
+                    quote = null
+                }
+                index++
+                continue
+            }
+            if(token==="'"||token==='"'){
+                quote = token
+                valueTokens.push(token)
+                index++
+                continue
+            }
+            if(token===','){
+                break
+            }
+            valueTokens.push(token)
+            index++
+        }
+        if(quote||!valueTokens.length){
+            throw new Error(`Invalid initializer for struct property "${name}"`)
+        }
+        const value = valueTokens.join('')
+        const stringLiteral = value.match(/^(['"])([\s\S]*)\1$/)
+        if(stringLiteral){
+            properties.push({name,type:'string',value:stringLiteral[2]})
+        }else if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(value)){
+            properties.push({name,type:'number',value})
+        }else{
+            throw new Error(`Struct property "${name}" must be initialized with a string or number literal`)
+        }
+        if(tokens[index]===','){
+            index++
+        }else if(index<tokens.length-1){
+            throw new Error(`Expected ',' after struct property "${name}"`)
+        }
+    }
+    return properties
+}
+
+function createStructLayout(properties:ObjectLiteralProperty[],classType:ReturnType<Base['getClass']>|null,name:string):{type:string,props:DataElement[]}{
+    const layoutProps = properties.map(property=>{
+        const declaredProperty = classType?.props.find(prop=>prop.name===property.name)
+        if(classType&&!declaredProperty){
+            throw new Error(`Unknown property "${property.name}" in struct "${classType.name}"`)
+        }
+        if(declaredProperty&&declaredProperty.type!==property.type){
+            throw new Error(`Property "${property.name}" in struct "${classType!.name}" must be a ${declaredProperty.type}`)
+        }
+        if(declaredProperty&&(declaredProperty.isArray||declaredProperty.classType)){
+            throw new Error(`Struct initializer does not support array or nested property "${property.name}"`)
+        }
+        const element = new DataElement('let',property.name,property.type,property.value)
+        return element
+    })
+    if(classType){
+        for(const property of classType.props){
+            if(!properties.some(value=>value.name===property.name)){
+                throw new Error(`Missing property "${property.name}" in struct initializer for "${classType.name}"`)
+            }
+        }
+    }else if(!layoutProps.length){
+        throw new Error(`Cannot infer struct type for empty initializer "${name}"`)
+    }
+    if(new Set(layoutProps.map(property=>property.name)).size!==layoutProps.length){
+        throw new Error('Duplicate property in struct initializer')
+    }
+    return {type:`__ds_struct_${++structLayoutId}`,props:layoutProps}
+}
 
 function splitTopLevelArrayValues(value:string):string[]{
     const items:string[] = []
@@ -51,15 +166,47 @@ export class Data extends Base{
     }
     set(tokenizer:Tokenizer,classField=false){
         let tokens:string[] = []
-        let token:any
-        while(!['\n','\;'].includes(token = tokenizer.get())){
+        let objectDepth = 0
+        while(tokenizer.has()){
+            const token = tokenizer.get()
+            if(token==='\n'){
+                if(objectDepth===0){
+                    break
+                }
+                continue
+            }
+            if(token===';'&&objectDepth===0){
+                break
+            }
             tokens.push(token)
+            if(token==='{'){
+                objectDepth++
+            }else if(token==='}'){
+                objectDepth--
+            }
         }
-        let [kind,name,sep,type,eq,value] = tokens
+        if(!classField&&tokens[1]==='{'){
+            this.setDestructure(tokens)
+            return
+        }
+        let kind:string
+        let name:string
+        let type:string|undefined
         if(classField){
             kind = 'let'
-            ;[name,sep,type,eq,value] = tokens
+            name = tokens[0]
+            type = tokens[2]
+        }else{
+            kind = tokens[0]
+            name = tokens[1]
+            type = tokens[2]===':'?tokens[3]:undefined
         }
+        type = type?.replace(/;$/,'')
+        const initializerIndex = tokens.indexOf('=')
+        const hasInitializer = initializerIndex!==-1
+        const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
+        const eq = hasInitializer?'=':undefined
+        let value = initializerTokens[0]
         const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
         let arrayValues:string[] = []
         if(arrayType){
@@ -103,7 +250,7 @@ export class Data extends Base{
         let numericExpression:string|null = null
         let runtimeInitializer = false
         if(type==='number'&&eq==='='){
-            numericExpression = tokens.slice(classField?4:5).join('').replace(/;$/,'')
+            numericExpression = initializerTokens.join('').replace(/;$/,'')
             runtimeInitializer = !/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(numericExpression)
             if(runtimeInitializer){
                 if(classField){
@@ -115,19 +262,28 @@ export class Data extends Base{
             }
         }
         const normalizedType = arrayType?arrayType[1]:type
-        const classType = this.parent?.getClass(normalizedType)
+        let classType = normalizedType?this.parent?.getClass(normalizedType):null
+        let classLayout:{type:string,props:DataElement[]}|null = null
         if(classType&&!arrayType&&eq==='='){
-            const initializer = tokens.slice(tokens.indexOf('=')+1)
-            if(initializer.length!==4||initializer[0]!=='new'||initializer[1]!==normalizedType||initializer[2]!=='('||initializer[3]!==')'){
+            if(initializerTokens[0]==='{'){
+                const properties = parseObjectLiteral(initializerTokens)
+                classLayout = createStructLayout(properties,classType,name)
+            }else if(initializerTokens.length!==4||initializerTokens[0]!=='new'||initializerTokens[1]!==normalizedType||initializerTokens[2]!=='('||initializerTokens[3]!==')'){
                 throw new Error(`Class instance "${name}" must be initialized with new ${normalizedType}()`)
             }
+        }else if(!type&&eq==='='&&initializerTokens[0]==='{'){
+            const properties = parseObjectLiteral(initializerTokens)
+            classLayout = createStructLayout(properties,null,name)
+            classType = new ClassElement(classLayout.type,classLayout.props,[])
+            this.parent?.addClass(classType)
+            type = classLayout.type
         }
         let values = [value]
         if(type=='string'){
             let open = false
             let spec = false
             values = []
-            for(const token of tokens){
+            for(const token of initializerTokens){
                 if(spec&&(token=='\'')){
                     values.push(token)
                 }else if(token=='\''){
@@ -143,7 +299,11 @@ export class Data extends Base{
                 spec = false
             }
         }
-        this.element = new DataElement(kind,name,arrayType?arrayType[1]:type,arrayType?value:values.join(' ')??'')
+        this.element = new DataElement(kind,name,arrayType?arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
+        if(classLayout){
+            this.element.classLayoutType = classLayout.type
+            this.element.classLayoutProps = classLayout.props
+        }
         if(arrayType){
             this.element.isArray = true
             this.element.dynamicArray = arrayValues.length===0
@@ -162,7 +322,51 @@ export class Data extends Base{
             this.parent.children.push(initializer)
         }
     }
+    setDestructure(tokens:string[]){
+        const close = tokens.indexOf('}')
+        const equals = tokens.indexOf('=')
+        const sourceName = tokens[equals+1]
+        if(close<2||equals!==close+1||!sourceName||equals!==tokens.length-2){
+            throw new Error('Invalid struct destructuring declaration')
+        }
+        const source = this.parent?.getData(sourceName)
+        const classType = source?.classType?this.parent?.getClass(source.classType):null
+        if(!source||!classType||source.isArray){
+            throw new Error(`Cannot destructure non-struct value "${sourceName}"`)
+        }
+        const names = tokens.slice(2,close).filter(token=>token!==',')
+        if(!names.length||names.some(name=>!/^[a-z_$][\w$]*$/i.test(name))){
+            throw new Error('Invalid property in struct destructuring declaration')
+        }
+        if(new Set(names).size!==names.length){
+            throw new Error('Duplicate property in struct destructuring declaration')
+        }
+        for(const name of names){
+            const property = classType.props.find(item=>item.name===name)
+            if(!property){
+                throw new Error(`Unknown property "${name}" in struct "${classType.name}"`)
+            }
+            if(property.isArray||property.classType||!['number','string'].includes(property.type??'')){
+                throw new Error(`Struct destructuring does not support array or nested property "${name}"`)
+            }
+            const layoutProperty = source.classLayoutProps?.find(item=>item.name===name)
+            const value = layoutProperty?.value??property.value??''
+            const element = new DataElement(tokens[0],name,property.type??'',property.type==='number'?'0':value)
+            this.parent?.addData(element)
+            const declaration = new Data(this.parent!)
+            declaration.element = element
+            this.parent?.children.push(declaration)
+            if(property.type==='number'){
+                const initializer = new Assign(this.parent!)
+                initializer.setExpression(element,`${sourceName}.${name}`,true)
+                this.parent?.children.push(initializer)
+            }
+        }
+    }
     asm(ASM:Asm){
+        if(!this.element){
+            return
+        }
         if(this.element!.isProcedureLocal){
             ASM.addCode(`local ${this.element!.name} dq ${this.element!.value}`)
             return
@@ -192,6 +396,10 @@ export class Data extends Base{
                     values.forEach((item,index)=>{
                         const label = `${this.element!.name}_${index}`
                         ASM.addData(`${label} ${this.element!.classType}`)
+                        const classType = this.parent?.getClass(this.element!.classType!)
+                        if(classType){
+                            initializeStructStrings(ASM,label,classType.props,name=>this.parent!.getClass(name))
+                        }
                         ASM.addCode(`lea rax, [${label}]`)
                         ASM.addCode(`mov rdx, [${this.element!.name}]`)
                         ASM.addCode(`mov [rdx+${index*8}], rax`)
@@ -236,6 +444,10 @@ export class Data extends Base{
                 const labels = instances.map((item,index)=>{
                     const label = `${this.element!.name}_${index}`
                     ASM.addData(`${label} ${this.element!.classType}`)
+                    const classType = this.parent?.getClass(this.element!.classType!)
+                    if(classType){
+                        initializeStructStrings(ASM,label,classType.props,name=>this.parent!.getClass(name))
+                    }
                     return label
                 })
                 ASM.addData(`${this.element!.name} dq ${Array(instances.length).fill(0).join(', ')}`)
@@ -269,7 +481,28 @@ export class Data extends Base{
             return
         }
         if(this.element!.classType){
-            ASM.addData(`${this.element!.name} ${this.element!.classType}`)
+            if(this.element!.classLayoutType&&this.element!.classLayoutProps){
+                const members = this.element!.classLayoutProps.map(prop=>{
+                    if(prop.type==='string'){
+                        return `    ${prop.name} dq 0`
+                    }
+                    return `    ${prop.name} dq ${prop.value}`
+                })
+                ASM.addCode([`struct ${this.element!.classLayoutType}`,...members,'end struct'].join('\n'))
+                ASM.addData(`${this.element!.name} ${this.element!.classLayoutType}`)
+                initializeStructStrings(
+                    ASM,
+                    this.element!.name!,
+                    this.element!.classLayoutProps,
+                    name=>this.parent!.getClass(name)
+                )
+            }else{
+                ASM.addData(`${this.element!.name} ${this.element!.classType}`)
+                const classType = this.parent?.getClass(this.element!.classType)
+                if(classType){
+                    initializeStructStrings(ASM,this.element!.name!,classType.props,name=>this.parent!.getClass(name))
+                }
+            }
             return
         }
         if(this.element!.type==='number'&&this.element!.numericKind==='float'&&/e/i.test(value??'')&&!/f$/i.test(value??'')){
