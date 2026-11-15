@@ -21,6 +21,7 @@ export class Make{
     constructor(){
     }
     static compile(ASM:Asm,active:Base,tokenizer:Tokenizer,filePath:string|null=null){
+        Func.predeclare(active,tokenizer)
         while(tokenizer.has()){
             if(Data.test(active,tokenizer,active instanceof Class)){
             }else if(Assign.test(active,tokenizer)){
@@ -41,6 +42,7 @@ export class Make{
                 ASM.addCodeNLN(token+' ')
             }
         }
+        active.prepareFunctionCalls()
         //console.log('ACTIVE::',active.EXPORT)
         active.linkExports()
     }

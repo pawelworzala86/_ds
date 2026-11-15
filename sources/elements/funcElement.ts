@@ -1,6 +1,7 @@
 export class FuncElement{
     name:string|null = null
     params:{name:string,type:string,dynamicArray?:boolean}[] = []
+    nativeCallbackName:string|null = null
     constructor(name:string,params:{name:string,type:string,dynamicArray?:boolean}[]){
         this.name = name
         this.params = params

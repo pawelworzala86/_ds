@@ -8,9 +8,50 @@ import DataElement from './dataElement.ts'
 let returnId = 0
 
 export class Func extends Base{
+    static predeclared = new WeakSet<FuncElement>()
     element:FuncElement|null = null
     constructor(parent:Base){
         super(parent)
+    }
+    static predeclare(active:Base,tokenizer:Tokenizer){
+        let blockDepth = 0
+        const tokens = tokenizer.tokens
+        for(let index=0;index<tokens.length;index++){
+            const token = tokens[index]
+            if(token==='{'){
+                blockDepth++
+                continue
+            }
+            if(token==='}'){
+                blockDepth--
+                continue
+            }
+            if(blockDepth!==0||token!=='function'){
+                continue
+            }
+            const name = tokens[index+1]
+            if(!name||!/^[a-z_$][\w$]*$/i.test(name)||tokens[index+2]!=='('){
+                continue
+            }
+            let depth = 0
+            let end = index+2
+            for(;end<tokens.length;end++){
+                if(tokens[end]==='('){
+                    depth++
+                }else if(tokens[end]===')'&&--depth===0){
+                    break
+                }
+            }
+            if(end===tokens.length){
+                continue
+            }
+            if(active.FUNCTIONS.some(func=>func.name===name)){
+                continue
+            }
+            const element = new FuncElement(name,Tokenizer.getFunctionParams(tokens.slice(index+1,end+1)))
+            active.addFunction(element)
+            Func.predeclared.add(element)
+        }
     }
     set(tokenizer:Tokenizer,ASM:Asm,classMethod=false){
         let tokens:string[] = tokenizer.getBlock()
@@ -50,8 +91,15 @@ export class Func extends Base{
             ...param,
             dynamicArray:Boolean(this.getData(param.name)?.dynamicArray)
         })))
-        this.element = element
-        this.parent!.addFunction(element)
+        const predeclared = this.parent!.FUNCTIONS.find(func=>func.name===name&&Func.predeclared.has(func))
+        if(predeclared){
+            predeclared.params = element.params
+            this.element = predeclared
+            Func.predeclared.delete(predeclared)
+        }else{
+            this.element = element
+            this.parent!.addFunction(element)
+        }
     }
     asm(ASM:Asm){
         const asm = new Asm()
@@ -71,6 +119,24 @@ export class Func extends Base{
             ASM.addData(data.trimEnd())
         }
         ASM.addProc(code)
+        if(this.element?.nativeCallbackName){
+            const params = this.element.params
+            if(params.length>4){
+                throw new Error(`Function "${this.element.name}" has too many parameters for a native callback`)
+            }
+            const registers = ['rcx','rdx','r8','r9']
+            const shadowSpace = 32+(params.length%2===0?8:0)
+            const callback = [
+                `proc ${this.element.nativeCallbackName}`,
+                ...params.map((_,index)=>`push ${registers[index]}`),
+                `sub rsp, ${shadowSpace}`,
+                `call ${this.element.name}`,
+                `add rsp, ${shadowSpace+params.length*8}`,
+                'ret',
+                'endp'
+            ].join('\n')
+            ASM.addProc(callback)
+        }
     }
     getStructCode(ASM:Asm){
         const asm = new Asm()

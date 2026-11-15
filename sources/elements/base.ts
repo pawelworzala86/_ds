@@ -27,6 +27,11 @@ export class Base{
             child.asm(ASM)
         }
     }
+    prepareFunctionCalls(){
+        for(const child of this.children){
+            child.prepareFunctionCalls()
+        }
+    }
     getData(name:string):DataElement|null{
         let data = null
         for(const DATA of this.DATA){

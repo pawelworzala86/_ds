@@ -227,6 +227,26 @@ export class Iff extends Base{
         return branch
     }
 
+    prepareFunctionCalls(){
+        super.prepareFunctionCalls()
+        const prepareCondition = (condition:Condition|null)=>{
+            if(!condition){
+                return
+            }
+            if(condition.kind==='and'||condition.kind==='or'){
+                prepareCondition(condition.left)
+                prepareCondition(condition.right)
+            }else if(condition.kind==='not'){
+                prepareCondition(condition.value)
+            }else if(condition.kind==='compare'||condition.kind==='truthy'){
+                condition.calls.forEach(({call})=>call.prepareDynamicArrayArguments())
+            }
+        }
+        prepareCondition(this.condition)
+        this.thenBranch?.prepareFunctionCalls()
+        this.elseBranch?.prepareFunctionCalls()
+    }
+
     parseCondition(source:string):Condition{
         let text = source.trim()
         while(isWrapped(text)){

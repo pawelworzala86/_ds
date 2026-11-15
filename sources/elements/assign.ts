@@ -5,8 +5,10 @@ import DataElement from './dataElement.ts'
 import {emitExpression, parseExpression, type Expression} from '../maths.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 import Invoke, {isInvoke} from './invoke.ts'
+import FuncElement from './funcElement.ts'
 
 let stringAssignId = 0
+let callbackId = 0
 
 export class Assign extends Base{
     target:DataElement|null = null
@@ -19,6 +21,7 @@ export class Assign extends Base{
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
+    addressFunction:FuncElement|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -84,6 +87,10 @@ export class Assign extends Base{
         const address = !indexText?expression.trim().match(/^&([a-z_$][\w.$]*)$/i):null
         if(address){
             this.addressLabel = address[1]
+            this.addressFunction = this.parent?.getFunction(address[1])??null
+            if(this.addressFunction&&!this.addressFunction.nativeCallbackName){
+                this.addressFunction.nativeCallbackName = `__ds_native_callback_${++callbackId}`
+            }
             return
         }
         const nativeCall = !indexText?expression.trim().match(/^([a-z_$][\w$]*)\(([\s\S]*)\)$/i):null
@@ -212,7 +219,7 @@ export class Assign extends Base{
             return
         }
         if(this.addressLabel){
-            ASM.addCode(`lea rax, [${this.addressLabel}]`)
+            ASM.addCode(`lea rax, [${this.addressFunction?.nativeCallbackName??this.addressFunction?.name??this.addressLabel}]`)
             storeTarget('rax')
             return
         }

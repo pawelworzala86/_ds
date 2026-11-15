@@ -33,41 +33,26 @@ interface MSG {
     part5: number
 }
 
-.code
-    jmp __ds_main
+//.code
+//    jmp __ds_main
+main()
+kernel.ExitProcess(0)
 
-WndProc:
-    sub rsp, 32
-    cmp rdx, 15
-    je .wm_paint
-    cmp rdx, 2
-    je .wm_destroy
-    invoke DefWindowProcA, rcx, rdx, r8, r9
-    add rsp, 32
-    ret
+function WndProc(hwnd: number, message: number, wParam: number, lParam: number) {
+    if(message==15){
+        let paint: number[] = [0,0,0,0,0,0,0,0,0]
+        user.BeginPaint(hwnd, paint)
+        user.EndPaint(hwnd, paint)
+        return 0
+    }
+    if(message==2){
+        user.PostQuitMessage(0)
+        return 0
+    }
+    user.DefWindowProcA(hwnd, message, wParam, lParam)
+    return
+}
 
-.wm_paint:
-    sub rsp, 128
-    mov [rsp + 104], rcx
-    mov r10, [rsp + 104]
-    lea rax, [rsp + 32]
-    invoke BeginPaint, r10, rax
-    mov r10, [rsp + 104]
-    lea rax, [rsp + 32]
-    invoke EndPaint, r10, rax
-
-    xor eax, eax
-    add rsp, 128
-    add rsp, 32
-    ret
-
-.wm_destroy:
-    invoke PostQuitMessage, 0
-    xor eax, eax
-    add rsp, 32
-    ret
-
-.code
 function renderTriangle(windowDC: number, glContext: number) {
     let contextSet: number = opengl.wglMakeCurrent(windowDC, glContext)
     if(contextSet==0){
@@ -210,7 +195,8 @@ function main() {
 
     kernel.ExitProcess(0)
 }
-
+/*
 __ds_main:
 main()
 kernel.ExitProcess(0)
+*/

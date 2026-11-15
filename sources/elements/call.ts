@@ -68,6 +68,10 @@ export class Call extends Base{
             argument.value.dynamicArray = true
         })
     }
+    prepareFunctionCalls(){
+        super.prepareFunctionCalls()
+        this.prepareDynamicArrayArguments()
+    }
     asm(ASM:Asm){
         for(const param of this.params){
             param.asm(ASM)
