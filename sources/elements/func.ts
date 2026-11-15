@@ -5,6 +5,8 @@ import Asm from "./../asm.ts"
 import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
 
+let returnId = 0
+
 export class Func extends Base{
     element:FuncElement|null = null
     constructor(parent:Base){
@@ -48,6 +50,7 @@ export class Func extends Base{
     }
     asm(ASM:Asm){
         const asm = new Asm()
+        this.returnLabel = `__ds_return_${++returnId}`
         const params = this.element?.params.map((param:any)=>{
             return param.name
         }).join(',')
@@ -55,6 +58,7 @@ export class Func extends Base{
         for(const node of this.children){
             node.asm(asm)
         }
+        asm.addCode(`${this.returnLabel}:`)
         asm.addCode(`endp`)
         const code = asm.getCode().join('\n')
         for(const data of asm.getData()){
@@ -64,9 +68,11 @@ export class Func extends Base{
     }
     getStructCode(ASM:Asm){
         const asm = new Asm()
+        this.returnLabel = `__ds_return_${++returnId}`
         for(const node of this.children){
             node.asm(asm)
         }
+        asm.addCode(`${this.returnLabel}:`)
         const params = this.element?.params.map((param:any)=>param.name).join(', ')
         const body = asm.getCode().join('').trimEnd()
         const signature = `proc ${this.element!.name}${params?`, ${params}`:''}`

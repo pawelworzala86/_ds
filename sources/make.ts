@@ -12,6 +12,8 @@ import Import from "./elements/import.ts"
 import Export from "./elements/export.ts"
 import Class from "./elements/class.ts"
 import Prototype from "./elements/prototype.ts"
+import Iff from "./elements/iff.ts"
+import Return from "./elements/return.ts"
 
 export class Make{
     constructor(){
@@ -28,6 +30,8 @@ export class Make{
             }else if(Export.test(active,tokenizer)){
             }else if(Class.test(active,tokenizer,ASM)){
             }else if(Prototype.test(active,tokenizer,ASM)){
+            }else if(Iff.test(active,tokenizer)){
+            }else if(Return.test(active,tokenizer)){
             }else{
                 const token = tokenizer.get()
                 ASM.addCodeNLN(token+' ')

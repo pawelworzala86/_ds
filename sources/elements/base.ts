@@ -11,6 +11,7 @@ function getID(){
 
 export class Base{
     parent:Base|null
+    returnLabel:string|null = null
     children:Base[] = []
     DATA:DataElement[] = []
     FUNCTIONS:FuncElement[] = []
