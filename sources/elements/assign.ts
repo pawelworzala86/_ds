@@ -6,6 +6,8 @@ import {emitExpression, parseExpression, type Expression} from '../maths.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 import Invoke, {isInvoke} from './invoke.ts'
 import FuncElement from './funcElement.ts'
+import Call from './call.ts'
+import Timeout from './timeout.ts'
 
 let stringAssignId = 0
 let callbackId = 0
@@ -21,6 +23,8 @@ export class Assign extends Base{
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
+    asyncCall:Call|null = null
+    timeout:Timeout|null = null
     addressFunction:FuncElement|null = null
     constructor(parent:Base){
         super(parent)
@@ -111,6 +115,29 @@ export class Assign extends Base{
             ? 'float'
             : 'integer'
     }
+    setTask(target:DataElement,expression:string){
+        const tokenizer = new Tokenizer(expression)
+        if(tokenizer.tokens[0]==='setTimeout'){
+            const timeout = new Timeout(this.parent!)
+            timeout.set(tokenizer)
+            if(tokenizer.has()){
+                throw new Error('Task initializer must be a single setTimeout call')
+            }
+            this.target = target
+            this.timeout = timeout
+            return
+        }
+        const call = new Call(this.parent!)
+        call.set(tokenizer)
+        if(tokenizer.has()){
+            throw new Error('Task initializer must be a single async function call')
+        }
+        if(!call.func?.isAsync){
+            throw new Error('Task initializer must call an async function')
+        }
+        this.target = target
+        this.asyncCall = call
+    }
     set(tokenizer:Tokenizer){
         const tokens:string[] = []
         let token:string
@@ -177,6 +204,13 @@ export class Assign extends Base{
         if(operator!=='='&&target.type!=='number'){
             throw new Error('Compound assignment is only supported for number variables')
         }
+        if(target.type==='Task'&&operator==='='){
+            if(target.kind==='const'){
+                throw new Error(`Cannot assign to constant "${target.name}"`)
+            }
+            this.setTask(target,expression)
+            return
+        }
         if(access?.property.type==='string'&&!access.property.isArray){
             const literal = expression.trim().match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
             if(operator!=='='||!literal){
@@ -210,6 +244,24 @@ export class Assign extends Base{
             ASM.addCode(asFloat
                 ? `movsd qword [${targetName}], ${value}`
                 : `mov [${targetName}], ${value}`)
+        }
+        if(this.asyncCall){
+            const target = this.target
+            if(!target.name){
+                throw new Error('Task assignment target is not initialized')
+            }
+            this.asyncCall.asm(ASM,'handle')
+            ASM.addCode(`mov [${target.getAccessName()}], rax`)
+            return
+        }
+        if(this.timeout){
+            const target = this.target
+            if(!target.name){
+                throw new Error('Task assignment target is not initialized')
+            }
+            this.timeout.asm(ASM,'handle')
+            ASM.addCode(`mov [${target.getAccessName()}], rax`)
+            return
         }
         if(this.stringPropertyTarget){
             const valueLabel = `__ds_str_assign_${++stringAssignId}`

@@ -16,6 +16,8 @@ import Iff from "./elements/iff.ts"
 import While from "./elements/while.ts"
 import Break from "./elements/break.ts"
 import Return from "./elements/return.ts"
+import Await from "./elements/await.ts"
+import Timeout from "./elements/timeout.ts"
 
 export class Make{
     constructor(){
@@ -26,7 +28,9 @@ export class Make{
             if(Data.test(active,tokenizer,active instanceof Class)){
             }else if(Assign.test(active,tokenizer)){
             }else if(Declare.test(active,tokenizer)){
+            }else if(Timeout.test(active,tokenizer)){
             }else if(Invoke.test(active,tokenizer)){
+            }else if(Await.test(active,tokenizer)){
             }else if(Func.test(active,tokenizer,ASM,active instanceof Class)){
             }else if(Call.test(active,tokenizer)){
             }else if(Import.test(active,tokenizer,filePath,ASM)){

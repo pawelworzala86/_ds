@@ -6,6 +6,7 @@ import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
 
 let returnId = 0
+let asyncWorkerId = 0
 
 export class Func extends Base{
     static predeclared = new WeakSet<FuncElement>()
@@ -48,15 +49,18 @@ export class Func extends Base{
             if(active.FUNCTIONS.some(func=>func.name===name)){
                 continue
             }
-            const element = new FuncElement(name,Tokenizer.getFunctionParams(tokens.slice(index+1,end+1)))
+            const isAsync = tokens[index-1]==='async'
+            const workerName = isAsync?`__ds_async_worker_${++asyncWorkerId}`:null
+            const element = new FuncElement(name,Tokenizer.getFunctionParams(tokens.slice(index+1,end+1)),isAsync,workerName)
             active.addFunction(element)
             Func.predeclared.add(element)
         }
     }
-    set(tokenizer:Tokenizer,ASM:Asm,classMethod=false){
+    set(tokenizer:Tokenizer,ASM:Asm,classMethod=false,isAsync=false){
         let tokens:string[] = tokenizer.getBlock()
-        const name = classMethod?tokens[0]:tokens[1]
-        tokens.splice(0,classMethod?1:2)
+        const prefixLength = classMethod?1:isAsync?3:2
+        const name = tokens[classMethod?0:isAsync?2:1]
+        tokens.splice(0,prefixLength)
         //console.log('tokens',tokens)
 
         const params = Tokenizer.getFunctionParams(tokens)
@@ -81,19 +85,23 @@ export class Func extends Base{
             if(!data.isParameter&&(
                 data.type==='number'&&!data.isArray
                 ||data.type==='number'&&data.isArray&&!data.dynamicArray
+                ||data.type==='Task'
                 ||Boolean(data.classType)&&!data.isArray
             )){
                 data.isProcedureLocal = true
             }
         }
 
+        const predeclared = this.parent!.FUNCTIONS.find(func=>func.name===name&&Func.predeclared.has(func))
+        const workerName = predeclared?.asyncWorkerName??(isAsync?`__ds_async_worker_${++asyncWorkerId}`:null)
         const element:FuncElement = new FuncElement(name,params.map(param=>({
             ...param,
             dynamicArray:Boolean(this.getData(param.name)?.dynamicArray)
-        })))
-        const predeclared = this.parent!.FUNCTIONS.find(func=>func.name===name&&Func.predeclared.has(func))
+        })),isAsync,workerName)
         if(predeclared){
             predeclared.params = element.params
+            predeclared.isAsync = element.isAsync
+            predeclared.asyncWorkerName = element.asyncWorkerName
             this.element = predeclared
             Func.predeclared.delete(predeclared)
         }else{
@@ -119,6 +127,32 @@ export class Func extends Base{
             ASM.addData(data.trimEnd())
         }
         ASM.addProc(code)
+        if(this.element?.isAsync&&this.element.asyncWorkerName){
+            const worker = new Asm()
+            worker.addCode(`proc ${this.element.asyncWorkerName}`)
+            worker.addCode('local __ds_async_args dq')
+            worker.addCode('mov __ds_async_args, rcx')
+            for(let index=0;index<this.element.params.length;index++){
+                worker.addCode('mov rdx, __ds_async_args')
+                worker.addCode(`mov rax, [rdx+${index*8}]`)
+                worker.addCode('push rax')
+            }
+            const shadowSpace = 32+(this.element.params.length%2===0?8:0)
+            worker.addCode(`sub rsp, ${shadowSpace}`)
+            worker.addCode(`call ${this.element.name}`)
+            worker.addCode(`add rsp, ${shadowSpace+this.element.params.length*8}`)
+            if(this.element.params.length){
+                ASM.addImport('msvcrt','free')
+                worker.addCode('mov rcx, __ds_async_args')
+                worker.addCode('sub rsp, 40')
+                worker.addCode('call [free]')
+                worker.addCode('add rsp, 40')
+            }
+            worker.addCode('xor eax, eax')
+            worker.addCode('ret')
+            worker.addCode('endp')
+            ASM.addProc(worker.getCode().join(''))
+        }
         if(this.element?.nativeCallbackName){
             const params = this.element.params
             if(params.length>4){
@@ -156,6 +190,13 @@ export class Func extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer,ASM:Asm,classMethod=false){
         const token = tokenizer.get()
+        if(token==='async'&&tokenizer.tokens[tokenizer.index]==='function'){
+            tokenizer.move(-1)
+            const data = new Func(active)
+            data.set(tokenizer,ASM,false,true)
+            active.children.push(data)
+            return data
+        }
         if(token==='function'){
             tokenizer.move(-1)
             const data = new Func(active)

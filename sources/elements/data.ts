@@ -232,6 +232,27 @@ export class Data extends Base{
         const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
         const eq = hasInitializer?'=':undefined
         let value = initializerTokens[0]
+        const asyncFunctionName = /^[a-z_$][\w$]*$/i.test(initializerTokens[0]??'')
+            &&initializerTokens[1]==='('
+            &&initializerTokens[initializerTokens.length-1]===')'
+            ? initializerTokens[0]
+            : null
+        const isTimeoutInitializer = initializerTokens[0]==='setTimeout'
+            &&initializerTokens[1]==='('
+            &&initializerTokens[initializerTokens.length-1]===')'
+        const isAsyncInitializer = Boolean(
+            isTimeoutInitializer
+            ||asyncFunctionName&&this.parent?.getFunction(asyncFunctionName)?.isAsync
+        )
+        if(type==='Task'&&hasInitializer&&!isAsyncInitializer){
+            throw new Error(`Task "${name}" must be initialized with an async function call or setTimeout`)
+        }
+        if(!type&&isAsyncInitializer){
+            type='Task'
+        }
+        if(type==='Task'){
+            value='0'
+        }
         const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
         let arrayValues:string[] = []
         if(arrayType){
@@ -344,6 +365,11 @@ export class Data extends Base{
         if(runtimeInitializer&&numericExpression&&this.parent){
             const initializer = new Assign(this.parent)
             initializer.setExpression(this.element,numericExpression,true)
+            this.parent.children.push(initializer)
+        }
+        if(isAsyncInitializer&&this.parent){
+            const initializer = new Assign(this.parent)
+            initializer.setTask(this.element,initializerTokens.join(''))
             this.parent.children.push(initializer)
         }
     }

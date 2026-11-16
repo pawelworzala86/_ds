@@ -1,3 +1,5 @@
+let programEndId = 0
+
 export class Asm{
     data:any = []
     code:any = []
@@ -34,6 +36,7 @@ export class Asm{
         let procTxt = this.proc.join('')
         let dataTxt = this.data.join('')
         let impTxt = ''
+        const programEnd = `__ds_program_end_${++programEndId}`
         for(let dll of Object.keys(this.imp)){
             let functions:any = []
             this.imp[dll].map((funcName:any)=>{
@@ -43,7 +46,10 @@ export class Asm{
         }
         return `.code
         ${codeTxt}
+        jmp ${programEnd}
         ${procTxt}
+    ${programEnd}:
+        ret
     .data
         ${dataTxt}
     .import
