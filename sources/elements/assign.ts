@@ -194,7 +194,7 @@ export class Assign extends Base{
             if(access.instance.classType){
                 const classType = this.parent?.getClass(access.instance.classType)
                 target.classPropertyOffset = classType
-                    ? getClassPropertyOffset(classType,access.path,name=>this.parent!.getClass(name))
+                    ? getClassPropertyOffset(classType,targetName.split('.').slice(1).join('.'),name=>this.parent!.getClass(name))
                     : null
                 if(target.classPropertyOffset===null){
                     throw new Error(`Unable to resolve local struct property "${access.path}"`)

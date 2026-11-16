@@ -128,7 +128,7 @@ export function parseExpression(text:string,active:Base):Expression{
             if(access.instance.classType){
                 const classType = active.getClass(access.instance.classType)
                 data.classPropertyOffset = classType
-                    ? getClassPropertyOffset(classType,access.path,name=>active.getClass(name))
+                    ? getClassPropertyOffset(classType,token.split('.').slice(1).join('.'),name=>active.getClass(name))
                     : null
                 if(data.classPropertyOffset===null){
                     throw new Error(`Unable to resolve local struct property "${access.path}"`)
@@ -283,6 +283,18 @@ export function emitExpression(expression:Expression,ASM:Asm){
         return
     }
     if(expression.kind==='data'){
+        const instance = expression.value.classPropertyInstance
+        const offset = expression.value.classPropertyOffset
+        if(instance?.isProcedureLocal&&offset!==null){
+            ASM.addCode(`lea rdx, [${instance.name}]`)
+            if(offset){
+                ASM.addCode(`add rdx, ${offset}`)
+            }
+            ASM.addCode(expression.numericKind==='float'
+                ? 'movsd xmm0, qword [rdx]'
+                : 'mov rax, [rdx]')
+            return
+        }
         if(expression.numericKind==='float'){
             ASM.addCode(`movsd xmm0, qword [${expression.value.getAccessName()}]`)
             return
@@ -293,7 +305,15 @@ export function emitExpression(expression:Expression,ASM:Asm){
     if(expression.kind==='index'){
         emitExpression(expression.index,ASM)
         ASM.addCode('shl rax, 3')
-        if(expression.value.isParameter){
+        const instance = expression.value.classPropertyInstance
+        const offset = expression.value.classPropertyOffset
+        if(instance?.isProcedureLocal&&offset!==null){
+            ASM.addCode(`lea rdx, [${instance.name}]`)
+            if(offset){
+                ASM.addCode(`add rdx, ${offset}`)
+            }
+            ASM.addCode('add rdx, rax')
+        }else if(expression.value.isParameter){
             ASM.addCode(`mov rdx, ${expression.value.getAccessName()}`)
             if(expression.value.dynamicArray){
                 ASM.addCode('mov rdx, [rdx]')

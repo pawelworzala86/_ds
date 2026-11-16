@@ -23,6 +23,7 @@ export class FunctionArgument{
     classPropertyInstance:DataElement|null = null
     classProperty:DataElement|null = null
     classPropertyPath:string|null = null
+    classPropertyOffsetPath:string|null = null
     arrayPropertyAccess:{array:DataElement,indexExpression:Expression,property:DataElement,offset:number}|null = null
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
 
@@ -58,6 +59,7 @@ export class FunctionArgument{
                 this.classPropertyInstance = instance
                 this.classProperty = property
                 this.classPropertyPath = access.path
+                this.classPropertyOffsetPath = member[1].split('.').slice(1).join('.')
                 if(instance.isParameter&&!property.isArray){
                     this.tempName = `__ds_call_arg_${++argumentId}`
                 }
@@ -125,10 +127,13 @@ export class FunctionArgument{
     asm(ASM:Asm){
         if(this.methodPointerName&&this.methodInstance&&this.methodName&&this.methodClassType){
             const methodLabel = `${this.methodClassType}.${this.methodName}`
-            const body = [`proc ${this.methodPointerName}`]
-            for(let index=0;index<Math.min(this.methodParamCount,3);index++){
-                const stackOffset = 56 + index * 8
-                body.push(`mov ${['rdx','r8','r9'][index]}, [rbp+${stackOffset}]`)
+            const callbackParams = Array.from(
+                {length:Math.min(this.methodParamCount,3)},
+                (_,index)=>`__ds_method_arg_${index+1}`
+            )
+            const body = [`proc ${this.methodPointerName}${callbackParams.length?`, ${callbackParams.join(', ')}`:''}`]
+            for(let index=0;index<callbackParams.length;index++){
+                body.push(`mov ${['rdx','r8','r9'][index]}, ${callbackParams[index]}`)
             }
             body.push(`lea rcx, [${this.methodInstance.name}]`)
             body.push('sub rsp, 32')
@@ -138,6 +143,32 @@ export class FunctionArgument{
             body.push('endp')
             ASM.addProc(body.join('\n'))
         }
+        if(this.classPropertyInstance?.isProcedureLocal&&this.classProperty&&!this.classProperty.isArray&&this.value instanceof DataElement){
+            const classType = this.classPropertyInstance.classType
+                ? this.scope.getClass(this.classPropertyInstance.classType)
+                : null
+            const offset = classType
+                ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??this.classProperty.name??'',name=>this.scope.getClass(name))
+                : null
+            if(offset===null){
+                throw new Error(`Unable to resolve local struct property "${this.classPropertyOffsetPath??this.classProperty.name}"`)
+            }
+            this.tempName ??= `__ds_call_arg_${++argumentId}`
+            ASM.addCode(`lea rdx, [${this.classPropertyInstance.name}]`)
+            if(offset){
+                ASM.addCode(`add rdx, ${offset}`)
+            }
+            if(this.classProperty.type==='number'&&this.classProperty.numericKind==='float'){
+                ASM.addCode('movsd xmm0, qword [rdx]')
+                ASM.addData(`${this.tempName} dq 0`)
+                ASM.addCode(`movsd qword [${this.tempName}], xmm0`)
+            }else{
+                ASM.addCode('mov rax, [rdx]')
+                ASM.addData(`${this.tempName} dq 0`)
+                ASM.addCode(`mov [${this.tempName}], rax`)
+            }
+            return
+        }
         if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
             this.value.name = this.getClassPropertyAccessName()
         }
@@ -146,7 +177,7 @@ export class FunctionArgument{
                 ? this.scope.getClass(this.classPropertyInstance.classType)
                 : null
             const offset = classType
-                ? getClassPropertyOffset(classType,this.classPropertyPath??this.classProperty.name??'',name=>this.scope.getClass(name))
+                ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??this.classProperty.name??'',name=>this.scope.getClass(name))
                 : null
             if(offset===null){
                 throw new Error(`Unable to resolve struct parameter property "${this.classProperty.name}"`)
@@ -263,7 +294,7 @@ export class FunctionArgument{
         if(instance.isProcedureLocal&&instance.classType){
             const classType = this.scope.getClass(instance.classType)
             const offset = classType
-                ? getClassPropertyOffset(classType,path,name=>this.scope.getClass(name))
+                ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??property.name??'',name=>this.scope.getClass(name))
                 : null
             if(offset===null){
                 throw new Error(`Unable to resolve local struct property "${path}"`)

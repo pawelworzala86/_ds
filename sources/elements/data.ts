@@ -37,6 +37,14 @@ function getStructFields(properties:DataElement[],getClass:(name:string)=>ClassE
                 return getStructFields(nestedClass.props,getClass)
             }
         }
+        if(property.isArray){
+            const values = splitTopLevelArrayValues(property.value??'')
+            return (values.length?values:['0']).map(value=>{
+                const field = new DataElement(property.kind??'let',property.name??'',property.type??'',value)
+                field.numericKind = property.numericKind
+                return field
+            })
+        }
         return [property]
     })
 }
