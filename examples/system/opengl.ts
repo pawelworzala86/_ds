@@ -33,12 +33,28 @@ interface MSG {
     part5: number
 }
 
+let activeWindowDC: number = 0
+let activeGLContext: number = 0
+
+function renderWindowFrame(hwnd: number) {
+    if(activeWindowDC!=0 && activeGLContext!=0){
+        let renderCallback: number = user.GetWindowLongPtrA(hwnd, -21)
+        if(renderCallback!=0){
+            renderFrame(activeWindowDC, activeGLContext, renderCallback)
+        }
+    }
+}
+
 function WndProc(hwnd: number, message: number, wParam: number, lParam: number) {
     if(message==15){
         let paint: number[] = [0,0,0,0,0,0,0,0,0]
         user.BeginPaint(hwnd, paint)
+        renderWindowFrame(hwnd)
         user.EndPaint(hwnd, paint)
         return 0
+    }
+    if(message==5){
+        renderWindowFrame(hwnd)
     }
     if(message==2){
         user.PostQuitMessage(0)
@@ -107,7 +123,7 @@ function configurePixelFormat(windowDC: number) {
     }
 }
 
-function messageLoop(windowDC: number, glContext: number) {
+function messageLoop() {
     let msg: MSG = {
         part0: 0,
         part1: 0,
@@ -128,9 +144,6 @@ function messageLoop(windowDC: number, glContext: number) {
         }
         user.TranslateMessage(msg)
         user.DispatchMessageA(msg)
-        if(msg.part1==15){
-            renderFrame(windowDC, glContext)
-        }
     }
 }
 
@@ -160,11 +173,15 @@ export function main(render:Function){
         kernel.ExitProcess(7)
     }
 
+    activeWindowDC = windowDC
+    activeGLContext = glContext
+    user.SetWindowLongPtrA(hWnd, -21, render)
+
     user.ShowWindow(hWnd, 1)
     user.UpdateWindow(hWnd)
     renderFrame(windowDC, glContext,render)
 
-    messageLoop(windowDC, glContext)
+    messageLoop()
 
     kernel.ExitProcess(0)
 }
