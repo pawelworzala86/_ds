@@ -17,10 +17,11 @@ async function testFunc(variable:number){
 msvcrt.printf(' c=%i ', numC)
 testFunc(numB)
 numC++
-setTimeout(() => {
+const timerId = setTimeout(() => {
     numC++
     msvcrt.printf(' t=%i ', numC)
 }, 100)
+clearTimeout(timerId);
 msvcrt.printf(' c=%i ', numC)
 
 //kernel.ExitProcess(0)
