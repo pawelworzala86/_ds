@@ -18,9 +18,9 @@ export class Declare extends Base{
         const [def,kind,name] = tokens
         this.name = name
         for(const tok of tokens){
-            if(tok.indexOf('any//')>-1){
-                const dll = tok.replace('any//','')
-                this.dll = dll
+            const dll = tok.match(/\/\/(.+)$/)
+            if(dll){
+                this.dll = dll[1]
             }
         }
         setInvoke(name)

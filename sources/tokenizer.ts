@@ -92,7 +92,7 @@ export class Tokenizer{
                 index++
             }else if(char==='/'&&next==='/'){
                 const linePrefix = text.slice(lineStart,index)
-                if(/\bdeclare\b/.test(linePrefix)&&/\bany$/.test(linePrefix)){
+                if(/\bdeclare\b/.test(linePrefix)&&/:\w+(?:\[\])?$/.test(linePrefix)){
                     result += '//'
                     index++
                 }else{

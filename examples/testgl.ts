@@ -2,6 +2,9 @@ import * as kernel from './system/lib/kernel.ts'
 import * as gl from './system/lib/opengl.ts'
 import * as opengl from './system/opengl.ts'
 
+function init(){
+}
+
 function render(){
     let values: number[] = [1.0, 0.0, 0.0]
     gl.glViewport(0, 0, 640, 480)
@@ -30,5 +33,8 @@ function render(){
     gl.glEnd()
 }
 
-opengl.main(render)
+function destroy(){
+}
+
+opengl.main(init, render, destroy)
 kernel.ExitProcess(0)

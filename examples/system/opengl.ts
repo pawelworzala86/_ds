@@ -3,6 +3,8 @@ import * as gdi from './lib/gdi.ts'
 import * as user from './lib/user.ts'
 import * as opengl from './lib/opengl.ts'
 
+import * as gl from './gl.ts'
+
 interface WNDCLASSEXA {
     sizeStyle: number
     lpfnWndProc: number
@@ -147,7 +149,7 @@ function messageLoop() {
     }
 }
 
-export function main(render:Function){
+export function main(init:Function,render:Function,destroy:Function){
     let hInstance: number = kernel.GetModuleHandleA(0)
     registerWindowClass()
 
@@ -179,10 +181,15 @@ export function main(render:Function){
 
     user.ShowWindow(hWnd, 1)
     user.UpdateWindow(hWnd)
+
+    gl.initializeGL()
+    init()
+
     renderFrame(windowDC, glContext,render)
 
     messageLoop()
 
+    destroy()
     kernel.ExitProcess(0)
 }
 
