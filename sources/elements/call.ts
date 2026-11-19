@@ -97,6 +97,9 @@ export class Call extends Base{
                 if(value.startsWith('&')){
                     throw new Error(`Unable to resolve address argument "${value}"`)
                 }
+                if(value.startsWith("'")&&value.endsWith("'")){
+                    return `addr ${value}`
+                }
                 if(param.value instanceof DataElement&&param.value.isConstAlias){
                     return value
                 }

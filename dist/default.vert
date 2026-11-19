@@ -19,7 +19,7 @@ void main(){
 
     gl_Position = projection*camera*model*vec4(position,1.0);
 
-    //gl_Position = mat4(dprojection)*mat4(dcamera)*mat4(dmodel)*vec4(position,1.0);
+    gl_Position = mat4(dprojection)*mat4(dcamera)*mat4(dmodel)*vec4(position,1.0);
 
     vCoord = coord;
 

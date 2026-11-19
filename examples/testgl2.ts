@@ -196,8 +196,10 @@ function render(){
 
 
     let uniformLocation:number = 0
-	
-	/*uniformLocation = glt.getUniformLocation(programID, 'dprojection')
+
+	msvcrt.printf('procADDR=%i ', glt.getUniformLocation)
+
+	uniformLocation = glt.getUniformLocation(programID, 'dprojection')
 	//lea rax, projection
     msvcrt.printf('uniformLocation=%i ', uniformLocation)
 	glt.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
@@ -208,7 +210,7 @@ function render(){
 
 	uniformLocation = glt.getUniformLocation(programID, 'dmodel')
 	//lea rax, model
-	glt.uniformMatrix4dv(uniformLocation, 1, 0, model)*/
+	glt.uniformMatrix4dv(uniformLocation, 1, 0, model)
 
 	
 	//uniformLocation = glt.getUniformLocation(programID, 'diffuseTexture')
