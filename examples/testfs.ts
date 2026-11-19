@@ -5,13 +5,13 @@ const GENERIC_READ:number = 0x80000000
 const OPEN_EXISTING:number = 3
 const FILE_ATTRIBUTE_NORMAL:number = 0x80
 
-export let handle:number = 0
-export let fsize:number = 0
-export let buffor:number = 0
-
 let fileName:string = 'test.txt'
 
 export function readFile(fileName:string){
+
+    let handle:number = 0
+    let fsize:number = 0
+    let buffor:number = 0
 
     //lea rax, [fileName]
     //msvcrt.printf(" %s ",fileName)
@@ -35,6 +35,6 @@ export function readFile(fileName:string){
     return buffor
 }
 
-readFile(fileName)
+const buffor:number = readFile(fileName)
 
 msvcrt.printf(' file: %s ', buffor)

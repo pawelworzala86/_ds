@@ -23,6 +23,7 @@ export class Assign extends Base{
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
+    functionCall:Call|null = null
     asyncCall:Call|null = null
     timeout:Timeout|null = null
     addressFunction:FuncElement|null = null
@@ -103,6 +104,16 @@ export class Assign extends Base{
             this.invokeExpression.set(new Tokenizer(expression.trim()))
             target.numericKind = 'integer'
             return
+        }
+        if(nativeCall){
+            const call = new Call(this.parent!)
+            const tokenizer = new Tokenizer(expression.trim())
+            call.set(tokenizer)
+            if(!tokenizer.has()&&call.func&&!call.func.isAsync&&!call.methodInstance&&!call.prototypeMethod){
+                this.functionCall = call
+                target.numericKind = 'integer'
+                return
+            }
         }
         this.expression = parseExpression(expression,this.parent!)
         if(indexText){
@@ -277,6 +288,11 @@ export class Assign extends Base{
         }
         if(this.invokeExpression){
             this.invokeExpression.asm(ASM)
+            storeTarget('rax')
+            return
+        }
+        if(this.functionCall){
+            this.functionCall.asm(ASM)
             storeTarget('rax')
             return
         }
