@@ -195,6 +195,17 @@ export class Tokenizer{
                 current += token
                 continue
             }
+            if(token==='typeof'){
+                if(current&&!/\s$/.test(current)){
+                    current += ' '
+                }
+                current += 'typeof '
+                continue
+            }
+            if(token==='instanceof'){
+                current += ' instanceof '
+                continue
+            }
             if(token=='['){
                 nestedArray++
                 current += token

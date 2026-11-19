@@ -274,6 +274,24 @@ export class Iff extends Base{
         if(text==='true'||text==='false'){
             return {kind:'boolean',value:text==='true'}
         }
+        index = findTopLevel(text,' instanceof ')
+        if(index!==-1){
+            const instanceName = text.slice(0,index).trim()
+            const className = text.slice(index+' instanceof '.length).trim()
+            const instance = this.getData(instanceName)
+            const targetClass = this.getClass(className)
+            if(!instance?.classType){
+                throw new Error(`Left operand "${instanceName}" of instanceof must be a class instance`)
+            }
+            if(!targetClass){
+                throw new Error(`Unknown class "${className}" in instanceof condition`)
+            }
+            let instanceClass = this.getClass(instance.classType)
+            while(instanceClass&&instanceClass.name!==targetClass.name){
+                instanceClass = instanceClass.parentClass
+            }
+            return {kind:'boolean',value:instanceClass!==null}
+        }
         const comparison = findComparison(text)
         if(comparison){
             const left = this.parseOperand(text.slice(0,comparison.index))
@@ -305,6 +323,34 @@ export class Iff extends Base{
         const text = source.trim()
         if(!text){
             throw new Error('Expected a value in if condition')
+        }
+        const typeofMatch = text.match(/^typeof\s+(.+)$/)
+        if(typeofMatch){
+            const subject = typeofMatch[1].trim()
+            let type:string|null = null
+            if((subject.startsWith("'")&&subject.endsWith("'"))||(subject.startsWith('"')&&subject.endsWith('"'))){
+                type = 'string'
+            }else if(/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(subject)){
+                type = 'number'
+            }else if(subject==='true'||subject==='false'){
+                type = 'boolean'
+            }else{
+                const subjectData = this.getData(subject)
+                if(!subjectData){
+                    throw new Error(`Unknown value "${subject}" in typeof expression`)
+                }
+                if(subjectData.classType||subjectData.isArray){
+                    type = 'object'
+                }else if(subjectData.type==='number'||subjectData.type==='string'){
+                    type = subjectData.type
+                }else if(subjectData.type==='Function'){
+                    type = 'function'
+                }
+            }
+            if(!type){
+                throw new Error(`Unsupported typeof operand "${subject}"`)
+            }
+            return {value:{kind:'literal',value:`'${type}'`},calls:[]}
         }
         if((text.startsWith("'")&&text.endsWith("'"))||(text.startsWith('"')&&text.endsWith('"'))){
             return {value:{kind:'literal',value:text},calls:[]}
