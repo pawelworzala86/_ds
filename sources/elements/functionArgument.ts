@@ -26,10 +26,18 @@ export class FunctionArgument{
     classPropertyOffsetPath:string|null = null
     arrayPropertyAccess:{array:DataElement,indexExpression:Expression,property:DataElement,offset:number}|null = null
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
+    addressOf:DataElement|null = null
 
     constructor(active:Base,text:string){
         this.scope = active
         this.value = Link.data(active,text)
+        const address = text.match(/^&([a-z_$][\w.$]*)$/i)
+        if(address){
+            this.addressOf = active.getData(address[1])
+        }
+        if(this.addressOf){
+            this.value = this.addressOf
+        }
         if(typeof this.value==='string'){
             const methodRef = text.match(/^([a-z_$][\w.$]*)\.([a-z_$][\w$]*)$/i)
             if(methodRef){
@@ -256,6 +264,9 @@ export class FunctionArgument{
     }
 
     getCode(byValue=false){
+        if(this.addressOf){
+            return 'addr '+this.addressOf.name
+        }
         if(this.arrayPointerName){
             return this.arrayPointerName
         }

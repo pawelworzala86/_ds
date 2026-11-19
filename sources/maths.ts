@@ -283,6 +283,10 @@ export function emitExpression(expression:Expression,ASM:Asm){
         return
     }
     if(expression.kind==='data'){
+        if(expression.value.isConstAlias){
+            ASM.addCode(`mov rax, ${expression.value.name}`)
+            return
+        }
         const instance = expression.value.classPropertyInstance
         const offset = expression.value.classPropertyOffset
         if(instance?.isProcedureLocal&&offset!==null){

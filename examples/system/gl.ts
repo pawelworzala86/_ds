@@ -18,32 +18,32 @@ let glUniform4fv:number = 0;
 
 
 
-export let uniform1i:number = 0;
-export let uniform1f:number = 0;
-export let bindVertexArray:number = 0;
-export let genBuffers:number = 0;
-export let bindBuffer:number = 0;
-export let createShader:number = 0;
-export let shaderSource:number = 0;
-export let compileShader:number = 0;
-export let createProgram:number = 0;
-export let attachShader:number = 0;
-export let linkProgram:number = 0;
-export let useProgram:number = 0;
-export let detachShader:number = 0;
-export let deleteShader:number = 0;
-export let genVertexArrays:number = 0;
-export let bufferData:number = 0;
-export let enableVertexAttribArray:number = 0;
-export let vertexAttribPointer:number = 0;
-export let getUniformLocation:number = 0;
-export let uniform1d:number = 0;
-export let uniform4dv:number = 0;
-export let uniformMatrix4dv:number = 0;
+export let uniform1i:Function
+export let uniform1f:Function
+export let bindVertexArray:Function
+export let genBuffers:Function
+export let bindBuffer:Function
+export let createShader:Function
+export let shaderSource:Function
+export let compileShader:Function
+export let createProgram:Function
+export let attachShader:Function
+export let linkProgram:Function
+export let useProgram:Function
+export let detachShader:Function
+export let deleteShader:Function
+export let genVertexArrays:Function
+export let bufferData:Function
+export let enableVertexAttribArray:Function
+export let vertexAttribPointer:Function
+export let getUniformLocation:Function
+export let uniform1d:Function
+export let uniform4dv:Function
+export let uniformMatrix4dv:Function
 
 
 
-export declare function wglGetProcAddress(...args:any[]):any//opengl32
+export declare function wglGetProcAddress(...args:any[]):Function//opengl32
 export function initializeGL(){
     uniform1i = wglGetProcAddress('glUniform1i');
     uniform1f = wglGetProcAddress('glUniform1f');

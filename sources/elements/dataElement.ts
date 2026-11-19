@@ -22,6 +22,8 @@ export class DataElement{
     dynamicArray = false
     isParameter = false
     isProcedureLocal = false
+    isConstAlias = false
+    isExportedConstAlias = false
     classPropertyOffset:number|null = null
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
@@ -33,6 +35,9 @@ export class DataElement{
         }
     }
     getCode(byValue=false){
+        if(this.isConstAlias){
+            return this.name
+        }
         if(this.isArray){
             return this.isParameter?this.name:'addr '+this.name
         }

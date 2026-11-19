@@ -115,7 +115,7 @@ export class Base{
     }
     testChangeName(){
         for(const DATA of this.DATA){
-            if(!DATA.isParameter){
+            if(!DATA.isParameter&&!DATA.isExportedConstAlias){
                 DATA.name = 'X'+getID()+'_'+DATA.name
             }
         }

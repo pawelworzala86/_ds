@@ -179,11 +179,11 @@ export function main(init:Function,render:Function,destroy:Function){
     activeGLContext = glContext
     user.SetWindowLongPtrA(hWnd, -21, render)
 
-    user.ShowWindow(hWnd, 1)
-    user.UpdateWindow(hWnd)
-
     gl.initializeGL()
     init()
+
+    user.ShowWindow(hWnd, 1)
+    user.UpdateWindow(hWnd)
 
     renderFrame(windowDC, glContext,render)
 

@@ -240,6 +240,9 @@ export class Data extends Base{
         const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
         const eq = hasInitializer?'=':undefined
         let value = initializerTokens[0]
+        if(!hasInitializer&&(type==='Function'||type==='function')){
+            value='0'
+        }
         const asyncFunctionName = /^[a-z_$][\w$]*$/i.test(initializerTokens[0]??'')
             &&initializerTokens[1]==='('
             &&initializerTokens[initializerTokens.length-1]===')'
@@ -369,6 +372,14 @@ export class Data extends Base{
         if(!arrayType){
             this.element.classType = classType?.name??null
         }
+        this.element.isConstAlias = kind==='const'
+            &&type==='number'
+            &&!arrayType
+            &&!classType
+            &&!runtimeInitializer
+            &&/^[+-]?(?:0x[0-9a-f]+|[0-9a-f]+h|\d+)$/i.test(value??'')
+        this.element.isExportedConstAlias = this.element.isConstAlias
+            &&Boolean(this.parent?.EXPORT[name])
         this.parent?.addData(this.element)
         if(runtimeInitializer&&numericExpression&&this.parent){
             const initializer = new Assign(this.parent)
@@ -424,6 +435,10 @@ export class Data extends Base{
     }
     asm(ASM:Asm){
         if(!this.element){
+            return
+        }
+        if(this.element.isConstAlias){
+            ASM.addCode(`${this.element.name} = ${this.element.value}`)
             return
         }
         if(this.element!.isProcedureLocal&&this.element!.isArray&&this.element!.type==='number'&&!this.element!.dynamicArray){

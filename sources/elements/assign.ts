@@ -41,8 +41,8 @@ export class Assign extends Base{
         if((target.type==='string'||target.type==='string[]')&&(!target.isArray||!indexText)){
             throw new Error('String assignment is only supported for string array elements')
         }
-        if((target.type!=='number'&&!target.isArray)&&(target.type!=='string'&&target.type!=='string[]')){
-            throw new Error('Assignment is only supported for number variables and string array elements')
+        if((target.type!=='number'&&target.type!=='Function'&&target.type!=='function'&&!target.isArray)&&(target.type!=='string'&&target.type!=='string[]')){
+            throw new Error('Assignment is only supported for number and function variables and string array elements')
         }
         this.target = target
         if(isStringArray){
@@ -109,7 +109,7 @@ export class Assign extends Base{
             const call = new Call(this.parent!)
             const tokenizer = new Tokenizer(expression.trim())
             call.set(tokenizer)
-            if(!tokenizer.has()&&call.func&&!call.func.isAsync&&!call.methodInstance&&!call.prototypeMethod){
+            if(!tokenizer.has()&&(call.func||call.functionVariable)&&!call.func?.isAsync&&!call.methodInstance&&!call.prototypeMethod){
                 this.functionCall = call
                 target.numericKind = 'integer'
                 return

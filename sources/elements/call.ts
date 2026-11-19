@@ -89,36 +89,37 @@ export class Call extends Base{
             return
         }
         if(this.functionVariable){
-            for(let index=0;index<this.params.length;index++){
-                const param = this.params[index]
+            const params = this.params.map(param=>{
                 const value = param.getCode()
                 if(value===null){
                     throw new Error('Unable to resolve function pointer argument')
                 }
-                if(value.startsWith('addr ')){
-                    ASM.addCode(`lea rax, [${value.replace(/^addr\s+/,'')}]`)
-                }else if(param.value instanceof DataElement&&param.value.type==='Function'){
-                    ASM.addCode(`mov rax, [${param.value.name}]`)
+                if(value.startsWith('&')){
+                    throw new Error(`Unable to resolve address argument "${value}"`)
+                }
+                if(param.value instanceof DataElement&&param.value.isConstAlias){
+                    return value
+                }
+                if(param.value instanceof DataElement&&param.value.type==='Function'){
+                    return `[${param.value.name}]`
                 }else if(param.value instanceof DataElement&&param.value.isArray){
                     if(param.value.dynamicArray){
-                        ASM.addCode(`mov rax, [${param.value.name}]`)
-                    }else{
-                        ASM.addCode(`lea rax, [${param.value.name}]`)
+                        return `[${param.value.name}]`
                     }
-                }else if(param.tempName){
-                    ASM.addCode(`mov rax, [${param.tempName}]`)
-                }else if(param.arrayPointerName){
-                    ASM.addCode(`mov rax, [${param.arrayPointerName}]`)
-                }else{
-                    ASM.addCode(`mov rax, [${value}]`)
+                    return `addr ${param.value.name}`
                 }
-                ASM.addCode('push rax')
-            }
-            const shadowSpace = 32+(this.params.length%2===0?8:0)
-            ASM.addCode(`sub rsp, ${shadowSpace}`)
-            ASM.addCode(`mov rax, [${this.functionVariable.name}]`)
-            ASM.addCode('call rax')
-            ASM.addCode(`add rsp, ${shadowSpace+this.params.length*8}`)
+                if(param.arrayPointerName){
+                    return `[${param.arrayPointerName}]`
+                }
+                if(param.tempName){
+                    return `[${param.tempName}]`
+                }
+                if(value.startsWith('addr ')){
+                    return value
+                }
+                return value.startsWith('[')&&value.endsWith(']')?value:`[${value}]`
+            }).join(', ')
+            ASM.addCode(`invoke [${this.functionVariable.name}] ${params}`)
             return
         }
         const canEmitArguments = this.params.every(param=>
@@ -132,6 +133,8 @@ export class Call extends Base{
                     ASM.addCode(param.value.isParameter
                         ? `mov rax, ${param.value.name}`
                         : `lea rax, [${param.value.name}]`)
+                }else if(param.value instanceof DataElement&&param.value.isConstAlias){
+                    ASM.addCode(`mov rax, ${param.value.name}`)
                 }else if(param.value instanceof DataElement&&param.value.isArray&&!param.arrayPointerName){
                     if(param.value.dynamicArray){
                         ASM.addCode(`mov rax, [${param.value.name}]`)

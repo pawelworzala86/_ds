@@ -22,7 +22,7 @@ export function readFileSync(fileName:string){
     //mov fsize, rax
     //msvcrt.printf(" sz %i ",fsize)
 
-    buffor = msvcrt.malloc(fsize)
+    buffor = msvcrt.calloc(fsize + 1, 1)
     //mov buffor, rax
     kernel.ReadFile(handle, buffor, fsize, 0, 0)
     //printf('%s',buffor)
