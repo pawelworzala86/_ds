@@ -6,16 +6,19 @@ export class ClassElement{
     name:string|null = null
     props:DataElement[]
     funcs:FuncElement[]
-    constructor(name:string,props:DataElement[],funcs:FuncElement[]){
+    parentClass:ClassElement|null
+    methodNodes:{element:FuncElement|null,getStructCode:(ASM:import('../asm.ts').default)=>string}[] = []
+    constructor(name:string,props:DataElement[],funcs:FuncElement[],parentClass:ClassElement|null=null){
         this.name = name
         this.props = props
         this.funcs = funcs
+        this.parentClass = parentClass
     }
     getCode(){
         return this.name
     }
-    getFunction(name:string){
-        return this.funcs.find(func=>func.name===name)??null
+    getFunction(name:string):FuncElement|null{
+        return this.funcs.find(func=>func.name===name)??this.parentClass?.getFunction(name)??null
     }
 }
 

@@ -20,6 +20,7 @@ import Return from "./elements/return.ts"
 import Await from "./elements/await.ts"
 import Timeout from "./elements/timeout.ts"
 import ClearTimeout from "./elements/clearTimeout.ts"
+import New from "./elements/new.ts"
 
 export class Make{
     constructor(){
@@ -32,6 +33,7 @@ export class Make{
             }else if(Declare.test(active,tokenizer)){
             }else if(Timeout.test(active,tokenizer)){
             }else if(ClearTimeout.test(active,tokenizer)){
+            }else if(New.test(active,tokenizer)){
             }else if(Invoke.test(active,tokenizer)){
             }else if(Await.test(active,tokenizer)){
             }else if(Func.test(active,tokenizer,ASM,active instanceof Class)){

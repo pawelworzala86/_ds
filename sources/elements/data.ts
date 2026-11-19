@@ -4,6 +4,7 @@ import Asm from "./../asm.ts"
 import DataElement, {getNumericKind} from './dataElement.ts'
 import Assign from './assign.ts'
 import ClassElement from './clasElement.ts'
+import Call from './call.ts'
 
 let structLayoutId = 0
 let objectStringLabelId = 0
@@ -238,6 +239,7 @@ function splitTokenArrayValues(tokens:string[]):string[][]{
 
 export class Data extends Base{
     element:DataElement|null = null
+    initializerCall:Call|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -388,12 +390,20 @@ export class Data extends Base{
         const normalizedType = arrayType?inferredArrayClass?.name??arrayType[1]:type
         let classType = inferredArrayClass??(normalizedType?this.parent?.getClass(normalizedType):null)
         let classLayout:{type:string,props:DataElement[]}|null = null
+        let classInitializerArgs:string[]|null = null
         if(classType&&!arrayType&&eq==='='){
             if(initializerTokens[0]==='{'){
                 const properties = parseObjectLiteral(initializerTokens)
                 classLayout = createStructLayout(properties,classType,name)
-            }else if(initializerTokens.length!==4||initializerTokens[0]!=='new'||initializerTokens[1]!==normalizedType||initializerTokens[2]!=='('||initializerTokens[3]!==')'){
+            }else if(initializerTokens[0]!=='new'||initializerTokens[1]!==normalizedType||initializerTokens[2]!=='('||initializerTokens[initializerTokens.length-1]!==')'){
                 throw new Error(`Class instance "${name}" must be initialized with new ${normalizedType}()`)
+            }else{
+                const callTokenizer = new Tokenizer(initializerTokens.slice(2).join(' '))
+                callTokenizer.get()
+                classInitializerArgs = callTokenizer.getCallArguments()
+                if(callTokenizer.has()){
+                    throw new Error(`Invalid constructor initializer for class instance "${name}"`)
+                }
             }
         }else if(!type&&eq==='='&&initializerTokens[0]==='{'){
             const properties = parseObjectLiteral(initializerTokens)
@@ -449,6 +459,18 @@ export class Data extends Base{
         this.element.isExportedConstAlias = this.element.isConstAlias
             &&Boolean(this.parent?.EXPORT[name])
         this.parent?.addData(this.element)
+        if(!classField&&classInitializerArgs&&this.parent&&classType){
+            const constructor = classType.getFunction('constructor')
+            if(constructor){
+                if(classInitializerArgs.length!==constructor.params.length){
+                    throw new Error(`Constructor for "${classType.name}" expects ${constructor.params.length} arguments, received ${classInitializerArgs.length}`)
+                }
+                this.initializerCall = new Call(this.parent)
+                this.initializerCall.set(new Tokenizer(`${this.element.name}.constructor(${classInitializerArgs.join(',')})`))
+            }else if(classInitializerArgs.length){
+                throw new Error(`Class "${classType.name}" has no constructor`)
+            }
+        }
         if(runtimeInitializer&&numericExpression&&this.parent){
             const initializer = new Assign(this.parent)
             initializer.setExpression(this.element,numericExpression,true)
@@ -724,6 +746,9 @@ export class Data extends Base{
             const data = new Data(active)
             data.set(tokenizer,isClassField)
             active.children.push(data)
+            if(data.initializerCall){
+                active.children.push(data.initializerCall)
+            }
             return data
         }
         return null

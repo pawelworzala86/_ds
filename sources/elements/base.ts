@@ -16,10 +16,12 @@ export class Base{
     DATA:DataElement[] = []
     FUNCTIONS:FuncElement[] = []
     CLASSES:ClassElement[] = []
+    classElement:ClassElement|null = null
     IMPORT:any = []
     EXPORT:any = []
     constructor(parent:Base|null){
         this.parent = parent
+        this.classElement = parent?.classElement??null
     }
     //set(tokenizer:Tokenizer){}
     asm(ASM:Asm){

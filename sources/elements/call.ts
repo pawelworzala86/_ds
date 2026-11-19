@@ -8,6 +8,7 @@ import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 
 let arrayPushId = 0
 let asyncCallId = 0
+let superStringId = 0
 
 export class Call extends Base{
     func:FuncElement|null = null
@@ -18,6 +19,8 @@ export class Call extends Base{
     prototypeMethod = false
     prototypeReceiver = false
     arrayPushId:number|null = null
+    noOp = false
+    superCall = false
     constructor(parent:Base){
         super(parent)
     }
@@ -26,11 +29,33 @@ export class Call extends Base{
         if(tokenizer.get()!=='('){
             throw new Error(`Expected '(' after function "${name}"`)
         }
+        const superCall = name==='super'||name.startsWith('super.')
+        this.superCall = superCall
+        let superInstance:DataElement|null = null
+        if(superCall){
+            const parentClass = this.classElement?.parentClass
+            if(!parentClass){
+                throw new Error('Cannot call super without a parent class')
+            }
+            const methodName = name==='super'?'constructor':name.slice('super.'.length)
+            this.func = parentClass.getFunction(methodName)
+            if(!this.func){
+                if(methodName!=='constructor'){
+                    throw new Error(`Unknown parent method "${methodName}"`)
+                }
+                this.noOp = true
+            }else{
+                superInstance = new DataElement('let','this',parentClass.name??'','0')
+                superInstance.classType = parentClass.name
+                superInstance.isProcedureLocal = true
+                this.methodInstance = superInstance
+            }
+        }
         const method = Call.getMethod(this,name)
         const prototype = Call.getPrototypeMethod(this,name)
         const variable = this.getData(name)
-        this.func = method?.func??(prototype?.method.kind==='function'?prototype.method.func:null)??this.getFunction(name)
-        this.methodInstance = method?.instance??null
+        this.func ??= method?.func??(prototype?.method.kind==='function'?prototype.method.func:null)??this.getFunction(name)
+        this.methodInstance ??= method?.instance??null
         this.functionVariable = variable && (variable.type==='Function'||variable.type==='function') ? variable : null
         this.prototypeMethod = prototype?.method.kind==='function'
         this.prototypeReceiver = this.prototypeMethod&&Boolean(prototype&&!prototype.type.startsWith('class:'))
@@ -38,6 +63,9 @@ export class Call extends Base{
             ? prototype.instance
             : null
         this.params = tokenizer.getCallArguments().map(token=>new FunctionArgument(this,token))
+        if(this.noOp&&this.params.length){
+            throw new Error('Parent constructor does not accept arguments')
+        }
         if(this.prototypeReceiver&&prototype){
             this.params.unshift(new FunctionArgument(this,prototype.instance.name??''))
         }
@@ -74,8 +102,15 @@ export class Call extends Base{
         this.prepareDynamicArrayArguments()
     }
     asm(ASM:Asm,asyncMode:'detached'|'handle'|'await'='detached'){
+        if(this.noOp){
+            return
+        }
         for(const param of this.params){
             param.asm(ASM)
+        }
+        if(this.superCall){
+            this.emitSuperCall(ASM)
+            return
         }
         if(this.func?.isAsync){
             this.emitAsyncCall(ASM,asyncMode)
@@ -176,10 +211,65 @@ export class Call extends Base{
             }
             return param.getCode(this.methodInstance!==null)
         }).join(', ')
+        const methodName = this.methodInstance?.isProcedureLocal
+            ? `${this.methodInstance.classType}.${this.func!.name}`
+            : `${this.methodInstance?.name}.${this.func!.name}`
+        const methodParams = this.methodInstance?.isProcedureLocal
+            ? `addr ${this.methodInstance.name}${params?`, ${params}`:''}`
+            : params
         const code = this.methodInstance
-            ? `invoke ${this.methodInstance.name}.${this.func!.name} ${params}`
+            ? `invoke ${methodName} ${methodParams}`
             : `rvcall ${this.func!.name} ${params}`
         ASM.addCode(code)
+    }
+    emitSuperCall(ASM:Asm){
+        if(!this.func?.name){
+            throw new Error('Parent method is not initialized')
+        }
+        if(this.params.length!==this.func.params.length){
+            throw new Error(`Parent method "${this.func.name}" expects ${this.func.params.length} arguments, received ${this.params.length}`)
+        }
+        const registers = ['rdx','r8','r9']
+        const totalArguments = this.params.length+1
+        const stackBytes = 32+Math.max(0,totalArguments-4)*8
+        const stackSize = stackBytes+(stackBytes%16===0?8:0)
+        ASM.addCode(`sub rsp, ${stackSize}`)
+        ASM.addCode('mov rcx, rsi')
+        this.params.forEach((param,index)=>{
+            const expected = this.func!.params[index]
+            const value = expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray
+                ? param.value.isParameter?param.value.name:`addr ${param.value.name}`
+                : param.getCode(true)
+            if(value===null){
+                throw new Error(`Unable to resolve parent method argument ${index+1}`)
+            }
+            const literal = value.match(/^(['"])([\s\S]*)\1$/)
+            const argument = literal
+                ? `addr __ds_super_string_${++superStringId}`
+                : value
+            if(literal){
+                const contents = literal[2].replace(/'/g,"''")
+                ASM.addData(`__ds_super_string_${superStringId} db '${contents}',0`)
+            }
+            const register = registers[index]
+            if(register){
+                const address = argument.match(/^addr\s+(.+)$/i)
+                ASM.addCode(address
+                    ? `lea ${register}, [${address[1]}]`
+                    : `mov ${register}, ${argument}`)
+            }else{
+                const offset = 32+(index-registers.length)*8
+                const address = argument.match(/^addr\s+(.+)$/i)
+                if(address){
+                    ASM.addCode(`lea rax, [${address[1]}]`)
+                }else{
+                    ASM.addCode(`mov rax, ${argument}`)
+                }
+                ASM.addCode(`mov qword [rsp+${offset}], rax`)
+            }
+        })
+        ASM.addCode(`call ${this.methodInstance?.classType}.${this.func.name}`)
+        ASM.addCode(`add rsp, ${stackSize}`)
     }
     emitAsyncCall(ASM:Asm,mode:'detached'|'handle'|'await'='detached'){
         const func = this.func
@@ -525,7 +615,7 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        if(active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
+        if(token==='super'||token.startsWith('super.')||active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
             tokenizer.move(-1)
             const data = new Call(active)
             data.set(tokenizer)
