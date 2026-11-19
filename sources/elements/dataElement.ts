@@ -15,6 +15,7 @@ export class DataElement{
     classType:string|null = null
     classLayoutType:string|null = null
     classLayoutProps:DataElement[]|null = null
+    arrayObjectValues:DataElement[][]|null = null
     classPropertyInstance:DataElement|null = null
     classPropertyPath:string|null = null
     numericKind:NumericKind = 'integer'

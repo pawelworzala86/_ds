@@ -156,6 +156,7 @@ function splitTopLevelArrayValues(value:string):string[]{
     const items:string[] = []
     let current = ''
     let quote:string|null = null
+    let depth = 0
     for(let index=0;index<value.length;index++){
         const char = value[index]
         if(quote){
@@ -170,7 +171,12 @@ function splitTopLevelArrayValues(value:string):string[]{
             current += char
             continue
         }
-        if(char===','){
+        if(char==='('||char==='['||char==='{'){
+            depth++
+        }else if(char===')'||char===']'||char==='}'){
+            depth--
+        }
+        if(char===','&&depth===0){
             const trimmed = current.trim()
             if(trimmed){
                 items.push(trimmed)
@@ -188,6 +194,44 @@ function splitTopLevelArrayValues(value:string):string[]{
                 ? `"${trimmed.slice(1,-1).trim()}"`
                 : trimmed
         items.push(item)
+    }
+    return items
+}
+
+function splitTokenArrayValues(tokens:string[]):string[][]{
+    if(tokens[0]!=='['||tokens[tokens.length-1]!==']'){
+        throw new Error('Invalid array literal')
+    }
+    const items:string[][] = []
+    let current:string[] = []
+    let depth = 0
+    let quote:string|null = null
+    for(const token of tokens.slice(1,-1)){
+        if(quote){
+            current.push(token)
+            if(token===quote){
+                quote = null
+            }
+        }else if(token==="'"||token==='"'){
+            quote = token
+            current.push(token)
+        }else if(['{','(','['].includes(token)){
+            depth++
+            current.push(token)
+        }else if(['}',')',']'].includes(token)){
+            depth--
+            current.push(token)
+        }else if(token===','&&depth===0){
+            if(current.length){
+                items.push(current)
+            }
+            current = []
+        }else{
+            current.push(token)
+        }
+    }
+    if(current.length){
+        items.push(current)
     }
     return items
 }
@@ -266,11 +310,13 @@ export class Data extends Base{
         }
         const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
         let arrayValues:string[] = []
+        let arrayObjectValues:DataElement[][]|null = null
+        let inferredArrayClass:ClassElement|null = null
         if(arrayType){
             const itemType = arrayType[1]
             const classType = this.parent?.getClass(itemType)
             const allowedItemTypes = ['number','string']
-            if((!allowedItemTypes.includes(itemType)&&!classType)||eq!=='='){
+            if((!allowedItemTypes.includes(itemType)&&!classType&&itemType!=='any')||eq!=='='){
                 throw new Error(`Array "${name}" must be initialized with an array literal`)
             }
             const initializerStart = tokens.indexOf('=') + 1
@@ -302,6 +348,27 @@ export class Data extends Base{
                     throw new Error(`Array "${name}" must contain "new ${itemType}()" initializers`)
                 }
                 value = arrayValues.join(', ')
+            }else if(itemType==='any'){
+                const objectTokens = splitTokenArrayValues(initializerTokens)
+                if(!objectTokens.length||objectTokens.some(item=>item[0]!=='{')){
+                    throw new Error(`Array "${name}" must contain object literals`)
+                }
+                const objectProperties = objectTokens.map(item=>parseObjectLiteral(item))
+                const shape = objectProperties[0]
+                if(objectProperties.some(properties=>
+                    properties.length!==shape.length
+                    ||shape.some(property=>!properties.some(value=>value.name===property.name&&value.type===property.type))
+                )){
+                    throw new Error(`Objects in array "${name}" must have the same properties and types`)
+                }
+                const layout = createStructLayout(shape,null,name)
+                inferredArrayClass = new ClassElement(layout.type,layout.props,[])
+                this.parent?.addClass(inferredArrayClass)
+                arrayObjectValues = objectProperties.map(properties=>shape.map(property=>{
+                    const value = properties.find(item=>item.name===property.name)!
+                    return new DataElement('let',value.name,value.type,value.value)
+                }))
+                value = arrayValues.join(', ')
             }
         }
         let numericExpression:string|null = null
@@ -318,8 +385,8 @@ export class Data extends Base{
                 value = numericExpression
             }
         }
-        const normalizedType = arrayType?arrayType[1]:type
-        let classType = normalizedType?this.parent?.getClass(normalizedType):null
+        const normalizedType = arrayType?inferredArrayClass?.name??arrayType[1]:type
+        let classType = inferredArrayClass??(normalizedType?this.parent?.getClass(normalizedType):null)
         let classLayout:{type:string,props:DataElement[]}|null = null
         if(classType&&!arrayType&&eq==='='){
             if(initializerTokens[0]==='{'){
@@ -356,7 +423,7 @@ export class Data extends Base{
                 spec = false
             }
         }
-        this.element = new DataElement(kind,name,arrayType?arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
+        this.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
         if(classLayout){
             this.element.classLayoutType = classLayout.type
             this.element.classLayoutProps = classLayout.props
@@ -364,6 +431,7 @@ export class Data extends Base{
         if(arrayType){
             this.element.isArray = true
             this.element.dynamicArray = arrayValues.length===0
+            this.element.arrayObjectValues = arrayObjectValues
             this.element.numericKind = arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
             if(classType){
                 this.element.classType = classType.name
@@ -557,6 +625,18 @@ export class Data extends Base{
                 ASM.addCode('call [ExitProcess]')
                 ASM.addCode('add rsp, 40')
                 ASM.addCode(`${allocationReady}:`)
+                return
+            }
+            if(this.element!.arrayObjectValues){
+                const objects = this.element!.arrayObjectValues
+                ASM.addData(`${this.element!.name} dq ${objects.map(()=>0).join(', ')}`)
+                objects.forEach((properties,index)=>{
+                    const label = `${this.element!.name}_${index}`
+                    ASM.addData(`${label} dq ${properties.map(property=>property.type==='string'?'0':property.value||'0').join(', ')}`)
+                    initializeStackStructStrings(ASM,label,properties)
+                    ASM.addCode(`lea rax, [${label}]`)
+                    ASM.addCode(`mov [${this.element!.name}+${index*8}], rax`)
+                })
                 return
             }
             if(this.element!.classType){
