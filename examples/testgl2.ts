@@ -110,7 +110,7 @@ function init(){
 		glt.deleteShader(fragmentShader);
 
 
-
+msvcrt.printf('useProgram=%i ', programID)
 
 
 		msvcrt.printf('OK5')
@@ -192,12 +192,14 @@ function render(){
 
 
 	glt.useProgram(programID);
+    msvcrt.printf('useProgram=%i ', programID)
 
-    /*let uniformLocation:number = 0
+
+    let uniformLocation:number = 0
 	
-
-	uniformLocation = glt.getUniformLocation(programID, 'dprojection')
+	/*uniformLocation = glt.getUniformLocation(programID, 'dprojection')
 	//lea rax, projection
+    msvcrt.printf('uniformLocation=%i ', uniformLocation)
 	glt.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
 
 	uniformLocation = glt.getUniformLocation(programID, 'dcamera')

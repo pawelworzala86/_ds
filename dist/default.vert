@@ -9,9 +9,9 @@ mat4 camera = mat4(1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,-2.10
 mat4 model = mat4(1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0);
 
 
-//uniform dmat4 dprojection;
-//uniform dmat4 dcamera;
-//uniform dmat4 dmodel;
+uniform dmat4 dprojection;
+uniform dmat4 dcamera;
+uniform dmat4 dmodel;
 
 out vec2 vCoord;
 
