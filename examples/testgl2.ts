@@ -1,10 +1,8 @@
 import * as kernel from './system/lib/kernel.ts'
 import * as msvcrt from './system/lib/msvcrt.ts'
-import * as gl from './system/lib/opengl.ts'
-import * as opengl from './system/opengl.ts'
+import * as gl from './system/lib/gl.ts'
+import * as glWindow from './system/glWindow.ts'
 import * as fs from './system/fs.ts'
-
-import * as glt from './system/gl.ts'
 
 
 let vertices:number[] = [0.8,1.0,0.0,1.0,-1.0,0.0,-1.0,-1.0,0.0,1.0,1.0,0.0,-1.0,-1.0,0.0,-1.0,1.0,0.0]
@@ -64,16 +62,16 @@ function init(){
 
     msvcrt.printf(' OK2 ')
 	
-		vertexShader = glt.createShader(glt.VERTEX_SHADER);
+		vertexShader = gl.createShader(gl.VERTEX_SHADER);
 		msvcrt.printf(' OKa')
 	const vertexBufferLength:number = msvcrt.strlen(vertexBufforTxt)
 	msvcrt.printf(' vs:%i ',vertexShader)
 	//lea rax, fs.buffor
 	//lea rbx, fs.fsize
     msvcrt.printf('OKb')
-		glt.shaderSource(vertexShader,1, &vertexBufforTxt, &vertexBufferLength);
+		gl.shaderSource(vertexShader,1, &vertexBufforTxt, &vertexBufferLength);
     msvcrt.printf('OKb')
-		glt.compileShader(vertexShader);
+		gl.compileShader(vertexShader);
 	
 		
 	msvcrt.printf('OKb')
@@ -83,12 +81,12 @@ function init(){
 	
 		//msvcrt.printf('OK2')
 	
-		fragmentShader = glt.createShader(glt.FRAGMENT_SHADER);
+		fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
 		//lea rax, fs.buffor
 	//lea rbx, fs.fsize
-		glt.shaderSource(fragmentShader,1, &fragmentBufforTxt, &fragmentBufferLength);
+		gl.shaderSource(fragmentShader,1, &fragmentBufforTxt, &fragmentBufferLength);
 		//msvcrt.printf('OK3')
-		glt.compileShader(fragmentShader);
+		gl.compileShader(fragmentShader);
 	
 		
 		
@@ -96,18 +94,18 @@ function init(){
 		msvcrt.printf('OK4')
 	
 	
-		programID = glt.createProgram();
-		glt.attachShader(programID, vertexShader);
-		glt.attachShader(programID, fragmentShader);
-		glt.linkProgram(programID);
+		programID = gl.createProgram();
+		gl.attachShader(programID, vertexShader);
+		gl.attachShader(programID, fragmentShader);
+		gl.linkProgram(programID);
 	
-		glt.useProgram(programID);
+		gl.useProgram(programID);
 
-		glt.detachShader(programID, vertexShader);
-		glt.detachShader(programID, fragmentShader);
+		gl.detachShader(programID, vertexShader);
+		gl.detachShader(programID, fragmentShader);
 	
-		glt.deleteShader(vertexShader);
-		glt.deleteShader(fragmentShader);
+		gl.deleteShader(vertexShader);
+		gl.deleteShader(fragmentShader);
 
 
 msvcrt.printf('useProgram=%i ', programID)
@@ -118,9 +116,9 @@ msvcrt.printf('useProgram=%i ', programID)
 
 
 		//lea rbx, VAO
-			glt.genVertexArrays(1, &VAO)
+			gl.genVertexArrays(1, &VAO)
 			msvcrt.printf('VAO %i', VAO)
-			glt.bindVertexArray(VAO)
+			gl.bindVertexArray(VAO)
 		
 		
 		
@@ -130,30 +128,30 @@ msvcrt.printf('useProgram=%i ', programID)
 			//CreateBuffer(0,3,24,144,&vertices)
 			//function CreateBuffer(posID:number,ssizeA:number,ssizeE:number,lengthA:number,array:number){
 				//lea rbx, bufferID1
-				glt.genBuffers(1, &bufferID1)
+				gl.genBuffers(1, &bufferID1)
 
 				msvcrt.printf(' b=%i ', bufferID1)
 			
-				glt.bindBuffer(glt.ARRAY_BUFFER, bufferID1)
+				gl.bindBuffer(gl.ARRAY_BUFFER, bufferID1)
 				//lea rax, vertices
-				glt.bufferData(glt.ARRAY_BUFFER, 144, &vertices, glt.STATIC_DRAW)
+				gl.bufferData(gl.ARRAY_BUFFER, 144, &vertices, gl.STATIC_DRAW)
 			
-				glt.enableVertexAttribArray(0)
-				glt.vertexAttribPointer(0,3,glt.DOUBLE,glt.FALSE, 24, 0)
+				gl.enableVertexAttribArray(0)
+				gl.vertexAttribPointer(0,3,gl.DOUBLE,gl.FALSE, 24, 0)
 			//}
 			msvcrt.printf(' bufferID1=%i ', bufferID1)
 			//lea rax, coords
 			//CreateBuffer(1,2,16,96,&coords)
 			//function CreateBuffer(posID:number,ssizeA:number,ssizeE:number,lengthA:number,array:number){
 				//lea rbx, bufferID2
-				glt.genBuffers(1, &bufferID2)
+				gl.genBuffers(1, &bufferID2)
 			
-				glt.bindBuffer(glt.ARRAY_BUFFER, bufferID2)
+				gl.bindBuffer(gl.ARRAY_BUFFER, bufferID2)
 				//lea rax, coords
-				glt.bufferData(glt.ARRAY_BUFFER, 96, coords, glt.STATIC_DRAW)
+				gl.bufferData(gl.ARRAY_BUFFER, 96, coords, gl.STATIC_DRAW)
 			
-				glt.enableVertexAttribArray(1)
-				glt.vertexAttribPointer(1,2,glt.DOUBLE,glt.FALSE, 16, 0)
+				gl.enableVertexAttribArray(1)
+				gl.vertexAttribPointer(1,2,gl.DOUBLE,gl.FALSE, 16, 0)
 			//}
 		
 		
@@ -174,43 +172,43 @@ msvcrt.printf('useProgram=%i ', programID)
 		
 		
 			//gl.enable(gl.DEPTH_TEST)
-			glt.depthFunc(glt.LEQUAL)
-			glt.enable(glt.TEXTURE_2D)
+			gl.depthFunc(gl.LEQUAL)
+			gl.enable(gl.TEXTURE_2D)
 		
 		
 		
-			glt.bindVertexArray(0)
+			gl.bindVertexArray(0)
 
 			msvcrt.printf('OK6')
 }
 
 function render(){
-    gl.glViewport(0, 0, 640, 480)
+    gl.viewport(0, 0, 640, 480)
 
     msvcrt.printf('render ')
-    glt.clear(glt.COLOR_BUFFER_BIT)
+    gl.clear(gl.COLOR_BUFFER_BIT)
 
 
-	glt.useProgram(programID);
+    gl.useProgram(programID);
     msvcrt.printf('useProgram=%i ', programID)
 
 
     let uniformLocation:number = 0
 
-	msvcrt.printf('procADDR=%i ', glt.getUniformLocation)
+	msvcrt.printf('procADDR=%i ', gl.getUniformLocation)
 
-	uniformLocation = glt.getUniformLocation(programID, 'dprojection')
+	uniformLocation = gl.getUniformLocation(programID, 'dprojection')
 	//lea rax, projection
     msvcrt.printf('uniformLocation=%i ', uniformLocation)
-	glt.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
+	gl.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
 
-	uniformLocation = glt.getUniformLocation(programID, 'dcamera')
+	uniformLocation = gl.getUniformLocation(programID, 'dcamera')
 	//lea rax, camera
-	glt.uniformMatrix4dv(uniformLocation, 1, 0, camera)
+	gl.uniformMatrix4dv(uniformLocation, 1, 0, camera)
 
-	uniformLocation = glt.getUniformLocation(programID, 'dmodel')
+	uniformLocation = gl.getUniformLocation(programID, 'dmodel')
 	//lea rax, model
-	glt.uniformMatrix4dv(uniformLocation, 1, 0, model)
+	gl.uniformMatrix4dv(uniformLocation, 1, 0, model)
 
 	
 	//uniformLocation = glt.getUniformLocation(programID, 'diffuseTexture')
@@ -219,12 +217,12 @@ function render(){
 
 
 
-	glt.bindVertexArray(VAO)
-	glt.drawArrays(glt.TRIANGLES, 0, 6)
+	gl.bindVertexArray(VAO)
+	gl.drawArrays(gl.TRIANGLES, 0, 6)
 }
 
 function destroy(){
 }
 
-opengl.main(init, render, destroy)
+glWindow.main(init, render, destroy)
 kernel.ExitProcess(0)

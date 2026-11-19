@@ -1,9 +1,8 @@
 import * as kernel from './lib/kernel.ts'
 import * as gdi from './lib/gdi.ts'
 import * as user from './lib/user.ts'
-import * as opengl from './lib/opengl.ts'
+import * as gl from './lib/gl.ts'
 
-import * as gl from './gl.ts'
 
 interface WNDCLASSEXA {
     sizeStyle: number
@@ -69,7 +68,7 @@ function WndProc(hwnd: number, message: number, wParam: number, lParam: number) 
 
 
 function renderFrame(windowDC: number, glContext: number, render:Function){
-    let contextSet: number = opengl.wglMakeCurrent(windowDC, glContext)
+    let contextSet: number = gl.wglMakeCurrent(windowDC, glContext)
     if(contextSet==0){
         kernel.ExitProcess(9)
     }
@@ -165,12 +164,12 @@ export function main(init:Function,render:Function,destroy:Function){
 
     configurePixelFormat(windowDC)
 
-    let glContext: number = opengl.wglCreateContext(windowDC)
+    let glContext: number = gl.createContext(windowDC)
     if(glContext==0){
         kernel.ExitProcess(6)
     }
 
-    let glContextSet: number = opengl.wglMakeCurrent(windowDC, glContext)
+    let glContextSet: number = gl.makeCurrent(windowDC, glContext)
     if(glContextSet==0){
         kernel.ExitProcess(7)
     }

@@ -1,6 +1,6 @@
 import * as kernel from './system/lib/kernel.ts'
-import * as gl from './system/lib/opengl.ts'
-import * as opengl from './system/opengl.ts'
+import * as gl from './system/lib/gl.ts'
+import * as glWindow from './system/glWindow.ts'
 
 function init(){
 }
@@ -36,5 +36,5 @@ function render(){
 function destroy(){
 }
 
-opengl.main(init, render, destroy)
+glWindow.main(init, render, destroy)
 kernel.ExitProcess(0)

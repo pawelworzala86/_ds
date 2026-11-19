@@ -1,3 +1,96 @@
+export declare function wglCreateContext(...args:any[]):any//opengl32
+export declare function wglMakeCurrent(...args:any[]):any//opengl32
+export declare function glViewport(...args:any[]):any//opengl32
+export declare function glClear(...args:any[]):any//opengl32
+export declare function glBegin(...args:any[]):any//opengl32
+export declare function glColor3fv(...args:any[]):any//opengl32
+export declare function glVertex3fv(...args:any[]):any//opengl32
+export declare function glColor3dv(...args:any[]):any//opengl32
+export declare function glVertex3dv(...args:any[]):any//opengl32
+export declare function glEnd(...args:any[]):any//opengl32
+export declare function glDrawArrays(...args:any[]):void//opengl32
+export declare function glDepthFunc(...args:any[]):void//opengl32
+export declare function glEnable(...args:any[]):void//opengl32
+export declare function glGenTextures(...args:any[]):void//opengl32
+export declare function glBindTexture(...args:any[]):void//opengl32
+export declare function glTexParameteri(...args:any[]):void//opengl32
+export declare function glTexImage2D(...args:any[]):void//opengl32
+
+
+
+
+export function createContext(deviceContext:number){
+    return wglCreateContext(deviceContext)
+}
+
+export function makeCurrent(deviceContext:number,renderingContext:number){
+    return wglMakeCurrent(deviceContext,renderingContext)
+}
+
+export function viewport(x:number,y:number,width:number,height:number){
+    glViewport(x,y,width,height)
+}
+
+export function clear(mask:number){
+    glClear(mask)
+}
+
+export function begin(mode:number){
+    glBegin(mode)
+}
+
+export function color3fv(values:number[]){
+    glColor3fv(values)
+}
+
+export function vertex3fv(values:number[]){
+    glVertex3fv(values)
+}
+
+export function color3dv(values:number[]){
+    glColor3dv(values)
+}
+
+export function vertex3dv(values:number[]){
+    glVertex3dv(values)
+}
+
+export function end(){
+    glEnd()
+}
+
+export function drawArrays(mode:number,first:number,count:number){
+    glDrawArrays(mode,first,count)
+}
+
+export function depthFunc(functionValue:number){
+    glDepthFunc(functionValue)
+}
+
+export function enable(capability:number){
+    glEnable(capability)
+}
+
+export function genTextures(count:number,textures:number){
+    glGenTextures(count,textures)
+}
+
+export function bindTexture(target:number,texture:number){
+    glBindTexture(target,texture)
+}
+
+export function texParameteri(target:number,parameter:number,value:number){
+    glTexParameteri(target,parameter,value)
+}
+
+export function texImage2D(target:number,level:number,internalFormat:number,width:number,height:number,border:number,format:number,type:number,pixels:number){
+    glTexImage2D(target,level,internalFormat,width,height,border,format,type,pixels)
+}
+
+
+
+
+
 export const VERTEX_SHADER:number = 35633;
 export const FRAGMENT_SHADER:number = 35632;
 
@@ -75,34 +168,9 @@ export function initializeGL(){
 
 
 
-export declare function glClear(...args:any[]):void//opengl32
-export function clear(kind:number){
-    glClear(kind)
-}
-
-export declare function glDrawArrays(...args:any[]):void//opengl32
-export function drawArrays(kind:number,offset:number,count:number){
-    glDrawArrays(kind, offset, count)
-}
-
-export declare function glDepthFunc(...args:any[]):void//opengl32
-export function depthFunc(kind:number){
-    glDepthFunc(kind)
-}
-
-export declare function glEnable(...args:any[]):void//opengl32
-export function enable(kind:number){
-    glEnable(kind)
-}
 
 
 
-
-
-export declare function glGenTextures(...args:any[]):void//opengl32
-export declare function glBindTexture(...args:any[]):void//opengl32
-export declare function glTexParameteri(...args:any[]):void//opengl32
-export declare function glTexImage2D(...args:any[]):void//opengl32
 
 
 

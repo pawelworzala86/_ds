@@ -3,12 +3,15 @@ import Base from './base.ts'
 import Asm from '../asm.ts'
 import {emitExpression,parseExpression,type Expression} from '../maths.ts'
 import Iff from './iff.ts'
+import Call from './call.ts'
+import Invoke,{isInvoke} from './invoke.ts'
 
 let returnConditionId = 0
 
 export class Return extends Base{
     expression:Expression|null = null
     condition:Iff|null = null
+    call:Call|Invoke|null = null
 
     constructor(parent:Base){
         super(parent)
@@ -34,7 +37,22 @@ export class Return extends Base{
                 this.condition = new Iff(this)
                 this.condition.condition = this.condition.parseCondition(expression)
             }else{
-                this.expression = parseExpression(expression,this)
+                const callTokenizer = new Tokenizer(expression)
+                const name = callTokenizer.get()
+                const opening = callTokenizer.get()
+                if(/^[a-z_$][\w$]*$/i.test(name??'')&&opening==='('){
+                    callTokenizer.move(-2)
+                    const call = isInvoke(name)
+                        ? new Invoke(this)
+                        : new Call(this)
+                    call.set(callTokenizer)
+                    if(!callTokenizer.has()){
+                        this.call = call
+                    }
+                }
+                if(!this.call){
+                    this.expression = parseExpression(expression,this)
+                }
             }
         }
     }
@@ -52,6 +70,8 @@ export class Return extends Base{
             ASM.addCode(`${falseLabel}:`)
             ASM.addCode('xor rax, rax')
             ASM.addCode(`${endLabel}:`)
+        }else if(this.call){
+            this.call.asm(ASM)
         }else if(this.expression){
             emitExpression(this.expression,ASM)
         }
