@@ -59,7 +59,7 @@ function init(){
     msvcrt.printf('OK1 ')
 
 
-	defualtShader.load()
+	defualtShader.load(vertFileName, fragFileName)
 
     /*const vertexBufforTxt:number = fs.readFileSync(vertFileName)
 

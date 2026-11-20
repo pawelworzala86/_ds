@@ -2,14 +2,11 @@ import * as msvcrt from './../lib/msvcrt.ts'
 import * as gl from './gl.ts'
 import * as fs from './../fs.ts'
 
-let vertFileName:string = 'default.vert'
-let fragFileName:string = 'default.frag'
-
 export class Shader{
     vertexShader:number = 0
     fragmentShader:number = 0
     programID:number = 0
-    load(){
+    load(vertFileName:string,fragFileName:string){
         const vertexBufforTxt:number = fs.readFileSync(vertFileName)
         
             msvcrt.printf(' OK2 ')

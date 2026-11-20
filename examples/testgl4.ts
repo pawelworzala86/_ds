@@ -35,6 +35,9 @@ let bufferID:number = 0
 let textureFileName:string = 'texture.jpg'
 let textureID:number = 0
 
+let vertFileName:string = 'default.vert'
+let fragFileName:string = 'default.frag'
+
 let defualtShader:shader.Shader = new shader.Shader()
 
 
@@ -55,7 +58,7 @@ function CreateBuffer(posID:number,ssizeA:number,ssizeE:number,lengthA:number,ar
 function init(){
     msvcrt.printf('OK1 ')
 
-	defualtShader.load()
+	defualtShader.load(vertFileName, fragFileName)
 
 	msvcrt.printf('OK5')
 
