@@ -4,9 +4,11 @@ import Make from './../make.ts'
 import Asm from "./../asm.ts"
 import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
+import ClassElement from './clasElement.ts'
 
 let returnId = 0
 let asyncWorkerId = 0
+let inferredStructId = 0
 
 export class Func extends Base{
     static predeclared = new WeakSet<FuncElement>()
@@ -14,6 +16,105 @@ export class Func extends Base{
     constructor(parent:Base){
         super(parent)
         this.isFunctionScope = true
+    }
+    static inferObjectArguments(active:Base,tokens:string[],functionName:string,params:{name:string,type:string}[]){
+        const objectProperties = new Map<string,DataElement[]>()
+        for(let index=0;index<tokens.length-4;index++){
+            if(!['const','let','var'].includes(tokens[index])||tokens[index+2]!=='='||tokens[index+3]!=='{'){
+                continue
+            }
+            const properties:DataElement[] = []
+            let cursor = index+4
+            while(cursor<tokens.length&&tokens[cursor]!=='}'){
+                if(tokens[cursor]===','||tokens[cursor]==='\n'){
+                    cursor++
+                    continue
+                }
+                const name = tokens[cursor++]
+                if(!/^[a-z_$][\w$]*$/i.test(name??'')||tokens[cursor++]!==':'){
+                    break
+                }
+                let type:string
+                let value:string
+                if(tokens[cursor]==="'"||tokens[cursor]==='"'){
+                    const quote = tokens[cursor++]
+                    value = tokens[cursor++]??''
+                    if(tokens[cursor++]!==quote){
+                        break
+                    }
+                    type = 'string'
+                }else{
+                    value = tokens[cursor++]??''
+                    if(!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(value)){
+                        break
+                    }
+                    type = 'number'
+                }
+                properties.push(new DataElement('let',name,type,value))
+                while(tokens[cursor]==='\n'){
+                    cursor++
+                }
+                if(tokens[cursor]===','){
+                    cursor++
+                }else if(tokens[cursor]!=='}'){
+                    break
+                }
+            }
+            if(properties.length&&tokens[cursor]==='}'){
+                objectProperties.set(tokens[index+1],properties)
+            }
+        }
+
+        const argumentShapes:Array<DataElement[]|null> = Array(params.length).fill(null)
+        for(let index=0;index<tokens.length-1;index++){
+            if(tokens[index]!==functionName||tokens[index+1]!=='('||tokens[index-1]==='function'){
+                continue
+            }
+            const argumentsList:string[][] = []
+            let current:string[] = []
+            let depth = 0
+            for(let cursor=index+2;cursor<tokens.length;cursor++){
+                const token = tokens[cursor]
+                if(token==='('||token==='{'||token==='['){
+                    depth++
+                }else if(token===')'){
+                    if(depth===0){
+                        if(current.length){
+                            argumentsList.push(current)
+                        }
+                        break
+                    }
+                    depth--
+                }else if(token==='}'||token===']'){
+                    depth--
+                }
+                if(token===','&&depth===0){
+                    argumentsList.push(current)
+                    current = []
+                }else{
+                    current.push(token)
+                }
+            }
+            argumentsList.forEach((argument,index)=>{
+                if(argument.length!==1){
+                    return
+                }
+                const shape = objectProperties.get(argument[0])
+                if(shape){
+                    argumentShapes[index] = shape
+                }
+            })
+        }
+
+        return params.map((param,index)=>{
+            if(param.type&&param.type!=='any'||!argumentShapes[index]){
+                return param
+            }
+            const shape = argumentShapes[index]!
+            const type = `__ds_inferred_${functionName}_${param.name}_${++inferredStructId}`
+            active.addClass(new ClassElement(type,shape,[]))
+            return {...param,type}
+        })
     }
     static predeclare(active:Base,tokenizer:Tokenizer){
         let blockDepth = 0
@@ -52,7 +153,8 @@ export class Func extends Base{
             }
             const isAsync = tokens[index-1]==='async'
             const workerName = isAsync?`__ds_async_worker_${++asyncWorkerId}`:null
-            const element = new FuncElement(name,Tokenizer.getFunctionParams(tokens.slice(index+1,end+1)),isAsync,workerName)
+            const params = Func.inferObjectArguments(active,tokens,name,Tokenizer.getFunctionParams(tokens.slice(index+1,end+1)))
+            const element = new FuncElement(name,params,isAsync,workerName)
             active.addFunction(element)
             Func.predeclared.add(element)
         }
@@ -64,7 +166,13 @@ export class Func extends Base{
         tokens.splice(0,prefixLength)
         //console.log('tokens',tokens)
 
-        const params = Tokenizer.getFunctionParams(tokens)
+        const predeclared = this.parent!.FUNCTIONS.find(func=>func.name===name&&Func.predeclared.has(func))
+        const params = Tokenizer.getFunctionParams(tokens).map((param,index)=>({
+            ...param,
+            type:param.type==='any'
+                ? predeclared?.params[index]?.type||param.type
+                : param.type||predeclared?.params[index]?.type||''
+        }))
 
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
@@ -99,7 +207,6 @@ export class Func extends Base{
             }
         }
 
-        const predeclared = this.parent!.FUNCTIONS.find(func=>func.name===name&&Func.predeclared.has(func))
         const workerName = predeclared?.asyncWorkerName??(isAsync?`__ds_async_worker_${++asyncWorkerId}`:null)
         const element:FuncElement = new FuncElement(name,params.map(param=>({
             ...param,

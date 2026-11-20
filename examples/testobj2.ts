@@ -6,20 +6,23 @@ import * as kernel from './system/lib/kernel.ts'
 
 msvcrt.printf('start\n')
 
-const obj = {
+const objA = {
     a: 1,
     b: 2,
     c: 3
 }
 
-const keys: string[] = Object.keys(obj)
+function testFun(obj:any){
 
-for (const key of keys) {
-    msvcrt.printf('%s\n', key)
+    const keys: string[] = Object.keys(obj)
+
+    for (const key of keys) {
+        msvcrt.printf('%s\n', key)
+    }
+
+    msvcrt.printf(' %i\n ', obj['a'])
+
 }
-
-msvcrt.printf(' %i\n ', obj['a'])
-
-
+testFun(objA)
 
 kernel.ExitProcess(0)

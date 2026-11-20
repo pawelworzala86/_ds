@@ -12,6 +12,18 @@ let asyncCallId = 0
 let superStringId = 0
 let methodStringId = 0
 
+function hasSameStructLayout(properties:DataElement[],classType:ReturnType<Base['getClass']>|null){
+    return Boolean(classType
+        &&properties.length===classType.props.length
+        &&properties.every((property,index)=>{
+            const expected = classType.props[index]
+            return property.name===expected.name
+                &&property.type===expected.type
+                &&property.isArray===expected.isArray
+                &&property.classType===expected.classType
+        }))
+}
+
 export class Call extends Base{
     func:FuncElement|null = null
     params:FunctionArgument[] = []
@@ -216,6 +228,7 @@ export class Call extends Base{
             for(let index=0;index<this.params.length;index++){
                 const param = this.params[index]
                 const expected = this.func?.params[index]
+                const expectedClass = expected?.type?this.getClass(expected.type):null
                 if(expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
                     ASM.addCode(param.value.isParameter
                         ? `mov rax, ${param.value.name}`
@@ -235,7 +248,8 @@ export class Call extends Base{
                 }else if(param.classPropertyInstance&&param.classProperty?.type==='string'){
                     const name = param.getClassPropertyAccessName()
                     ASM.addCode(`mov rax, [${name}]`)
-                }else if(param.value instanceof DataElement&&param.value.classType&&expected?.type===param.value.classType){
+                }else if(param.value instanceof DataElement&&param.value.classType
+                    &&(expected?.type===param.value.classType||param.value.classLayoutProps&&hasSameStructLayout(param.value.classLayoutProps,expectedClass))){
                     ASM.addCode(param.value.isProcedureLocal&&param.value.isHeapAllocated
                         ? `mov rax, [${param.value.name}]`
                         : `lea rax, [${param.value.name}]`)
