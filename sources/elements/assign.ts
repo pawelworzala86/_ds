@@ -2,7 +2,7 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from './../asm.ts'
 import DataElement from './dataElement.ts'
-import {emitExpression, parseExpression, type Expression} from '../maths.ts'
+import {emitExpression, isMathFunction, parseExpression, type Expression} from '../maths.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 import Invoke, {isInvoke} from './invoke.ts'
 import FuncElement from './funcElement.ts'
@@ -24,6 +24,7 @@ export class Assign extends Base{
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
     functionCall:Call|null = null
+    arrayCall:Call|null = null
     asyncCall:Call|null = null
     timeout:Timeout|null = null
     addressFunction:FuncElement|null = null
@@ -36,7 +37,25 @@ export class Assign extends Base{
             throw new Error(`Cannot assign to constant "${target.name}"`)
         }
         if(target.isArray&&!indexText){
-            throw new Error(`Array "${target.name}" must be assigned through an index`)
+            const callSyntax = expression.trim().match(/^[a-z_$][\w.$]*\([\s\S]*\)$/i)
+            if(callSyntax){
+                const tokenizer = new Tokenizer(expression.trim())
+                const call = new Call(this.parent!)
+                call.set(tokenizer)
+                if(!tokenizer.has()
+                    &&target.dynamicArray
+                    &&!target.classPropertyInstance
+                    &&call.func?.returnArrayType===`${target.type}[]`
+                    &&!call.func.isAsync
+                    &&!call.methodInstance
+                    &&!call.prototypeMethod){
+                    this.target = target
+                    this.arrayCall = call
+                    target.numericKind = call.func.returnArrayNumericKind
+                    return
+                }
+            }
+            throw new Error(`Array "${target.name}" must be assigned from a function returning "${target.type}[]"`)
         }
         if((target.type==='string'||target.type==='string[]')&&(!target.isArray||!indexText)){
             throw new Error('String assignment is only supported for string array elements')
@@ -99,13 +118,13 @@ export class Assign extends Base{
             return
         }
         const nativeCall = !indexText?expression.trim().match(/^([a-z_$][\w$]*)\(([\s\S]*)\)$/i):null
-        if(nativeCall&&isInvoke(nativeCall[1])){
+        if(nativeCall&&isInvoke(nativeCall[1])&&!isMathFunction(nativeCall[1])){
             this.invokeExpression = new Invoke(this.parent!)
             this.invokeExpression.set(new Tokenizer(expression.trim()))
             target.numericKind = 'integer'
             return
         }
-        if(nativeCall){
+        if(nativeCall&&!isMathFunction(nativeCall[1])){
             const call = new Call(this.parent!)
             const tokenizer = new Tokenizer(expression.trim())
             call.set(tokenizer)
@@ -294,6 +313,17 @@ export class Assign extends Base{
         if(this.functionCall){
             this.functionCall.asm(ASM)
             storeTarget('rax')
+            return
+        }
+        if(this.arrayCall){
+            this.arrayCall.asm(ASM)
+            ASM.addCode('mov rdx, rax')
+            ASM.addCode('mov rax, [rdx]')
+            ASM.addCode(`mov [${targetName}], rax`)
+            ASM.addCode('mov rax, [rdx+8]')
+            ASM.addCode(`mov [${targetName}__length], rax`)
+            ASM.addCode('mov rax, [rdx+16]')
+            ASM.addCode(`mov [${targetName}__capacity], rax`)
             return
         }
         if(this.arrayPropertyTarget&&this.expression){

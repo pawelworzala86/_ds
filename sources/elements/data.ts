@@ -588,7 +588,7 @@ export class Data extends Base{
             initializeStackStructStrings(ASM,this.element!.name!,fields)
             return
         }
-        if(this.element!.isProcedureLocal){
+        if(this.element!.isProcedureLocal&&!(this.element!.isArray&&this.element!.dynamicArray)){
             ASM.addCode(`local ${this.element!.name} dq ${this.element!.value}`)
             return
         }
@@ -599,10 +599,17 @@ export class Data extends Base{
                 const values = splitTopLevelArrayValues(value??'')
                 const lengthName = `${this.element!.name}__length`
                 const capacityName = `${this.element!.name}__capacity`
+                const addArrayStorage = (name:string,initializer:string)=>{
+                    if(this.element!.isProcedureLocal){
+                        ASM.addCode(`local ${name} dq ${initializer}`)
+                    }else{
+                        ASM.addData(`${name} dq ${initializer}`)
+                    }
+                }
                 if(this.arrayInitializerCall){
-                    ASM.addData(`${this.element!.name} dq 0`)
-                    ASM.addData(`${lengthName} dq 0`)
-                    ASM.addData(`${capacityName} dq 0`)
+                    addArrayStorage(this.element!.name!, '0')
+                    addArrayStorage(lengthName, '0')
+                    addArrayStorage(capacityName, '0')
                     this.arrayInitializerCall.asm(ASM)
                     ASM.addCode('mov rdx, rax')
                     ASM.addCode('mov rax, [rdx]')
@@ -614,9 +621,9 @@ export class Data extends Base{
                     return
                 }
                 const capacity = Math.max(4,values.length)
-                ASM.addData(`${this.element!.name} dq 0`)
-                ASM.addData(`${lengthName} dq ${values.length}`)
-                ASM.addData(`${capacityName} dq ${capacity}`)
+                addArrayStorage(this.element!.name!, '0')
+                addArrayStorage(lengthName, `${values.length}`)
+                addArrayStorage(capacityName, `${capacity}`)
                 ASM.addImport('msvcrt','malloc')
                 ASM.addCode(`mov rcx, ${capacity*8}`)
                 ASM.addCode('sub rsp, 40')

@@ -73,7 +73,10 @@ export class Func extends Base{
         for(const param of params){
             const arrayType = param.type.match(/^([a-z_$][\w$]*)\[\]$/i)
             const type = arrayType?arrayType[1]:param.type
-            const element = new DataElement('let',param.name,type,'0')
+            const element = new DataElement('let',param.name,type==='float'?'number':type,'0')
+            if(type==='float'){
+                element.numericKind = 'float'
+            }
             element.classType = this.parent?.getClass(type)?.name??null
             element.isArray = Boolean(arrayType)
             element.isParameter = true
@@ -83,11 +86,14 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
         for(const data of this.DATA){
-            if(!data.isParameter&&!data.isReturnedArray&&(
-                data.type==='number'&&!data.isArray
-                ||data.type==='number'&&data.isArray&&!data.dynamicArray
-                ||data.type==='Task'
-                ||Boolean(data.classType)&&!data.isArray
+            if(!data.isParameter&&(
+                data.isArray&&data.dynamicArray&&data.isReturnedArray
+                ||!data.isReturnedArray&&(
+                    data.type==='number'&&!data.isArray
+                    ||data.type==='number'&&data.isArray&&!data.dynamicArray
+                    ||data.type==='Task'
+                    ||Boolean(data.classType)&&!data.isArray
+                )
             )){
                 data.isProcedureLocal = true
             }

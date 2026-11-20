@@ -4,6 +4,12 @@ import DataElement, {getNumericKind, type NumericKind} from './elements/dataElem
 import {getClassPropertyAccess, getClassPropertyOffset} from './elements/clasElement.ts'
 
 type BinaryOperator = '+'|'-'|'*'|'/'|'%'|'**'
+type MathFunctionName = 'sin'|'cos'|'tan'|'asin'|'acos'|'atan'|'atan2'|'sqrt'|'pow'|'fmod'|'exp'|'log'|'log10'|'ceil'|'floor'|'fabs'
+const mathFunctions:MathFunctionName[] = ['sin','cos','tan','asin','acos','atan','atan2','sqrt','pow','fmod','exp','log','log10','ceil','floor','fabs']
+
+export function isMathFunction(name:string):name is MathFunctionName{
+    return mathFunctions.includes(name as MathFunctionName)
+}
 
 export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
@@ -11,6 +17,7 @@ export type Expression =
     | {kind:'index',value:DataElement,index:Expression,numericKind:NumericKind}
     | {kind:'unary',operator:'+'|'-',value:Expression,numericKind:NumericKind}
     | {kind:'binary',operator:BinaryOperator,left:Expression,right:Expression,numericKind:NumericKind}
+    | {kind:'mathCall',name:MathFunctionName,arguments:Expression[],numericKind:'float'}
 
 let labelId = 0
 
@@ -59,12 +66,12 @@ function emitFloatCall(ASM:Asm,name:string){
 
 function emitFloatExpression(expression:Extract<Expression,{kind:'binary'}>,ASM:Asm){
     emitAsFloat(expression.left,ASM)
-    ASM.addCode('sub rsp, 8')
-    ASM.addCode('movsd qword [rsp], xmm0')
+    const leftValue = nextLabel('float_arg')
+    ASM.addData(`${leftValue} dq 0`)
+    ASM.addCode(`movsd qword [${leftValue}], xmm0`)
     emitAsFloat(expression.right,ASM)
     ASM.addCode('movsd xmm1, xmm0')
-    ASM.addCode('movsd xmm0, qword [rsp]')
-    ASM.addCode('add rsp, 8')
+    ASM.addCode(`movsd xmm0, qword [${leftValue}]`)
 
     switch(expression.operator){
         case '+':
@@ -89,7 +96,7 @@ function emitFloatExpression(expression:Extract<Expression,{kind:'binary'}>,ASM:
 }
 
 export function parseExpression(text:string,active:Base):Expression{
-    const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|[()[\]+\-*/%]/gi)??[]
+    const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|,|[()[\]+\-*/%]/gi)??[]
     if(!tokens.length||tokens.join('')!==text){
         throw new Error(`Invalid numeric expression "${text}"`)
     }
@@ -108,6 +115,29 @@ export function parseExpression(text:string,active:Base):Expression{
         }
         if(!token){
             throw new Error('Expected a value in numeric expression')
+        }
+        if(isMathFunction(token)&&current()==='('){
+            const name = token as MathFunctionName
+            const expectedArguments = ['atan2','pow','fmod'].includes(name)?2:1
+            index++
+            const args:Expression[] = []
+            if(current()!==')'){
+                do{
+                    args.push(parseAdditive())
+                    if(current()!==','){
+                        break
+                    }
+                    index++
+                }while(true)
+            }
+            if(current()!==')'){
+                throw new Error(`Unclosed argument list for Math.${name}`)
+            }
+            index++
+            if(args.length!==expectedArguments){
+                throw new Error(`Math.${name} expects ${expectedArguments} argument${expectedArguments===1?'':'s'}, received ${args.length}`)
+            }
+            return {kind:'mathCall',name,arguments:args,numericKind:'float'}
         }
         if(/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(token)){
             return {kind:'number',value:token,numericKind:getNumericKind(token)}
@@ -280,6 +310,19 @@ export function emitExpression(expression:Expression,ASM:Asm){
             return
         }
         ASM.addCode(`mov rax, ${expression.value}`)
+        return
+    }
+    if(expression.kind==='mathCall'){
+        emitAsFloat(expression.arguments[0],ASM)
+        if(expression.arguments.length===2){
+            const firstArgument = nextLabel('float_arg')
+            ASM.addData(`${firstArgument} dq 0`)
+            ASM.addCode(`movsd qword [${firstArgument}], xmm0`)
+            emitAsFloat(expression.arguments[1],ASM)
+            ASM.addCode('movsd xmm1, xmm0')
+            ASM.addCode(`movsd xmm0, qword [${firstArgument}]`)
+        }
+        emitFloatCall(ASM,expression.name)
         return
     }
     if(expression.kind==='data'){
