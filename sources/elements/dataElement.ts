@@ -23,6 +23,7 @@ export class DataElement{
     dynamicArray = false
     isParameter = false
     isProcedureLocal = false
+    isReturnedArray = false
     isConstAlias = false
     isExportedConstAlias = false
     classPropertyOffset:number|null = null

@@ -4,6 +4,8 @@ export class FuncElement{
     nativeCallbackName:string|null = null
     isAsync = false
     asyncWorkerName:string|null = null
+    returnArrayType:string|null = null
+    returnArrayNumericKind:'integer'|'float' = 'integer'
     constructor(name:string,params:{name:string,type:string,dynamicArray?:boolean}[],isAsync=false,asyncWorkerName:string|null=null){
         this.name = name
         this.params = params

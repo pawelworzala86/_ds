@@ -5,6 +5,7 @@ import {emitExpression,parseExpression,type Expression} from '../maths.ts'
 import Iff from './iff.ts'
 import Call from './call.ts'
 import Invoke,{isInvoke} from './invoke.ts'
+import DataElement from './dataElement.ts'
 
 let returnConditionId = 0
 
@@ -12,6 +13,7 @@ export class Return extends Base{
     expression:Expression|null = null
     condition:Iff|null = null
     call:Call|Invoke|null = null
+    arrayValue:DataElement|null = null
 
     constructor(parent:Base){
         super(parent)
@@ -51,7 +53,28 @@ export class Return extends Base{
                     }
                 }
                 if(!this.call){
-                    this.expression = parseExpression(expression,this)
+                    const array = this.parent?.getData(expression)
+                    if(array?.isArray){
+                        if(!array.dynamicArray){
+                            throw new Error('Only dynamic arrays can be returned from functions')
+                        }
+                        this.arrayValue = array
+                        array.isReturnedArray = true
+                        let functionScope = this.parent
+                        while(functionScope&&!functionScope.isFunctionScope){
+                            functionScope = functionScope.parent
+                        }
+                        if(functionScope){
+                            const returnArrayType = `${array.type}[]`
+                            if(functionScope.returnArrayType&&functionScope.returnArrayType!==returnArrayType){
+                                throw new Error('Function cannot return arrays of different types')
+                            }
+                            functionScope.returnArrayType = returnArrayType
+                            functionScope.returnArrayNumericKind = array.numericKind
+                        }
+                    }else{
+                        this.expression = parseExpression(expression,this)
+                    }
                 }
             }
         }
@@ -72,6 +95,11 @@ export class Return extends Base{
             ASM.addCode(`${endLabel}:`)
         }else if(this.call){
             this.call.asm(ASM)
+        }else if(this.arrayValue){
+            const name = this.arrayValue.getAccessName()
+            ASM.addCode(this.arrayValue.isParameter
+                ? `mov rax, ${name}`
+                : `lea rax, [${name}]`)
         }else if(this.expression){
             emitExpression(this.expression,ASM)
         }

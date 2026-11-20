@@ -164,7 +164,20 @@ export class For extends While{
         if(!statement||tokenizer.has()){
             throw new Error(`Invalid ${allowDeclaration?'for initializer':'for update'} clause`)
         }
-        statements.push(...this.children.slice(childCount))
+        const headerStatements = this.children.slice(childCount)
+        statements.push(...headerStatements)
+        const element = statement instanceof Data?statement.element:null
+        if(element
+            &&['let','var'].includes(element.kind??'')
+            &&element.type==='number'
+            &&tokens.includes('=')
+            &&!headerStatements.some(child=>child instanceof Assign&&child.target===element)
+        ){
+            const initializer = new Assign(this)
+            initializer.setExpression(element,element.value??'0',true)
+            this.children.push(initializer)
+            statements.push(initializer)
+        }
     }
 
     testChangeName(){

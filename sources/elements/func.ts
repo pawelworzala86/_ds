@@ -13,6 +13,7 @@ export class Func extends Base{
     element:FuncElement|null = null
     constructor(parent:Base){
         super(parent)
+        this.isFunctionScope = true
     }
     static predeclare(active:Base,tokenizer:Tokenizer){
         let blockDepth = 0
@@ -82,7 +83,7 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
         for(const data of this.DATA){
-            if(!data.isParameter&&(
+            if(!data.isParameter&&!data.isReturnedArray&&(
                 data.type==='number'&&!data.isArray
                 ||data.type==='number'&&data.isArray&&!data.dynamicArray
                 ||data.type==='Task'
@@ -98,10 +99,14 @@ export class Func extends Base{
             ...param,
             dynamicArray:Boolean(this.getData(param.name)?.dynamicArray)
         })),isAsync,workerName)
+        element.returnArrayType = this.returnArrayType
+        element.returnArrayNumericKind = this.returnArrayNumericKind
         if(predeclared){
             predeclared.params = element.params
             predeclared.isAsync = element.isAsync
             predeclared.asyncWorkerName = element.asyncWorkerName
+            predeclared.returnArrayType = element.returnArrayType
+            predeclared.returnArrayNumericKind = element.returnArrayNumericKind
             this.element = predeclared
             Func.predeclared.delete(predeclared)
         }else{
@@ -125,6 +130,11 @@ export class Func extends Base{
         const code = asm.getCode().join('\n')
         for(const data of asm.getData()){
             ASM.addData(data.trimEnd())
+        }
+        for(const dll of Object.keys(asm.imp)){
+            for(const importedFunction of asm.imp[dll]){
+                ASM.addImport(dll,importedFunction)
+            }
         }
         ASM.addProc(code)
         if(this.element?.isAsync&&this.element.asyncWorkerName){

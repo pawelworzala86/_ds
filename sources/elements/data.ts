@@ -240,6 +240,7 @@ function splitTokenArrayValues(tokens:string[]):string[][]{
 export class Data extends Base{
     element:DataElement|null = null
     initializerCall:Call|null = null
+    arrayInitializerCall:Call|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -332,45 +333,54 @@ export class Data extends Base{
                 .replace(/;$/,'')
             const arrayLiteral = initializer.match(/^\[([\s\S]*)\]$/)
             if(!arrayLiteral){
-                throw new Error(`Invalid array initializer for "${name}"`)
-            }
-            arrayValues = splitTopLevelArrayValues(arrayLiteral[1])
-            if(itemType==='number'){
-                if(arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
-                    throw new Error(`Array "${name}" must contain numeric literals`)
+                const callTokenizer = new Tokenizer(initializerTokens.join(''))
+                const call = new Call(this)
+                call.set(callTokenizer)
+                if(callTokenizer.has()||call.func?.returnArrayType!==`${itemType}[]`){
+                    throw new Error(`Array "${name}" must be initialized with an array literal or a function returning "${itemType}[]"`)
                 }
-                value = arrayValues.join(', ')
-            }else if(itemType==='string'){
-                if(arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
-                    throw new Error(`Array "${name}" must contain string literals`)
+                this.arrayInitializerCall = call
+                this.children.push(call)
+                value = ''
+            }else{
+                arrayValues = splitTopLevelArrayValues(arrayLiteral[1])
+                if(itemType==='number'){
+                    if(arrayValues.some(item=>!item||!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item))){
+                        throw new Error(`Array "${name}" must contain numeric literals`)
+                    }
+                    value = arrayValues.join(', ')
+                }else if(itemType==='string'){
+                    if(arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
+                        throw new Error(`Array "${name}" must contain string literals`)
+                    }
+                    value = arrayValues.join(', ')
+                }else if(classType){
+                    if(arrayValues.some(item=>!item||!new RegExp(`^new\\s+${itemType.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*\\(\\s*\\)$`,`i`).test(item.trim()))){
+                        throw new Error(`Array "${name}" must contain "new ${itemType}()" initializers`)
+                    }
+                    value = arrayValues.join(', ')
+                }else if(itemType==='any'){
+                    const objectTokens = splitTokenArrayValues(initializerTokens)
+                    if(!objectTokens.length||objectTokens.some(item=>item[0]!=='{')){
+                        throw new Error(`Array "${name}" must contain object literals`)
+                    }
+                    const objectProperties = objectTokens.map(item=>parseObjectLiteral(item))
+                    const shape = objectProperties[0]
+                    if(objectProperties.some(properties=>
+                        properties.length!==shape.length
+                        ||shape.some(property=>!properties.some(value=>value.name===property.name&&value.type===property.type))
+                    )){
+                        throw new Error(`Objects in array "${name}" must have the same properties and types`)
+                    }
+                    const layout = createStructLayout(shape,null,name)
+                    inferredArrayClass = new ClassElement(layout.type,layout.props,[])
+                    this.parent?.addClass(inferredArrayClass)
+                    arrayObjectValues = objectProperties.map(properties=>shape.map(property=>{
+                        const value = properties.find(item=>item.name===property.name)!
+                        return new DataElement('let',value.name,value.type,value.value)
+                    }))
+                    value = arrayValues.join(', ')
                 }
-                value = arrayValues.join(', ')
-            }else if(classType){
-                if(arrayValues.some(item=>!item||!new RegExp(`^new\\s+${itemType.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*\\(\\s*\\)$`,`i`).test(item.trim()))){
-                    throw new Error(`Array "${name}" must contain "new ${itemType}()" initializers`)
-                }
-                value = arrayValues.join(', ')
-            }else if(itemType==='any'){
-                const objectTokens = splitTokenArrayValues(initializerTokens)
-                if(!objectTokens.length||objectTokens.some(item=>item[0]!=='{')){
-                    throw new Error(`Array "${name}" must contain object literals`)
-                }
-                const objectProperties = objectTokens.map(item=>parseObjectLiteral(item))
-                const shape = objectProperties[0]
-                if(objectProperties.some(properties=>
-                    properties.length!==shape.length
-                    ||shape.some(property=>!properties.some(value=>value.name===property.name&&value.type===property.type))
-                )){
-                    throw new Error(`Objects in array "${name}" must have the same properties and types`)
-                }
-                const layout = createStructLayout(shape,null,name)
-                inferredArrayClass = new ClassElement(layout.type,layout.props,[])
-                this.parent?.addClass(inferredArrayClass)
-                arrayObjectValues = objectProperties.map(properties=>shape.map(property=>{
-                    const value = properties.find(item=>item.name===property.name)!
-                    return new DataElement('let',value.name,value.type,value.value)
-                }))
-                value = arrayValues.join(', ')
             }
         }
         let numericExpression:string|null = null
@@ -442,7 +452,8 @@ export class Data extends Base{
             this.element.isArray = true
             this.element.dynamicArray = arrayValues.length===0
             this.element.arrayObjectValues = arrayObjectValues
-            this.element.numericKind = arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer'
+            this.element.numericKind = this.arrayInitializerCall?.func?.returnArrayNumericKind
+                ??(arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer')
             if(classType){
                 this.element.classType = classType.name
             }
@@ -586,9 +597,23 @@ export class Data extends Base{
         if(this.element!.isArray){
             if(this.element!.dynamicArray){
                 const values = splitTopLevelArrayValues(value??'')
-                const capacity = Math.max(4,values.length)
                 const lengthName = `${this.element!.name}__length`
                 const capacityName = `${this.element!.name}__capacity`
+                if(this.arrayInitializerCall){
+                    ASM.addData(`${this.element!.name} dq 0`)
+                    ASM.addData(`${lengthName} dq 0`)
+                    ASM.addData(`${capacityName} dq 0`)
+                    this.arrayInitializerCall.asm(ASM)
+                    ASM.addCode('mov rdx, rax')
+                    ASM.addCode('mov rax, [rdx]')
+                    ASM.addCode(`mov [${this.element!.name}], rax`)
+                    ASM.addCode('mov rax, [rdx+8]')
+                    ASM.addCode(`mov [${lengthName}], rax`)
+                    ASM.addCode('mov rax, [rdx+16]')
+                    ASM.addCode(`mov [${capacityName}], rax`)
+                    return
+                }
+                const capacity = Math.max(4,values.length)
                 ASM.addData(`${this.element!.name} dq 0`)
                 ASM.addData(`${lengthName} dq ${values.length}`)
                 ASM.addData(`${capacityName} dq ${capacity}`)
