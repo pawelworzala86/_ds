@@ -117,7 +117,7 @@ export class Assign extends Base{
             }
             return
         }
-        const nativeCall = !indexText?expression.trim().match(/^([a-z_$][\w$]*)\(([\s\S]*)\)$/i):null
+        const nativeCall = !indexText?expression.trim().match(/^([a-z_$][\w$]*(?:\.[a-z_$][\w$]*)*)\(([\s\S]*)\)$/i):null
         if(nativeCall&&isInvoke(nativeCall[1])&&!isMathFunction(nativeCall[1])){
             this.invokeExpression = new Invoke(this.parent!)
             this.invokeExpression.set(new Tokenizer(expression.trim()))
@@ -128,7 +128,7 @@ export class Assign extends Base{
             const call = new Call(this.parent!)
             const tokenizer = new Tokenizer(expression.trim())
             call.set(tokenizer)
-            if(!tokenizer.has()&&(call.func||call.functionVariable)&&!call.func?.isAsync&&!call.methodInstance&&!call.prototypeMethod){
+            if(!tokenizer.has()&&(call.func||call.functionVariable)&&!call.func?.isAsync&&!call.prototypeMethod){
                 this.functionCall = call
                 target.numericKind = 'integer'
                 return

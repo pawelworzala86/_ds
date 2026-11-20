@@ -9,6 +9,7 @@ import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 let arrayPushId = 0
 let asyncCallId = 0
 let superStringId = 0
+let methodStringId = 0
 
 export class Call extends Base{
     func:FuncElement|null = null
@@ -160,6 +161,10 @@ export class Call extends Base{
             ASM.addCode(`invoke [${this.functionVariable.name}] ${params}`)
             return
         }
+        if(this.methodInstance?.isProcedureLocal){
+            this.emitLocalMethodCall(ASM)
+            return
+        }
         const canEmitArguments = this.params.every(param=>
             param.value instanceof DataElement||param.tempName!==null||param.arrayPointerName!==null
         )
@@ -269,6 +274,53 @@ export class Call extends Base{
             }
         })
         ASM.addCode(`call ${this.methodInstance?.classType}.${this.func.name}`)
+        ASM.addCode(`add rsp, ${stackSize}`)
+    }
+    emitLocalMethodCall(ASM:Asm){
+        const instance = this.methodInstance
+        if(!instance?.classType||!instance.name||!this.func?.name){
+            throw new Error('Local method call target is not initialized')
+        }
+        const registers = ['rdx','r8','r9']
+        const totalArguments = this.params.length+1
+        const stackBytes = 32+Math.max(0,totalArguments-4)*8
+        const stackSize = stackBytes+(stackBytes%16===0?8:0)
+        ASM.addCode(`sub rsp, ${stackSize}`)
+        ASM.addCode(`lea rcx, [${instance.name}]`)
+        this.params.forEach((param,index)=>{
+            const expected = this.func!.params[index]
+            const value = expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray
+                ? param.value.isParameter?param.value.name:`addr ${param.value.name}`
+                : param.getCode(true)
+            if(value===null){
+                throw new Error(`Unable to resolve local method argument ${index+1}`)
+            }
+            const literal = value.match(/^(['"])([\s\S]*)\1$/)
+            const argument = literal
+                ? `addr __ds_method_string_${++methodStringId}`
+                : value
+            if(literal){
+                const contents = literal[2].replace(/'/g,"''")
+                ASM.addData(`__ds_method_string_${methodStringId} db '${contents}',0`)
+            }
+            const register = registers[index]
+            if(register){
+                const address = argument.match(/^addr\s+(.+)$/i)
+                ASM.addCode(address
+                    ? `lea ${register}, [${address[1]}]`
+                    : `mov ${register}, ${argument}`)
+            }else{
+                const offset = 32+(index-registers.length)*8
+                const address = argument.match(/^addr\s+(.+)$/i)
+                if(address){
+                    ASM.addCode(`lea rax, [${address[1]}]`)
+                }else{
+                    ASM.addCode(`mov rax, ${argument}`)
+                }
+                ASM.addCode(`mov qword [rsp+${offset}], rax`)
+            }
+        })
+        ASM.addCode(`call ${instance.classType}.${this.func.name}`)
         ASM.addCode(`add rsp, ${stackSize}`)
     }
     emitAsyncCall(ASM:Asm,mode:'detached'|'handle'|'await'='detached'){
