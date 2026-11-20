@@ -333,15 +333,31 @@ export class Data extends Base{
                 .replace(/;$/,'')
             const arrayLiteral = initializer.match(/^\[([\s\S]*)\]$/)
             if(!arrayLiteral){
-                const callTokenizer = new Tokenizer(initializerTokens.join(''))
-                const call = new Call(this)
-                call.set(callTokenizer)
-                if(callTokenizer.has()||call.func?.returnArrayType!==`${itemType}[]`){
-                    throw new Error(`Array "${name}" must be initialized with an array literal or a function returning "${itemType}[]"`)
+                const objectKeysInitializer = initializerTokens.length===4
+                    &&initializerTokens[0]==='Object.keys'
+                    &&initializerTokens[1]==='('
+                    &&initializerTokens[3]===')'
+                if(objectKeysInitializer){
+                    const sourceName = initializerTokens[2]
+                    const source = this.parent?.getData(sourceName)
+                    const properties = source?.classLayoutProps
+                        ??(source?.classType?this.parent?.getClass(source.classType)?.props:null)
+                    if(!source||source.isArray||!properties){
+                        throw new Error(`Object.keys expects a struct identifier, received "${sourceName}"`)
+                    }
+                    arrayValues = properties.map(property=>`'${property.name}'`)
+                    value = arrayValues.join(', ')
+                }else{
+                    const callTokenizer = new Tokenizer(initializerTokens.join(''))
+                    const call = new Call(this)
+                    call.set(callTokenizer)
+                    if(callTokenizer.has()||call.func?.returnArrayType!==`${itemType}[]`){
+                        throw new Error(`Array "${name}" must be initialized with an array literal or a function returning "${itemType}[]"`)
+                    }
+                    this.arrayInitializerCall = call
+                    this.children.push(call)
+                    value = ''
                 }
-                this.arrayInitializerCall = call
-                this.children.push(call)
-                value = ''
             }else{
                 arrayValues = splitTopLevelArrayValues(arrayLiteral[1])
                 if(itemType==='number'){

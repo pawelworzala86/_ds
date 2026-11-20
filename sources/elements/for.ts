@@ -154,8 +154,8 @@ export class For extends While{
             throw new Error('Invalid for-of statement')
         }
         const array = this.getData(tokens[3])
-        if(!array?.isArray||!array.classType){
-            throw new Error(`For-of loop expects an object array identifier, received "${tokens[3]}"`)
+        if(!array?.isArray||(!array.classType&&array.type!=='string')){
+            throw new Error(`For-of loop expects an object or string array identifier, received "${tokens[3]}"`)
         }
 
         let inFunction = false
@@ -174,7 +174,7 @@ export class For extends While{
         this.children.push(indexDeclaration)
         this.initStatements.push(indexDeclaration)
 
-        const value = new DataElement(tokens[0],tokens[1],array.classType,'0')
+        const value = new DataElement(tokens[0],tokens[1],array.classType??array.type??'','0')
         value.classType = array.classType
         value.isProcedureLocal = inFunction
         value.isHeapAllocated = true

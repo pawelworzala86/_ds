@@ -45,6 +45,9 @@ export class DataElement{
         if(this.isArray){
             return this.isParameter?this.name:'addr '+this.name
         }
+        if(this.isReferenceAlias&&this.type==='string'){
+            return byValue?`[${this.name}]`:this.name
+        }
         if(this.classType&&this.isProcedureLocal){
             return this.isHeapAllocated?`[${this.name}]`:'addr '+this.name
         }

@@ -52,6 +52,10 @@ export class FunctionArgument{
         if(this.addressOf){
             this.value = this.addressOf
         }
+        const quotedPropertyAccess = text.match(/^([a-z_$][\w.$]*)\[['"]([a-z_$][\w$]*)['"]\]$/i)
+        if(quotedPropertyAccess){
+            text = `${quotedPropertyAccess[1]}.${quotedPropertyAccess[2]}`
+        }
         if(typeof this.value==='string'){
             const methodRef = text.match(/^([a-z_$][\w.$]*)\.([a-z_$][\w$]*)$/i)
             if(methodRef){
