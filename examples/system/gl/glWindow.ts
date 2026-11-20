@@ -1,7 +1,7 @@
-import * as kernel from './lib/kernel.ts'
-import * as gdi from './lib/gdi.ts'
-import * as user from './lib/user.ts'
-import * as gl from './lib/gl.ts'
+import * as kernel from './../lib/kernel.ts'
+import * as gdi from './../lib/gdi.ts'
+import * as user from './../lib/user.ts'
+import * as gl from './gl.ts'
 
 
 interface WNDCLASSEXA {

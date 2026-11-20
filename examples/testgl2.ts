@@ -1,7 +1,7 @@
 import * as kernel from './system/lib/kernel.ts'
 import * as msvcrt from './system/lib/msvcrt.ts'
-import * as gl from './system/lib/gl.ts'
-import * as glWindow from './system/glWindow.ts'
+import * as gl from './system/gl/gl.ts'
+import * as glWindow from './system/gl/glWindow.ts'
 import * as fs from './system/fs.ts'
 
 
