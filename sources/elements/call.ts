@@ -7,6 +7,7 @@ import FunctionArgument from './functionArgument.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 
 let arrayPushId = 0
+let arrayMethodId = 0
 let asyncCallId = 0
 let superStringId = 0
 let methodStringId = 0
@@ -15,6 +16,8 @@ export class Call extends Base{
     func:FuncElement|null = null
     params:FunctionArgument[] = []
     methodInstance:DataElement|null = null
+    arrayMethodArray:DataElement|null = null
+    arrayMethodIndex:FunctionArgument|null = null
     builtinArray:DataElement|null = null
     functionVariable:DataElement|null = null
     prototypeMethod = false
@@ -57,6 +60,15 @@ export class Call extends Base{
         const variable = this.getData(name)
         this.func ??= method?.func??(prototype?.method.kind==='function'?prototype.method.func:null)??this.getFunction(name)
         this.methodInstance ??= method?.instance??null
+        if(method?.arrayMethod){
+            this.arrayMethodArray = method.arrayMethod.array
+            this.arrayMethodIndex = new FunctionArgument(this,method.arrayMethod.index)
+            const indexNumericKind = this.arrayMethodIndex.expression?.numericKind
+                ??(this.arrayMethodIndex.value instanceof DataElement?this.arrayMethodIndex.value.numericKind:'integer')
+            if(indexNumericKind!=='integer'){
+                throw new Error('Array index must be an integer')
+            }
+        }
         this.functionVariable = variable && (variable.type==='Function'||variable.type==='function') ? variable : null
         this.prototypeMethod = prototype?.method.kind==='function'
         this.prototypeReceiver = this.prototypeMethod&&Boolean(prototype&&!prototype.type.startsWith('class:'))
@@ -76,6 +88,14 @@ export class Call extends Base{
                 throw new Error('Array.push expects exactly one argument')
             }
             this.validateArrayPush(this.builtinArray,this.params[0])
+            const value = this.params[0].value
+            if(this.builtinArray.classType
+                &&value instanceof DataElement
+                &&value.classType===this.builtinArray.classType
+                &&!value.isArray
+                &&!value.isParameter){
+                value.isHeapAllocated = true
+            }
             this.arrayPushId = ++arrayPushId
         }
         this.prepareDynamicArrayArguments()
@@ -105,6 +125,30 @@ export class Call extends Base{
     asm(ASM:Asm,asyncMode:'detached'|'handle'|'await'='detached'){
         if(this.noOp){
             return
+        }
+        if(this.arrayMethodArray&&this.arrayMethodIndex&&this.methodInstance?.name){
+            const array = this.arrayMethodArray
+            this.arrayMethodIndex.asm(ASM)
+            const index = this.arrayMethodIndex.getCode(true)
+            if(index===null){
+                throw new Error('Unable to resolve array method index')
+            }
+            ASM.addData(`${this.methodInstance.name} dq 0`)
+            ASM.addCode(`mov rax, ${index}`)
+            ASM.addCode('shl rax, 3')
+            if(array.isParameter){
+                ASM.addCode(`mov rdx, ${array.name}`)
+                if(array.dynamicArray){
+                    ASM.addCode('mov rdx, [rdx]')
+                }
+            }else{
+                ASM.addCode(array.dynamicArray
+                    ? `mov rdx, [${array.name}]`
+                    : `lea rdx, [${array.name}]`)
+            }
+            ASM.addCode('add rdx, rax')
+            ASM.addCode('mov rax, [rdx]')
+            ASM.addCode(`mov [${this.methodInstance.name}], rax`)
         }
         for(const param of this.params){
             param.asm(ASM)
@@ -192,7 +236,9 @@ export class Call extends Base{
                     const name = param.getClassPropertyAccessName()
                     ASM.addCode(`mov rax, [${name}]`)
                 }else if(param.value instanceof DataElement&&param.value.classType&&expected?.type===param.value.classType){
-                    ASM.addCode(`lea rax, [${param.value.name}]`)
+                    ASM.addCode(param.value.isProcedureLocal&&param.value.isHeapAllocated
+                        ? `mov rax, [${param.value.name}]`
+                        : `lea rax, [${param.value.name}]`)
                 }else{
                     const value = param.getCode()
                     if(value===null){
@@ -286,7 +332,9 @@ export class Call extends Base{
         const stackBytes = 32+Math.max(0,totalArguments-4)*8
         const stackSize = stackBytes+(stackBytes%16===0?8:0)
         ASM.addCode(`sub rsp, ${stackSize}`)
-        ASM.addCode(`lea rcx, [${instance.name}]`)
+        ASM.addCode(instance.isHeapAllocated
+            ? `mov rcx, [${instance.name}]`
+            : `lea rcx, [${instance.name}]`)
         this.params.forEach((param,index)=>{
             const expected = this.func!.params[index]
             const value = expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray
@@ -444,7 +492,9 @@ export class Call extends Base{
             }else if(value.type==='string'&&!value.isParameter){
                 ASM.addCode(`lea rax, [${value.name}]`)
             }else if(value.classType&&!value.isParameter){
-                ASM.addCode(`lea rax, [${value.name}]`)
+                ASM.addCode(value.isProcedureLocal&&value.isHeapAllocated
+                    ? `mov rax, [${value.name}]`
+                    : `lea rax, [${value.name}]`)
             }else{
                 ASM.addCode(`mov rax, [${value.name}]`)
             }
@@ -538,6 +588,8 @@ export class Call extends Base{
             ASM.addCode(`mov rax, [${param.tempName}]`)
         }else if(param.value instanceof DataElement){
             if(array.type==='number'){
+                ASM.addCode(`mov rax, [${param.value.name}]`)
+            }else if(param.value.isProcedureLocal&&param.value.isHeapAllocated){
                 ASM.addCode(`mov rax, [${param.value.name}]`)
             }else if(param.value.isParameter){
                 ASM.addCode(`mov rax, ${param.value.name}`)
@@ -635,7 +687,34 @@ export class Call extends Base{
         ASM.addCode('add rsp, 40')
         ASM.addCode(`${errorLabel}_done:`)
     }
-    static getMethod(active:Base,name:string):{func:FuncElement,instance:DataElement}|null{
+    static getMethod(active:Base,name:string):{
+        func:FuncElement
+        instance:DataElement
+        arrayMethod?:{array:DataElement,index:string}
+    }|null{
+        const arrayElementMethod = name.match(/^([a-z_$][\w$]*)\[([^\]]+)\]\.([a-z_$][\w$]*)$/i)
+        if(arrayElementMethod){
+            const [,arrayName,index,methodName] = arrayElementMethod
+            const array = active.getData(arrayName)
+            if(!array?.isArray||!array.classType){
+                return null
+            }
+            const classType = active.getClass(array.classType)
+            const func = classType?.getFunction(methodName)
+            if(!func){
+                return null
+            }
+            const instance = new DataElement(
+                'let',
+                `__ds_array_method_instance_${++arrayMethodId}`,
+                array.classType,
+                '0'
+            )
+            instance.classType = array.classType
+            instance.isProcedureLocal = true
+            instance.isHeapAllocated = true
+            return {func,instance,arrayMethod:{array,index}}
+        }
         const separator = name.indexOf('.')
         if(separator<1||separator===name.length-1){
             return null

@@ -50,7 +50,7 @@ function getStructFields(properties:DataElement[],getClass:(name:string)=>ClassE
     })
 }
 
-function initializeStackStructStrings(ASM:Asm,instanceName:string,properties:DataElement[]){
+function initializeStackStructStrings(ASM:Asm,instanceName:string,properties:DataElement[],heapAllocated=false){
     properties.forEach((property,index)=>{
         if(property.type!=='string'){
             return
@@ -58,7 +58,7 @@ function initializeStackStructStrings(ASM:Asm,instanceName:string,properties:Dat
         const label = `__ds_object_string_${++objectStringLabelId}`
         ASM.addData(`${label} db '${property.value??''}',0`)
         ASM.addCode(`lea rax, [${label}]`)
-        ASM.addCode(`lea rdx, [${instanceName}]`)
+        ASM.addCode(heapAllocated?`mov rdx, [${instanceName}]`:`lea rdx, [${instanceName}]`)
         ASM.addCode(`mov [rdx+${index*8}], rax`)
     })
 }
@@ -542,6 +542,14 @@ export class Data extends Base{
             ASM.addCode(`${this.element.name} = ${this.element.value}`)
             return
         }
+        if(this.element.isReferenceAlias){
+            if(this.element.isProcedureLocal){
+                ASM.addCode(`local ${this.element.name} dq 0`)
+            }else{
+                ASM.addData(`${this.element.name} dq 0`)
+            }
+            return
+        }
         if(this.element!.isProcedureLocal&&this.element!.isArray&&this.element!.type==='number'&&!this.element!.dynamicArray){
             const values = splitTopLevelArrayValues(this.element!.value??'')
             if(this.element!.numericKind==='float'){
@@ -567,7 +575,29 @@ export class Data extends Base{
             const fields = this.element!.classLayoutProps
                 ? properties
                 : getStructFields(properties,name=>this.parent!.getClass(name))
-            ASM.addCode(`local ${this.element!.name} dq ${fields.map(()=>0).join(', ')||'0'}`)
+            const heapAllocated = this.element!.isHeapAllocated
+            if(heapAllocated){
+                ASM.addCode(`local ${this.element!.name} dq 0`)
+                ASM.addImport('msvcrt','calloc')
+                ASM.addCode(`mov rcx, ${Math.max(1,fields.length)}`)
+                ASM.addCode('mov rdx, 8')
+                ASM.addCode('sub rsp, 40')
+                ASM.addCode('call [calloc]')
+                ASM.addCode('add rsp, 40')
+                ASM.addCode('test rax, rax')
+                ASM.addCode(`jz __ds_struct_alloc_error_${this.element!.name}`)
+                ASM.addCode(`mov [${this.element!.name}], rax`)
+                ASM.addCode(`jmp __ds_struct_alloc_ready_${this.element!.name}`)
+                ASM.addCode(`__ds_struct_alloc_error_${this.element!.name}:`)
+                ASM.addCode('mov ecx, 1')
+                ASM.addCode('sub rsp, 40')
+                ASM.addImport('kernel32','ExitProcess')
+                ASM.addCode('call [ExitProcess]')
+                ASM.addCode('add rsp, 40')
+                ASM.addCode(`__ds_struct_alloc_ready_${this.element!.name}:`)
+            }else{
+                ASM.addCode(`local ${this.element!.name} dq ${fields.map(()=>0).join(', ')||'0'}`)
+            }
             fields.forEach((property,index)=>{
                 const value = property.type==='string'?null:property.value
                 if(!value||value==='0'){
@@ -577,15 +607,19 @@ export class Data extends Base{
                     const label = `__ds_local_struct_literal_${this.element!.name}_${index}`
                     ASM.addData(`${label} dq ${value}`)
                     ASM.addCode(`movsd xmm0, qword [${label}]`)
-                    ASM.addCode(`lea rdx, [${this.element!.name}]`)
+                    ASM.addCode(heapAllocated
+                        ? `mov rdx, [${this.element!.name}]`
+                        : `lea rdx, [${this.element!.name}]`)
                     ASM.addCode(`movsd qword [rdx+${index*8}], xmm0`)
                 }else{
                     ASM.addCode(`mov rax, ${value}`)
-                    ASM.addCode(`lea rdx, [${this.element!.name}]`)
+                    ASM.addCode(heapAllocated
+                        ? `mov rdx, [${this.element!.name}]`
+                        : `lea rdx, [${this.element!.name}]`)
                     ASM.addCode(`mov [rdx+${index*8}], rax`)
                 }
             })
-            initializeStackStructStrings(ASM,this.element!.name!,fields)
+            initializeStackStructStrings(ASM,this.element!.name!,fields,heapAllocated)
             return
         }
         if(this.element!.isProcedureLocal&&!(this.element!.isArray&&this.element!.dynamicArray)){

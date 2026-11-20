@@ -265,7 +265,9 @@ export class Assign extends Base{
             const instance = this.target?.classPropertyInstance
             const offset = this.target?.classPropertyOffset
             if(instance?.isProcedureLocal&&offset!==null&&offset!==undefined){
-                ASM.addCode(`lea rdx, [${instance.name}]`)
+                ASM.addCode(instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
                 ASM.addCode(asFloat
                     ? `movsd qword [rdx+${offset}], ${value}`
                     : `mov [rdx+${offset}], ${value}`)

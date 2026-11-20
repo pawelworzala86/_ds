@@ -34,6 +34,20 @@ export class FunctionArgument{
         const address = text.match(/^&([a-z_$][\w.$]*)$/i)
         if(address){
             this.addressOf = active.getData(address[1])
+            if(!this.addressOf){
+                const access = getClassPropertyAccess(active,address[1])
+                if(access){
+                    const propertyValue = new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')
+                    propertyValue.numericKind = access.property.numericKind
+                    propertyValue.isArray = access.property.isArray
+                    propertyValue.classType = access.property.classType
+                    this.addressOf = propertyValue
+                    this.classPropertyInstance = access.instance
+                    this.classProperty = access.property
+                    this.classPropertyPath = access.path
+                    this.classPropertyOffsetPath = address[1].split('.').slice(1).join('.')
+                }
+            }
         }
         if(this.addressOf){
             this.value = this.addressOf
@@ -133,6 +147,28 @@ export class FunctionArgument{
     }
 
     asm(ASM:Asm){
+        if(this.addressOf&&this.classPropertyInstance&&this.classProperty){
+            if(this.classPropertyInstance.isHeapAllocated){
+                const classType = this.classPropertyInstance.classType
+                    ? this.scope.getClass(this.classPropertyInstance.classType)
+                    : null
+                const offset = classType
+                    ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??this.classProperty.name??'',name=>this.scope.getClass(name))
+                    : null
+                if(offset===null){
+                    throw new Error(`Unable to resolve local struct property "${this.classPropertyOffsetPath??this.classProperty.name}"`)
+                }
+                this.tempName ??= `__ds_call_arg_${++argumentId}`
+                ASM.addCode(`mov rdx, [${this.classPropertyInstance.name}]`)
+                if(offset){
+                    ASM.addCode(`add rdx, ${offset}`)
+                }
+                ASM.addData(`${this.tempName} dq 0`)
+                ASM.addCode(`mov [${this.tempName}], rdx`)
+                return
+            }
+            return
+        }
         if(this.methodPointerName&&this.methodInstance&&this.methodName&&this.methodClassType){
             const methodLabel = `${this.methodClassType}.${this.methodName}`
             const callbackParams = Array.from(
@@ -143,7 +179,9 @@ export class FunctionArgument{
             for(let index=0;index<callbackParams.length;index++){
                 body.push(`mov ${['rdx','r8','r9'][index]}, ${callbackParams[index]}`)
             }
-            body.push(`lea rcx, [${this.methodInstance.name}]`)
+            body.push(this.methodInstance.isHeapAllocated
+                ? `mov rcx, [${this.methodInstance.name}]`
+                : `lea rcx, [${this.methodInstance.name}]`)
             body.push('sub rsp, 32')
             body.push(`call ${methodLabel}`)
             body.push('add rsp, 32')
@@ -162,7 +200,9 @@ export class FunctionArgument{
                 throw new Error(`Unable to resolve local struct property "${this.classPropertyOffsetPath??this.classProperty.name}"`)
             }
             this.tempName ??= `__ds_call_arg_${++argumentId}`
-            ASM.addCode(`lea rdx, [${this.classPropertyInstance.name}]`)
+            ASM.addCode(this.classPropertyInstance.isHeapAllocated
+                ? `mov rdx, [${this.classPropertyInstance.name}]`
+                : `lea rdx, [${this.classPropertyInstance.name}]`)
             if(offset){
                 ASM.addCode(`add rdx, ${offset}`)
             }
@@ -265,6 +305,12 @@ export class FunctionArgument{
 
     getCode(byValue=false){
         if(this.addressOf){
+            if(this.classPropertyInstance&&this.classProperty){
+                if(this.classPropertyInstance.isHeapAllocated&&this.tempName){
+                    return `[${this.tempName}]`
+                }
+                return `addr [${this.getClassPropertyAccessName()}]`
+            }
             return 'addr '+this.addressOf.name
         }
         if(this.arrayPointerName){

@@ -5,10 +5,8 @@ import * as glWindow from './system/gl/glWindow.ts'
 import * as shader from './system/gl/shader.ts'
 import * as mat4 from './system/gl/mat4.ts'
 import * as texture from './system/gl/texture.ts'
-import * as file from './system/file.ts'
+import * as mesh from './system/gl/mesh.ts'
 
-let vertices:number[] = [1.0,1.0,0.0,1.0,-1.0,0.0,-1.0,-1.0,0.0,1.0,1.0,0.0,-1.0,-1.0,0.0,-1.0,1.0,0.0]
-let coords:number[] = [1.0,1.0,1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0]
 
 
 
@@ -29,8 +27,8 @@ let model:number[] = mat4.create()
 
 
 
-let VAO:number = 0
-let bufferID:number = 0
+//let VAO:number = 0
+//let bufferID:number = 0
 
 
 
@@ -45,20 +43,11 @@ let fragFileName:string = 'defaultTex.frag'
 let defualtShader:shader.Shader = new shader.Shader()
 
 
+let meshes:mesh.Mesh[] = []
 
 
-function CreateBuffer(posID:number,ssizeA:number,ssizeE:number,lengthA:number,array:number){
-    msvcrt.printf(' CreateBuffer ')
-	gl.genBuffers(1, &bufferID)
 
-	msvcrt.printf(' bufferID=%i ', bufferID)
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, bufferID)
-	gl.bufferData(gl.ARRAY_BUFFER, lengthA, array, gl.STATIC_DRAW)
-
-	gl.enableVertexAttribArray(posID)
-	gl.vertexAttribPointer(posID,ssizeA,gl.DOUBLE,gl.FALSE, ssizeE, 0)
-}
 
 
 function init(){
@@ -68,29 +57,11 @@ function init(){
 
 	msvcrt.printf('OK5')
 
-	gl.genVertexArrays(1, &VAO)
-	msvcrt.printf('VAO %i', VAO)
-	gl.bindVertexArray(VAO)
 
 
+	let meshInstance:mesh.Mesh = new mesh.Mesh()
 
-
-
-
-
-	let f:file.File = new file.File()
-	msvcrt.printf('Opening model file\n')
-	f.open('model.bin')
-	let modelBuffer:number = f.readFileBuffer()
-	msvcrt.printf('modelBuffer %i', modelBuffer)
-
-
-
-		
-	
-	CreateBuffer(0,3,24,144,&vertices)
-	CreateBuffer(1,2,16,96,&coords)
-
+	meshes.push(meshInstance)
 
 
 
@@ -139,10 +110,11 @@ function render(){
 	gl.uniform1d(uniformLocation, textureID)
 	
 
+	msvcrt.printf('OK6 VAO=%i',meshes[0].VAO)
 
-
-	gl.bindVertexArray(VAO)
-	gl.drawArrays(gl.TRIANGLES, 0, 6)
+	for(const mesh of meshes){
+		mesh.render()
+	}
 }
 
 function destroy(){

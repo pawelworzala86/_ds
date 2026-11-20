@@ -166,7 +166,7 @@ export function parseExpression(text:string,active:Base):Expression{
             }
         }
         if(tokens[index]==='['){
-            if(!data.isArray){
+            if(!data.isArray&&data.type!=='number'){
                 throw new Error(`Value "${token}" is not an array`)
             }
             index++
@@ -177,7 +177,7 @@ export function parseExpression(text:string,active:Base):Expression{
             if(arrayIndex.numericKind!=='integer'){
                 throw new Error('Array index must be an integer')
             }
-            return {kind:'index',value:data,index:arrayIndex,numericKind:data.numericKind}
+            return {kind:'index',value:data,index:arrayIndex,numericKind:data.isArray?data.numericKind:'float'}
         }
         if(data.isArray){
             throw new Error(`Array "${token}" must be accessed with an index`)
@@ -333,7 +333,9 @@ export function emitExpression(expression:Expression,ASM:Asm){
         const instance = expression.value.classPropertyInstance
         const offset = expression.value.classPropertyOffset
         if(instance?.isProcedureLocal&&offset!==null){
-            ASM.addCode(`lea rdx, [${instance.name}]`)
+            ASM.addCode(instance.isHeapAllocated
+                ? `mov rdx, [${instance.name}]`
+                : `lea rdx, [${instance.name}]`)
             if(offset){
                 ASM.addCode(`add rdx, ${offset}`)
             }
@@ -342,11 +344,16 @@ export function emitExpression(expression:Expression,ASM:Asm){
                 : 'mov rax, [rdx]')
             return
         }
+        const parameterValue = expression.value.isParameter&&!expression.value.isArray&&!instance
         if(expression.numericKind==='float'){
-            ASM.addCode(`movsd xmm0, qword [${expression.value.getAccessName()}]`)
+            ASM.addCode(parameterValue
+                ? `movsd xmm0, qword ${expression.value.getAccessName()}`
+                : `movsd xmm0, qword [${expression.value.getAccessName()}]`)
             return
         }
-        ASM.addCode(`mov rax, [${expression.value.getAccessName()}]`)
+        ASM.addCode(parameterValue
+            ? `mov rax, ${expression.value.getAccessName()}`
+            : `mov rax, [${expression.value.getAccessName()}]`)
         return
     }
     if(expression.kind==='index'){
@@ -354,7 +361,23 @@ export function emitExpression(expression:Expression,ASM:Asm){
         ASM.addCode('shl rax, 3')
         const instance = expression.value.classPropertyInstance
         const offset = expression.value.classPropertyOffset
-        if(instance?.isProcedureLocal&&offset!==null){
+        if(!expression.value.isArray){
+            if(instance?.isProcedureLocal&&offset!==null){
+                ASM.addCode(instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
+                if(offset){
+                    ASM.addCode(`add rdx, ${offset}`)
+                }
+                ASM.addCode('mov rdx, [rdx]')
+            }else if(expression.value.isParameter){
+                ASM.addCode(`mov rdx, ${expression.value.getAccessName()}`)
+            }else if(expression.value.isConstAlias){
+                ASM.addCode(`mov rdx, ${expression.value.name}`)
+            }else{
+                ASM.addCode(`mov rdx, [${expression.value.getAccessName()}]`)
+            }
+        }else if(instance?.isProcedureLocal&&offset!==null){
             ASM.addCode(`lea rdx, [${instance.name}]`)
             if(offset){
                 ASM.addCode(`add rdx, ${offset}`)

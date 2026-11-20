@@ -23,6 +23,8 @@ export class DataElement{
     dynamicArray = false
     isParameter = false
     isProcedureLocal = false
+    isHeapAllocated = false
+    isReferenceAlias = false
     isReturnedArray = false
     isConstAlias = false
     isExportedConstAlias = false
@@ -44,7 +46,7 @@ export class DataElement{
             return this.isParameter?this.name:'addr '+this.name
         }
         if(this.classType&&this.isProcedureLocal){
-            return 'addr '+this.name
+            return this.isHeapAllocated?`[${this.name}]`:'addr '+this.name
         }
         if(this.type=='string'){
             return 'addr '+this.name

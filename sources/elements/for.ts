@@ -7,6 +7,7 @@ import DataElement from './dataElement.ts'
 import While from './while.ts'
 
 let forInId = 0
+let forOfId = 0
 
 function countArrayValues(value:string){
     if(!value.trim()){
@@ -41,6 +42,8 @@ export class For extends While{
     updateStatements:Base[] = []
     iterationArray:DataElement|null = null
     dynamicLength:DataElement|null = null
+    iterationValue:DataElement|null = null
+    iterationIndex:DataElement|null = null
 
     set(tokenizer:Tokenizer){
         if(tokenizer.get()!=='for'||tokenizer.get()!=='('){
@@ -75,8 +78,12 @@ export class For extends While{
         if(!closed){
             throw new Error('For statement must have three clauses')
         }
-        if(clause===0&&clauses[0].includes('in')){
-            this.setForIn(clauses[0],tokenizer)
+        if(clause===0&&(clauses[0].includes('in')||clauses[0].includes('of'))){
+            if(clauses[0].includes('of')){
+                this.setForOf(clauses[0],tokenizer)
+            }else{
+                this.setForIn(clauses[0],tokenizer)
+            }
             return
         }
         if(clause!==2){
@@ -142,6 +149,71 @@ export class For extends While{
         this.thenBranch = this.compileBranch(tokenizer.getBlock())
     }
 
+    setForOf(tokens:string[],tokenizer:Tokenizer){
+        if(tokens.length!==4||!['const','let','var'].includes(tokens[0])||tokens[2]!=='of'||!/^[a-z_$][\w$]*$/i.test(tokens[1])){
+            throw new Error('Invalid for-of statement')
+        }
+        const array = this.getData(tokens[3])
+        if(!array?.isArray||!array.classType){
+            throw new Error(`For-of loop expects an object array identifier, received "${tokens[3]}"`)
+        }
+
+        let inFunction = false
+        for(let scope:Base|null=this;scope;scope=scope.parent){
+            if(scope.isFunctionScope){
+                inFunction = true
+                break
+            }
+        }
+
+        const index = new DataElement('let',`__ds_for_of_index_${++forOfId}`,'number','0')
+        index.isProcedureLocal = inFunction
+        this.addData(index)
+        const indexDeclaration = new Data(this)
+        indexDeclaration.element = index
+        this.children.push(indexDeclaration)
+        this.initStatements.push(indexDeclaration)
+
+        const value = new DataElement(tokens[0],tokens[1],array.classType,'0')
+        value.classType = array.classType
+        value.isProcedureLocal = inFunction
+        value.isHeapAllocated = true
+        value.isReferenceAlias = true
+        this.addData(value)
+        const valueDeclaration = new Data(this)
+        valueDeclaration.element = value
+        this.children.push(valueDeclaration)
+        this.initStatements.push(valueDeclaration)
+
+        const update = new Assign(this)
+        update.setExpression(index,`${index.name}+1`)
+        this.children.push(update)
+        this.updateStatements.push(update)
+
+        let length:string
+        if(array.dynamicArray){
+            this.dynamicLength = new DataElement('let',`__ds_for_of_length_${forOfId}`,'number','0')
+            this.addData(this.dynamicLength)
+            length = this.dynamicLength.name!
+        }else{
+            length = `${countArrayValues(array.value??'')}`
+        }
+        this.iterationArray = array
+        this.iterationIndex = index
+        this.iterationValue = value
+        this.condition = this.parseCondition(`${index.name}<${length}`)
+
+        let next = tokenizer.get()
+        while(next==='\n'){
+            next = tokenizer.get()
+        }
+        if(next!=='{'){
+            throw new Error('Expected "{" after for-of header')
+        }
+        tokenizer.move(-1)
+        this.thenBranch = this.compileBranch(tokenizer.getBlock())
+    }
+
     compileHeaderStatement(tokens:string[],statements:Base[],allowDeclaration:boolean){
         if(!tokens.length){
             return
@@ -195,6 +267,24 @@ export class For extends While{
         ASM.addCode(`${this.startLabel}:`)
         this.emitBranch(this.condition,ASM,this.bodyLabel,this.endLabel)
         ASM.addCode(`${this.bodyLabel}:`)
+        if(this.iterationArray&&this.iterationIndex&&this.iterationValue){
+            const array = this.iterationArray
+            ASM.addCode(`mov rax, [${this.iterationIndex.name}]`)
+            ASM.addCode('shl rax, 3')
+            if(array.isParameter){
+                ASM.addCode(`mov rdx, ${array.name}`)
+                if(array.dynamicArray){
+                    ASM.addCode('mov rdx, [rdx]')
+                }
+            }else{
+                ASM.addCode(array.dynamicArray
+                    ? `mov rdx, [${array.name}]`
+                    : `lea rdx, [${array.name}]`)
+            }
+            ASM.addCode('add rdx, rax')
+            ASM.addCode('mov rax, [rdx]')
+            ASM.addCode(`mov [${this.iterationValue.name}], rax`)
+        }
         this.thenBranch.asm(ASM)
         this.updateStatements.forEach(statement=>statement.asm(ASM))
         ASM.addCode(`jmp ${this.startLabel}`)
