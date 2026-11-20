@@ -71,7 +71,12 @@ export function getClassPropertyAccess(active:Base,name:string):{instance:DataEl
     if(parts.length<2){
         return null
     }
-    const instance = active.getData(parts[0])
+    let instance = active.getData(parts[0])
+    if(parts[0]==='this'&&active.classElement?.name){
+        instance = new DataElement('let','rsi',active.classElement.name,'0')
+        instance.classType = active.classElement.name
+        instance.isProcedureLocal = true
+    }
     let classType = instance?.classType?active.getClass(instance.classType):null
     if(!instance||!classType){
         return null
