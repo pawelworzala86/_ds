@@ -8,6 +8,7 @@ import Invoke, {isInvoke} from './invoke.ts'
 import FuncElement from './funcElement.ts'
 import Call from './call.ts'
 import Timeout from './timeout.ts'
+import {stringLiteralData} from '../stringLiteral.ts'
 
 let stringAssignId = 0
 let callbackId = 0
@@ -318,7 +319,7 @@ export class Assign extends Base{
         }
         if(this.stringPropertyTarget){
             const valueLabel = `__ds_str_assign_${++stringAssignId}`
-            ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+            ASM.addData(`${valueLabel} ${stringLiteralData(this.stringValue!)}`)
             ASM.addCode(`lea rax, [${valueLabel}]`)
             storeTarget('rax')
             return
@@ -327,7 +328,7 @@ export class Assign extends Base{
             if(!this.stringAppend){
                 if(this.stringValue){
                     const valueLabel = `__ds_str_assign_${++stringAssignId}`
-                    ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+                    ASM.addData(`${valueLabel} ${stringLiteralData(this.stringValue)}`)
                     ASM.addCode(`lea rax, [${valueLabel}]`)
                 }else if(this.stringSource){
                     ASM.addCode(this.stringSource.isParameter
@@ -348,7 +349,7 @@ export class Assign extends Base{
             const allocationReady = `__ds_str_append_ready_${id}`
             if(this.stringValue){
                 const valueLabel = `__ds_str_assign_${id}`
-                ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+                ASM.addData(`${valueLabel} ${stringLiteralData(this.stringValue)}`)
                 ASM.addCode(`lea rax, [${valueLabel}]`)
             }else if(this.stringSource){
                 ASM.addCode(this.stringSource.isParameter
@@ -482,7 +483,7 @@ export class Assign extends Base{
                 ? `__ds_str_assign_${++stringAssignId}`
                 : null
             if(this.stringValue){
-                ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+                ASM.addData(`${valueLabel} ${stringLiteralData(this.stringValue)}`)
                 ASM.addCode(`lea rax, [${valueLabel}]`)
             }else if(this.stringSourceIndex&&this.stringSource){
                 emitExpression(this.stringSourceIndex,ASM)

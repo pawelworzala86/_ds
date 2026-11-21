@@ -5,6 +5,7 @@ import DataElement, {getNumericKind} from './dataElement.ts'
 import Assign from './assign.ts'
 import ClassElement from './clasElement.ts'
 import Call from './call.ts'
+import {getStringLiteralContents,stringData,stringLiteralData} from '../stringLiteral.ts'
 
 let structLayoutId = 0
 let objectStringLabelId = 0
@@ -24,7 +25,7 @@ function initializeStructStrings(ASM:Asm,instanceName:string,properties:DataElem
             continue
         }
         const label = `__ds_object_string_${++objectStringLabelId}`
-        ASM.addData(`${label} db '${property.value??''}',0`)
+        ASM.addData(`${label} ${stringData(property.value??'')}`)
         ASM.addCode(`lea rax, [${label}]`)
         ASM.addCode(`mov [${instanceName}.${prefix}${property.name}], rax`)
     }
@@ -56,7 +57,7 @@ function initializeStackStructStrings(ASM:Asm,instanceName:string,properties:Dat
             return
         }
         const label = `__ds_object_string_${++objectStringLabelId}`
-        ASM.addData(`${label} db '${property.value??''}',0`)
+        ASM.addData(`${label} ${stringData(property.value??'')}`)
         ASM.addCode(`lea rax, [${label}]`)
         ASM.addCode(heapAllocated?`mov rdx, [${instanceName}]`:`lea rdx, [${instanceName}]`)
         ASM.addCode(`mov [rdx+${index*8}], rax`)
@@ -106,9 +107,9 @@ function parseObjectLiteral(tokens:string[]):ObjectLiteralProperty[]{
             throw new Error(`Invalid initializer for struct property "${name}"`)
         }
         const value = valueTokens.join('')
-        const stringLiteral = value.match(/^(['"])([\s\S]*)\1$/)
+        const stringLiteral = value.match(/^(['"])[\s\S]*\1$/)
         if(stringLiteral){
-            properties.push({name,type:'string',value:stringLiteral[2]})
+            properties.push({name,type:'string',value:getStringLiteralContents(value)})
         }else if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(value)){
             properties.push({name,type:'number',value})
         }else{
@@ -158,17 +159,23 @@ function splitTopLevelArrayValues(value:string):string[]{
     let current = ''
     let quote:string|null = null
     let depth = 0
+    let escaped = false
     for(let index=0;index<value.length;index++){
         const char = value[index]
         if(quote){
             current += char
-            if(char===quote && value[index-1]!=='\\'){
+            if(escaped){
+                escaped = false
+            }else if(char==='\\'){
+                escaped = true
+            }else if(char===quote){
                 quote = null
             }
             continue
         }
         if(char==="'"||char==='"'){
             quote = char
+            escaped = false
             current += char
             continue
         }
@@ -366,6 +373,7 @@ export class Data extends Base{
                     }
                     value = arrayValues.join(', ')
                 }else if(itemType==='string'){
+                    arrayValues = splitTokenArrayValues(initializerTokens).map(item=>item.join(''))
                     if(arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
                         throw new Error(`Array "${name}" must contain string literals`)
                     }
@@ -440,24 +448,7 @@ export class Data extends Base{
         }
         let values = [value]
         if(type=='string'){
-            let open = false
-            let spec = false
-            values = []
-            for(const token of initializerTokens){
-                if(spec&&(token=='\'')){
-                    values.push(token)
-                }else if(token=='\''){
-                    open = !open
-                    continue
-                }else if(token=='\\'){
-                    spec = true
-                    continue
-                }
-                if(open){
-                    values.push(token)
-                }
-                spec = false
-            }
+            values = [hasInitializer?getStringLiteralContents(initializerTokens.join('')):'']
         }
         this.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
         if(classLayout){
@@ -699,7 +690,7 @@ export class Data extends Base{
                 }else if(this.element!.type==='string'){
                     values.forEach((item,index)=>{
                         const label = `${this.element!.name}_${index}`
-                        ASM.addData(`${label} db ${item},0`)
+                        ASM.addData(`${label} ${stringLiteralData(item)}`)
                         ASM.addCode(`lea rax, [${label}]`)
                         ASM.addCode(`mov rdx, [${this.element!.name}]`)
                         ASM.addCode(`mov [rdx+${index*8}], rax`)
@@ -765,7 +756,7 @@ export class Data extends Base{
                 const literals = splitTopLevelArrayValues(value??'')
                 const labels = literals.map((item,index)=>{
                     const label = `${this.element!.name}_${index}`
-                    ASM.addData(`${label} db ${item},0`)
+                    ASM.addData(`${label} ${stringLiteralData(item)}`)
                     return label
                 })
                 ASM.addData(`${this.element!.name} dq ${Array(literals.length).fill(0).join(', ')}`)
@@ -814,7 +805,7 @@ export class Data extends Base{
         }
         if(this.element!.type=='string'){
             const label = `__ds_string_literal_${++objectStringLabelId}`
-            ASM.addData(`${label} db '${value??''}',0`)
+            ASM.addData(`${label} ${stringData(value??'')}`)
             ASM.addData(`${this.element!.name} dq 0`)
             ASM.addCode(`lea rax, [${label}]`)
             ASM.addCode(`mov [${this.element!.name}], rax`)

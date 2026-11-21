@@ -3,8 +3,10 @@ import Base from './base.ts'
 import Asm from "./../asm.ts"
 import FunctionArgument from './functionArgument.ts'
 import Call from './call.ts'
+import {stringLiteralData} from '../stringLiteral.ts'
 
 let stringCharCodeAtId = 0
+let invokeStringId = 0
 
 const Invokers:any = []
 
@@ -57,7 +59,13 @@ export class Invoke extends Base{
             }
         }
         const params = this.params.map(param=>{
-            return param.getCode(true)
+            const value = param.getCode(true)
+            if(typeof value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(value)){
+                const label = `__ds_invoke_string_${++invokeStringId}`
+                ASM.addData(`${label} ${stringLiteralData(value)}`)
+                return `addr ${label}`
+            }
+            return value
         }).join(', ')
         const code = `invoke ${this.name} ${params}`
         ASM.addCode(code)

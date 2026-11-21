@@ -5,6 +5,7 @@ import Base from './base.ts'
 import Call from './call.ts'
 import DataElement from './dataElement.ts'
 import {emitExpression,parseExpression,type Expression} from '../maths.ts'
+import {stringLiteralData} from '../stringLiteral.ts'
 
 type StringOperand =
     | {kind:'literal',value:string}
@@ -449,7 +450,7 @@ export class Iff extends Base{
         }
         if(value.kind==='literal'){
             const label = nextLabel('string')
-            ASM.addData(`${label} db ${value.value},0`)
+            ASM.addData(`${label} ${stringLiteralData(value.value)}`)
             ASM.addCode(`lea rax, [${label}]`)
         }else{
             const data = value.value

@@ -5,6 +5,7 @@ import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
 import FunctionArgument from './functionArgument.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
+import {stringData,stringLiteralData} from '../stringLiteral.ts'
 
 let arrayPushId = 0
 let arrayMethodId = 0
@@ -373,8 +374,7 @@ export class Call extends Base{
                 ? `addr __ds_super_string_${++superStringId}`
                 : value
             if(literal){
-                const contents = literal[2].replace(/'/g,"''")
-                ASM.addData(`__ds_super_string_${superStringId} db '${contents}',0`)
+                ASM.addData(`__ds_super_string_${superStringId} ${stringData(literal[2])}`)
             }
             const register = registers[index]
             if(register){
@@ -422,8 +422,7 @@ export class Call extends Base{
                 ? `addr __ds_method_string_${++methodStringId}`
                 : value
             if(literal){
-                const contents = literal[2].replace(/'/g,"''")
-                ASM.addData(`__ds_method_string_${methodStringId} db '${contents}',0`)
+                ASM.addData(`__ds_method_string_${methodStringId} ${stringData(literal[2])}`)
             }
             const register = registers[index]
             if(register){
@@ -589,8 +588,7 @@ export class Call extends Base{
             const literal = param.value.match(/^(['"])([\s\S]*)\1$/)
             if(literal){
                 const label = `__ds_async_string_${asyncCallId}_${index}`
-                const contents = literal[2].replace(/'/g,"''")
-                ASM.addData(`${label} db '${contents}',0`)
+                ASM.addData(`${label} ${stringData(literal[2])}`)
                 ASM.addCode(`lea rax, [${label}]`)
                 return
             }
@@ -674,8 +672,7 @@ export class Call extends Base{
         ASM.addData(`${nextCapacityName} dq 0`)
         if(array.type==='string'&&typeof param.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(param.value)){
             const stringLabel = `__ds_array_push_string_${id}`
-            const contents = param.value.slice(1,-1)
-            ASM.addData(`${stringLabel} db '${contents}',0`)
+            ASM.addData(`${stringLabel} ${stringLiteralData(param.value)}`)
             ASM.addCode(`lea rax, [${stringLabel}]`)
         }else if(array.type==='number'&&array.numericKind==='float'&&(param.expression?.numericKind==='integer'||param.value instanceof DataElement&&param.value.numericKind==='integer')){
             if(param.tempName){
