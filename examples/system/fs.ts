@@ -2,7 +2,9 @@ import * as kernel from './lib/kernel.ts'
 import * as msvcrt from './lib/msvcrt.ts'
 
 const GENERIC_READ:number = 0x80000000
+const GENERIC_WRITE:number = 0x40000000
 const OPEN_EXISTING:number = 3
+const CREATE_ALWAYS:number = 2
 const FILE_ATTRIBUTE_NORMAL:number = 0x80
 
 export function readFileSync(fileName:string){
@@ -31,4 +33,15 @@ export function readFileSync(fileName:string){
     //msvcrt.printf(" %s ", buffor)
 
     return buffor
+}
+
+export function writeFileSync(fileName:string,contents:any){
+
+    const contentSize:number = msvcrt.strlen(contents)
+    let handle:number = 0
+    let bytesWritten:number = 0
+
+    handle = kernel.CreateFileA(fileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0)
+    kernel.WriteFile(handle, contents, contentSize, &bytesWritten, 0)
+    kernel.CloseHandle(handle)
 }

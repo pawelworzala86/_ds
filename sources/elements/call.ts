@@ -12,6 +12,7 @@ let arrayMethodId = 0
 let asyncCallId = 0
 let superStringId = 0
 let methodStringId = 0
+let functionCallStringId = 0
 let stringCharCodeAtId = 0
 let consoleLogId = 0
 
@@ -280,7 +281,10 @@ export class Call extends Base{
             return
         }
         const canEmitArguments = this.params.every(param=>
-            param.value instanceof DataElement||param.tempName!==null||param.arrayPointerName!==null
+            param.value instanceof DataElement
+            ||param.tempName!==null
+            ||param.arrayPointerName!==null
+            ||typeof param.value==='string'&&/^(['"])[\s\S]*\1$/.test(param.value)
         )
         if(canEmitArguments&&!this.methodInstance){
             for(let index=0;index<this.params.length;index++){
@@ -291,6 +295,10 @@ export class Call extends Base{
                     ASM.addCode(param.value.isParameter
                         ? `mov rax, ${param.value.name}`
                         : `lea rax, [${param.value.name}]`)
+                }else if(typeof param.value==='string'&&/^(['"])[\s\S]*\1$/.test(param.value)){
+                    const label = `__ds_function_call_string_${++functionCallStringId}`
+                    ASM.addData(`${label} ${stringLiteralData(param.value)}`)
+                    ASM.addCode(`lea rax, [${label}]`)
                 }else if(param.value instanceof DataElement&&param.value.isConstAlias){
                     ASM.addCode(`mov rax, ${param.value.name}`)
                 }else if(param.value instanceof DataElement&&param.value.isArray&&!param.arrayPointerName){
