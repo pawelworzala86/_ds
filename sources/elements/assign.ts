@@ -17,6 +17,7 @@ export class Assign extends Base{
     expression:Expression|null = null
     targetIndex:Expression|null = null
     stringValue:string|null = null
+    stringAppend = false
     stringPropertyTarget = false
     stringSource:DataElement|null = null
     stringSourceIndex:Expression|null = null
@@ -31,7 +32,7 @@ export class Assign extends Base{
     constructor(parent:Base){
         super(parent)
     }
-    setExpression(target:DataElement,expression:string,initializer=false,indexText?:string){
+    setExpression(target:DataElement,expression:string,initializer=false,indexText?:string,append=false){
         const isStringArray = target.isArray && (target.type==='string'||target.type==='string[]')
         if(!initializer&&target.kind==='const'){
             throw new Error(`Cannot assign to constant "${target.name}"`)
@@ -56,6 +57,25 @@ export class Assign extends Base{
                 }
             }
             throw new Error(`Array "${target.name}" must be assigned from a function returning "${target.type}[]"`)
+        }
+        if(target.type==='string'&&!target.isArray){
+            if(indexText){
+                throw new Error('String variables cannot be indexed')
+            }
+            this.target = target
+            this.stringAppend = append
+            const value = expression.trim()
+            const stringLiteral = value.match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
+            if(stringLiteral){
+                this.stringValue = value
+                return
+            }
+            const source = this.parent?.getData(value)
+            if(source&&source.type==='string'&&!source.isArray){
+                this.stringSource = source
+                return
+            }
+            throw new Error(`String assignment requires a string literal or string variable: "${expression}"`)
         }
         if((target.type==='string'||target.type==='string[]')&&(!target.isArray||!indexText)){
             throw new Error('String assignment is only supported for string array elements')
@@ -231,7 +251,8 @@ export class Assign extends Base{
                 }
             }
         }
-        if(operator!=='='&&target.type!=='number'){
+        const stringAppend = target.type==='string'&&operator==='+='
+        if(operator!=='='&&target.type!=='number'&&!stringAppend){
             throw new Error('Compound assignment is only supported for number variables')
         }
         if(target.type==='Task'&&operator==='='){
@@ -254,7 +275,7 @@ export class Assign extends Base{
         const assignmentExpression = operator==='='
             ? expression
             : `${targetName}${indexText?`[${indexText}]`:''}${operator.slice(0,-1)}(${expression})`
-        this.setExpression(target,assignmentExpression,false,indexText)
+        this.setExpression(target,stringAppend?expression:assignmentExpression,false,indexText,stringAppend)
     }
     asm(ASM:Asm){
         if(!this.target){
@@ -300,6 +321,93 @@ export class Assign extends Base{
             ASM.addData(`${valueLabel} db ${this.stringValue},0`)
             ASM.addCode(`lea rax, [${valueLabel}]`)
             storeTarget('rax')
+            return
+        }
+        if(this.target.type==='string'&&!this.target.isArray){
+            if(!this.stringAppend){
+                if(this.stringValue){
+                    const valueLabel = `__ds_str_assign_${++stringAssignId}`
+                    ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+                    ASM.addCode(`lea rax, [${valueLabel}]`)
+                }else if(this.stringSource){
+                    ASM.addCode(this.stringSource.isParameter
+                        ? `mov rax, ${this.stringSource.name}`
+                        : `mov rax, [${this.stringSource.name}]`)
+                }else{
+                    throw new Error('String assignment is not initialized')
+                }
+                storeTarget('rax')
+                return
+            }
+            const id = ++stringAssignId
+            const destinationLabel = `__ds_str_append_destination_${id}`
+            const sourceLabel = `__ds_str_append_source_${id}`
+            const lengthLabel = `__ds_str_append_length_${id}`
+            const bufferLabel = `__ds_str_append_buffer_${id}`
+            const allocationError = `__ds_str_append_error_${id}`
+            const allocationReady = `__ds_str_append_ready_${id}`
+            if(this.stringValue){
+                const valueLabel = `__ds_str_assign_${id}`
+                ASM.addData(`${valueLabel} db ${this.stringValue},0`)
+                ASM.addCode(`lea rax, [${valueLabel}]`)
+            }else if(this.stringSource){
+                ASM.addCode(this.stringSource.isParameter
+                    ? `mov rax, ${this.stringSource.name}`
+                    : `mov rax, [${this.stringSource.name}]`)
+            }else{
+                throw new Error('String append source is not initialized')
+            }
+            ASM.addData(`${destinationLabel} dq 0`)
+            ASM.addData(`${sourceLabel} dq 0`)
+            ASM.addData(`${lengthLabel} dq 0`)
+            ASM.addData(`${bufferLabel} dq 0`)
+            ASM.addCode(`mov [${sourceLabel}], rax`)
+            ASM.addCode(this.target.isParameter
+                ? `mov rax, ${targetName}`
+                : `mov rax, [${targetName}]`)
+            ASM.addCode(`mov [${destinationLabel}], rax`)
+            ASM.addImport('msvcrt','strlen')
+            ASM.addImport('msvcrt','malloc')
+            ASM.addImport('msvcrt','strcpy')
+            ASM.addImport('msvcrt','strcat')
+            ASM.addCode(`mov rcx, [${destinationLabel}]`)
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call [strlen]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`mov [${lengthLabel}], rax`)
+            ASM.addCode(`mov rcx, [${sourceLabel}]`)
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call [strlen]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`add rax, [${lengthLabel}]`)
+            ASM.addCode('inc rax')
+            ASM.addCode('mov rcx, rax')
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call [malloc]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`mov [${bufferLabel}], rax`)
+            ASM.addCode('test rax, rax')
+            ASM.addCode(`jz ${allocationError}`)
+            ASM.addCode(`mov rcx, [${bufferLabel}]`)
+            ASM.addCode(`mov rdx, [${destinationLabel}]`)
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call [strcpy]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`mov rcx, [${bufferLabel}]`)
+            ASM.addCode(`mov rdx, [${sourceLabel}]`)
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call [strcat]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`mov rax, [${bufferLabel}]`)
+            storeTarget('rax')
+            ASM.addCode(`jmp ${allocationReady}`)
+            ASM.addCode(`${allocationError}:`)
+            ASM.addCode('mov ecx, 1')
+            ASM.addCode('sub rsp, 40')
+            ASM.addImport('kernel32','ExitProcess')
+            ASM.addCode('call [ExitProcess]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`${allocationReady}:`)
             return
         }
         if(this.addressLabel){

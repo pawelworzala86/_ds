@@ -245,6 +245,8 @@ export class Call extends Base{
                 }
                 if(param.value instanceof DataElement&&param.value.type==='Function'){
                     return `[${param.value.name}]`
+                }else if(param.value instanceof DataElement&&param.value.type==='string'&&!param.value.isArray){
+                    return param.value.isParameter?`[${value}]`:value
                 }else if(param.value instanceof DataElement&&param.value.isArray){
                     if(param.value.dynamicArray){
                         return `[${param.value.name}]`
@@ -296,6 +298,16 @@ export class Call extends Base{
                 }else if(param.classPropertyInstance&&param.classProperty?.type==='string'){
                     const name = param.getClassPropertyAccessName()
                     ASM.addCode(`mov rax, [${name}]`)
+                }else if(param.value instanceof DataElement&&param.value.type==='string'&&!param.value.isArray){
+                    const value = param.value
+                    if(value.isReferenceAlias){
+                        ASM.addCode(`mov rdx, [${value.name}]`)
+                        ASM.addCode('mov rax, [rdx]')
+                    }else{
+                        ASM.addCode(value.isParameter
+                            ? `mov rax, ${value.name}`
+                            : `mov rax, [${value.getAccessName()}]`)
+                    }
                 }else if(param.value instanceof DataElement&&param.value.classType
                     &&(expected?.type===param.value.classType||param.value.classLayoutProps&&hasSameStructLayout(param.value.classLayoutProps,expectedClass))){
                     ASM.addCode(param.value.isProcedureLocal&&param.value.isHeapAllocated
@@ -551,8 +563,15 @@ export class Call extends Base{
             }
             if(param.classPropertyInstance&&param.classProperty?.type==='string'){
                 ASM.addCode(`mov rax, [${param.getClassPropertyAccessName()}]`)
-            }else if(value.type==='string'&&!value.isParameter){
-                ASM.addCode(`lea rax, [${value.name}]`)
+            }else if(value.type==='string'){
+                if(value.isReferenceAlias){
+                    ASM.addCode(`mov rdx, [${value.name}]`)
+                    ASM.addCode('mov rax, [rdx]')
+                }else if(value.isParameter){
+                    ASM.addCode(`mov rax, ${value.name}`)
+                }else{
+                    ASM.addCode(`mov rax, [${value.name}]`)
+                }
             }else if(value.classType&&!value.isParameter){
                 ASM.addCode(value.isProcedureLocal&&value.isHeapAllocated
                     ? `mov rax, [${value.name}]`

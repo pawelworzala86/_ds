@@ -452,7 +452,25 @@ export class Iff extends Base{
             ASM.addData(`${label} db ${value.value},0`)
             ASM.addCode(`lea rax, [${label}]`)
         }else{
-            ASM.addCode(`lea rax, [${value.value.getAccessName()}]`)
+            const data = value.value
+            const instance = data.classPropertyInstance
+            const offset = data.classPropertyOffset
+            if(data.isReferenceAlias){
+                ASM.addCode(`mov rdx, [${data.name}]`)
+                ASM.addCode('mov rax, [rdx]')
+            }else if(data.isParameter&&!instance){
+                ASM.addCode(`mov rax, ${data.name}`)
+            }else if(instance?.isProcedureLocal&&offset!==null){
+                ASM.addCode(instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
+                if(offset){
+                    ASM.addCode(`add rdx, ${offset}`)
+                }
+                ASM.addCode('mov rax, [rdx]')
+            }else{
+                ASM.addCode(`mov rax, [${data.getAccessName()}]`)
+            }
         }
     }
 

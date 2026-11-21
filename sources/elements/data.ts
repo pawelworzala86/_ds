@@ -813,8 +813,12 @@ export class Data extends Base{
             value += 'f'
         }
         if(this.element!.type=='string'){
-            type = 'db'
-            value = '\''+value+'\',0'
+            const label = `__ds_string_literal_${++objectStringLabelId}`
+            ASM.addData(`${label} db '${value??''}',0`)
+            ASM.addData(`${this.element!.name} dq 0`)
+            ASM.addCode(`lea rax, [${label}]`)
+            ASM.addCode(`mov [${this.element!.name}], rax`)
+            return
         }
         const data:string = `${this.element!.name} ${type} ${value}`
         ASM.addData(data)

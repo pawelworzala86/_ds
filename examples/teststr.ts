@@ -11,6 +11,12 @@ for(let i = 0; i < str.length; i++) {
     msvcrt.printf('%c\n', str.charCodeAt(i))
 }
 
+let str2: string = 'Hello\n'
 
+str = str2
+str += 'test'
+
+msvcrt.printf(' %s\n', str2)
+msvcrt.printf(' %s\n', str)
 
 kernel.ExitProcess(0)

@@ -52,7 +52,7 @@ export class DataElement{
             return this.isHeapAllocated?`[${this.name}]`:'addr '+this.name
         }
         if(this.type=='string'){
-            return 'addr '+this.name
+            return this.isParameter?this.name:`[${this.name}]`
         }
         if(byValue&&this.type=='number'){
             return '['+this.name+']'
