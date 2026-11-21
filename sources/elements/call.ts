@@ -11,6 +11,7 @@ let arrayMethodId = 0
 let asyncCallId = 0
 let superStringId = 0
 let methodStringId = 0
+let stringCharCodeAtId = 0
 
 function hasSameStructLayout(properties:DataElement[],classType:ReturnType<Base['getClass']>|null){
     return Boolean(classType
@@ -31,7 +32,9 @@ export class Call extends Base{
     arrayMethodArray:DataElement|null = null
     arrayMethodIndex:FunctionArgument|null = null
     builtinArray:DataElement|null = null
+    builtinStringCharCodeAt:DataElement|null = null
     functionVariable:DataElement|null = null
+    nestedArgumentCalls = new Map<FunctionArgument,Call>()
     prototypeMethod = false
     prototypeReceiver = false
     arrayPushId:number|null = null
@@ -87,7 +90,41 @@ export class Call extends Base{
         this.builtinArray = prototype?.method.kind==='builtin'&&prototype.method.name==='push'
             ? prototype.instance
             : null
-        this.params = tokenizer.getCallArguments().map(token=>new FunctionArgument(this,token))
+        this.builtinStringCharCodeAt = prototype?.method.kind==='builtin'&&prototype.method.name==='charCodeAt'
+            ? prototype.instance
+            : null
+        const argumentTexts = tokenizer.getCallArguments()
+        this.params = argumentTexts.map(token=>new FunctionArgument(this,token))
+        this.params.forEach((param,index)=>{
+            const argument = argumentTexts[index]
+            if(!/^[a-z_$][\w$]*\.charCodeAt\([\s\S]*\)$/i.test(argument)){
+                return
+            }
+            const nestedTokenizer = new Tokenizer(argument)
+            const nestedCall = new Call(this)
+            nestedCall.set(nestedTokenizer)
+            if(nestedTokenizer.has()||!nestedCall.builtinStringCharCodeAt){
+                throw new Error('charCodeAt is only supported for strings')
+            }
+            param.tempName = `__ds_string_char_code_at_${++stringCharCodeAtId}`
+            this.nestedArgumentCalls.set(param,nestedCall)
+        })
+        if(this.builtinStringCharCodeAt){
+            if(this.params.length!==1){
+                throw new Error('String.charCodeAt expects exactly one argument')
+            }
+            const index = this.params[0]
+            const isNumericValue = Boolean(index.expression
+                ||index.value instanceof DataElement&&index.value.type==='number')
+            const numericKind = index.expression?.numericKind
+                ??(index.value instanceof DataElement?index.value.numericKind:'integer')
+            if(!isNumericValue
+                ||(index.expression&&index.expression.numericKind!=='integer')
+                ||(index.value instanceof DataElement&&index.value.numericKind!=='integer')
+                ||numericKind!=='integer'){
+                throw new Error('String.charCodeAt index must be an integer')
+            }
+        }
         if(this.noOp&&this.params.length){
             throw new Error('Parent constructor does not accept arguments')
         }
@@ -163,7 +200,14 @@ export class Call extends Base{
             ASM.addCode(`mov [${this.methodInstance.name}], rax`)
         }
         for(const param of this.params){
-            param.asm(ASM)
+            const nestedCall = this.nestedArgumentCalls.get(param)
+            if(nestedCall){
+                nestedCall.asm(ASM)
+                ASM.addData(`${param.tempName} dq 0`)
+                ASM.addCode(`mov [${param.tempName}], rax`)
+            }else{
+                param.asm(ASM)
+            }
         }
         if(this.superCall){
             this.emitSuperCall(ASM)
@@ -178,6 +222,10 @@ export class Call extends Base{
         }
         if(this.builtinArray){
             this.emitArrayPush(ASM)
+            return
+        }
+        if(this.builtinStringCharCodeAt){
+            this.emitStringCharCodeAt(ASM)
             return
         }
         if(this.functionVariable){
@@ -566,6 +614,29 @@ export class Call extends Base{
             return
         }
         throw new Error(`Array.push is not supported for "${array.name}"`)
+    }
+    emitStringCharCodeAt(ASM:Asm){
+        const string = this.builtinStringCharCodeAt
+        const index = this.params[0]
+        if(!string||!index){
+            throw new Error('String.charCodeAt is not initialized')
+        }
+        const stringValue = string.getCode(true)
+        if(stringValue===null){
+            throw new Error('Unable to resolve String.charCodeAt receiver')
+        }
+        if(stringValue.startsWith('addr ')){
+            ASM.addCode(`lea rdx, [${stringValue.replace(/^addr\s+/,'')}]`)
+        }else{
+            ASM.addCode(`mov rdx, ${stringValue}`)
+        }
+        const indexValue = index.getCode(true)
+        if(indexValue===null||indexValue.startsWith('addr ')){
+            throw new Error('Unable to resolve String.charCodeAt index')
+        }
+        ASM.addCode(`mov rax, ${indexValue}`)
+        ASM.addCode('add rdx, rax')
+        ASM.addCode('movzx eax, byte [rdx]')
     }
     emitArrayPush(ASM:Asm){
         const array = this.builtinArray!

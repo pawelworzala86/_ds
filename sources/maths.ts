@@ -14,6 +14,7 @@ export function isMathFunction(name:string):name is MathFunctionName{
 export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
     | {kind:'data',value:DataElement,numericKind:NumericKind}
+    | {kind:'stringLength',value:DataElement,numericKind:'integer'}
     | {kind:'index',value:DataElement,index:Expression,numericKind:NumericKind}
     | {kind:'unary',operator:'+'|'-',value:Expression,numericKind:NumericKind}
     | {kind:'binary',operator:BinaryOperator,left:Expression,right:Expression,numericKind:NumericKind}
@@ -141,6 +142,13 @@ export function parseExpression(text:string,active:Base):Expression{
         }
         if(/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(token)){
             return {kind:'number',value:token,numericKind:getNumericKind(token)}
+        }
+        const stringLength = token.match(/^([a-z_$][\w$]*)\.length$/i)
+        if(stringLength){
+            const value = active.getData(stringLength[1])
+            if(value?.type==='string'&&!value.isArray){
+                return {kind:'stringLength',value,numericKind:'integer'}
+            }
         }
         const access = getClassPropertyAccess(active,token)
         const data = active.getData(token)??(access
@@ -323,6 +331,22 @@ export function emitExpression(expression:Expression,ASM:Asm){
             ASM.addCode(`movsd xmm0, qword [${firstArgument}]`)
         }
         emitFloatCall(ASM,expression.name)
+        return
+    }
+    if(expression.kind==='stringLength'){
+        const value = expression.value.getCode(true)
+        if(value===null){
+            throw new Error('Unable to resolve string length')
+        }
+        if(value.startsWith('addr ')){
+            ASM.addCode(`lea rcx, [${value.replace(/^addr\s+/,'')}]`)
+        }else{
+            ASM.addCode(`mov rcx, ${value}`)
+        }
+        ASM.addImport('msvcrt','strlen')
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode('call [strlen]')
+        ASM.addCode('add rsp, 40')
         return
     }
     if(expression.kind==='data'){

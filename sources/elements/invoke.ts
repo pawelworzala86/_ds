@@ -2,6 +2,9 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
 import FunctionArgument from './functionArgument.ts'
+import Call from './call.ts'
+
+let stringCharCodeAtId = 0
 
 const Invokers:any = []
 
@@ -16,6 +19,7 @@ export function isInvoke(name:string){
 export class Invoke extends Base{
     name:string|null = null
     params:FunctionArgument[] = []
+    nestedArgumentCalls = new Map<FunctionArgument,Call>()
     constructor(parent:Base){
         super(parent)
     }
@@ -24,11 +28,33 @@ export class Invoke extends Base{
         if(tokenizer.get()!=='('){
             throw new Error(`Expected '(' after function "${this.name}"`)
         }
-        this.params = tokenizer.getCallArguments().map(token=>new FunctionArgument(this,token))
+        const argumentTexts = tokenizer.getCallArguments()
+        this.params = argumentTexts.map(token=>new FunctionArgument(this,token))
+        this.params.forEach((param,index)=>{
+            const argument = argumentTexts[index]
+            if(!/^[a-z_$][\w$]*\.charCodeAt\([\s\S]*\)$/i.test(argument)){
+                return
+            }
+            const nestedTokenizer = new Tokenizer(argument)
+            const nestedCall = new Call(this)
+            nestedCall.set(nestedTokenizer)
+            if(nestedTokenizer.has()||!nestedCall.builtinStringCharCodeAt){
+                throw new Error('charCodeAt is only supported for strings')
+            }
+            param.tempName = `__ds_invoke_string_char_code_at_${++stringCharCodeAtId}`
+            this.nestedArgumentCalls.set(param,nestedCall)
+        })
     }
     asm(ASM:Asm){
         for(const param of this.params){
-            param.asm(ASM)
+            const nestedCall = this.nestedArgumentCalls.get(param)
+            if(nestedCall){
+                nestedCall.asm(ASM)
+                ASM.addData(`${param.tempName} dq 0`)
+                ASM.addCode(`mov [${param.tempName}], rax`)
+            }else{
+                param.asm(ASM)
+            }
         }
         const params = this.params.map(param=>{
             return param.getCode(true)
