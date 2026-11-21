@@ -1,0 +1,215 @@
+import Asm from '../../asm.ts'
+import DataElement from '../dataElement.ts'
+import {stringLiteralData} from '../../stringLiteral.ts'
+import type Base from '../base.ts'
+import type {Call} from '../call.ts'
+
+let functionCallStringId = 0
+
+function hasSameStructLayout(properties:DataElement[],classType:ReturnType<Base['getClass']>|null){
+    return Boolean(classType
+        &&properties.length===classType.props.length
+        &&properties.every((property,index)=>{
+            const expected = classType.props[index]
+            return property.name===expected.name
+                &&property.type===expected.type
+                &&property.isArray===expected.isArray
+                &&property.classType===expected.classType
+        }))
+}
+
+export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'='detached'){
+        if(call.noOp){
+            return
+        }
+        if(call.arrayMethodArray&&call.arrayMethodIndex&&call.methodInstance?.name){
+            const array = call.arrayMethodArray
+            call.arrayMethodIndex.asm(ASM)
+            const index = call.arrayMethodIndex.getCode(true)
+            if(index===null){
+                throw new Error('Unable to resolve array method index')
+            }
+            ASM.addData(`${call.methodInstance.name} dq 0`)
+            ASM.addCode(`mov rax, ${index}`)
+            ASM.addCode('shl rax, 3')
+            if(array.isParameter){
+                ASM.addCode(`mov rdx, ${array.name}`)
+                if(array.dynamicArray){
+                    ASM.addCode('mov rdx, [rdx]')
+                }
+            }else{
+                ASM.addCode(array.dynamicArray
+                    ? `mov rdx, [${array.name}]`
+                    : `lea rdx, [${array.name}]`)
+            }
+            ASM.addCode('add rdx, rax')
+            ASM.addCode('mov rax, [rdx]')
+            ASM.addCode(`mov [${call.methodInstance.name}], rax`)
+        }
+        for(const param of call.params){
+            const nestedCall = call.nestedArgumentCalls.get(param)
+            if(nestedCall){
+                nestedCall.asm(ASM)
+                ASM.addData(`${param.tempName} dq 0`)
+                ASM.addCode(`mov [${param.tempName}], rax`)
+            }else{
+                param.asm(ASM)
+            }
+        }
+        if(call.builtinConsoleLog){
+            call.emitConsoleLog(ASM)
+            return
+        }
+        if(call.superCall){
+            call.emitSuperCall(ASM)
+            return
+        }
+        if(call.func?.isAsync){
+            call.emitAsyncCall(ASM,asyncMode)
+            return
+        }
+        if(asyncMode!=='detached'){
+            throw new Error('Only async functions can produce or await a Task')
+        }
+        if(call.builtinArray){
+            call.emitArrayPush(ASM)
+            return
+        }
+        if(call.builtinStringCharCodeAt){
+            call.emitStringCharCodeAt(ASM)
+            return
+        }
+        if(call.builtinStringSplit){
+            call.emitStringSplit(ASM)
+            return
+        }
+        if(call.builtinStringReplace){
+            call.emitStringReplace(ASM)
+            return
+        }
+        if(call.functionVariable){
+            const params = call.params.map(param=>{
+                const value = param.getCode()
+                if(value===null){
+                    throw new Error('Unable to resolve function pointer argument')
+                }
+                if(value.startsWith('&')){
+                    throw new Error(`Unable to resolve address argument "${value}"`)
+                }
+                if(value.startsWith("'")&&value.endsWith("'")){
+                    return `addr ${value}`
+                }
+                if(param.value instanceof DataElement&&param.value.isConstAlias){
+                    return value
+                }
+                if(param.value instanceof DataElement&&param.value.type==='Function'){
+                    return `[${param.value.name}]`
+                }else if(param.value instanceof DataElement&&param.value.type==='string'&&!param.value.isArray){
+                    return param.value.isParameter?`[${value}]`:value
+                }else if(param.value instanceof DataElement&&param.value.isArray){
+                    if(param.value.dynamicArray){
+                        return `[${param.value.name}]`
+                    }
+                    return `addr ${param.value.name}`
+                }
+                if(param.arrayPointerName){
+                    return `[${param.arrayPointerName}]`
+                }
+                if(param.tempName){
+                    return `[${param.tempName}]`
+                }
+                if(value.startsWith('addr ')){
+                    return value
+                }
+                return value.startsWith('[')&&value.endsWith(']')?value:`[${value}]`
+            }).join(', ')
+            ASM.addCode(`invoke [${call.functionVariable.name}] ${params}`)
+            return
+        }
+        if(call.methodInstance?.isProcedureLocal){
+            call.emitLocalMethodCall(ASM)
+            return
+        }
+        const canEmitArguments = call.params.every(param=>
+            param.value instanceof DataElement
+            ||param.tempName!==null
+            ||param.arrayPointerName!==null
+            ||typeof param.value==='string'&&/^(['"])[\s\S]*\1$/.test(param.value)
+        )
+        if(canEmitArguments&&!call.methodInstance){
+            for(let index=0;index<call.params.length;index++){
+                const param = call.params[index]
+                const expected = call.func?.params[index]
+                const expectedClass = expected?.type?call.getClass(expected.type):null
+                if(expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
+                    ASM.addCode(param.value.isParameter
+                        ? `mov rax, ${param.value.name}`
+                        : `lea rax, [${param.value.name}]`)
+                }else if(typeof param.value==='string'&&/^(['"])[\s\S]*\1$/.test(param.value)){
+                    const label = `__ds_function_call_string_${++functionCallStringId}`
+                    ASM.addData(`${label} ${stringLiteralData(param.value)}`)
+                    ASM.addCode(`lea rax, [${label}]`)
+                }else if(param.value instanceof DataElement&&param.value.isConstAlias){
+                    ASM.addCode(`mov rax, ${param.value.name}`)
+                }else if(param.value instanceof DataElement&&param.value.isArray&&!param.arrayPointerName){
+                    if(param.value.dynamicArray){
+                        ASM.addCode(`mov rax, [${param.value.name}]`)
+                    }else{
+                        ASM.addCode(`lea rax, [${param.value.name}]`)
+                    }
+                }else if(param.arrayPointerName){
+                    ASM.addCode(`mov rax, [${param.arrayPointerName}]`)
+                }else if(param.tempName){
+                    ASM.addCode(`mov rax, [${param.tempName}]`)
+                }else if(param.classPropertyInstance&&param.classProperty?.type==='string'){
+                    const name = param.getClassPropertyAccessName()
+                    ASM.addCode(`mov rax, [${name}]`)
+                }else if(param.value instanceof DataElement&&param.value.type==='string'&&!param.value.isArray){
+                    const value = param.value
+                    if(value.isReferenceAlias){
+                        ASM.addCode(`mov rdx, [${value.name}]`)
+                        ASM.addCode('mov rax, [rdx]')
+                    }else{
+                        ASM.addCode(value.isParameter
+                            ? `mov rax, ${value.name}`
+                            : `mov rax, [${value.getAccessName()}]`)
+                    }
+                }else if(param.value instanceof DataElement&&param.value.classType
+                    &&(expected?.type===param.value.classType||param.value.classLayoutProps&&hasSameStructLayout(param.value.classLayoutProps,expectedClass))){
+                    ASM.addCode(param.value.isProcedureLocal&&param.value.isHeapAllocated
+                        ? `mov rax, [${param.value.name}]`
+                        : `lea rax, [${param.value.name}]`)
+                }else{
+                    const value = param.getCode()
+                    if(value===null){
+                        throw new Error('Unable to resolve function argument')
+                    }
+                    ASM.addCode(value.startsWith('addr ')
+                        ? `lea rax, [${value.replace(/^addr\s+/,'')}]`
+                        : `mov rax, [${value}]`)
+                }
+                ASM.addCode('push rax')
+            }
+            const shadowSpace = 32+(call.params.length%2===0?8:0)
+            ASM.addCode(`sub rsp, ${shadowSpace}`)
+            ASM.addCode(`call ${call.func!.name}`)
+            ASM.addCode(`add rsp, ${shadowSpace+call.params.length*8}`)
+            return
+        }
+        const params = call.params.map((param,index)=>{
+            if(call.func?.params[index]?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
+                return param.value.isParameter?param.value.name:`addr ${param.value.name}`
+            }
+            return param.getCode(call.methodInstance!==null)
+        }).join(', ')
+        const methodName = call.methodInstance?.isProcedureLocal
+            ? `${call.methodInstance.classType}.${call.func!.name}`
+            : `${call.methodInstance?.name}.${call.func!.name}`
+        const methodParams = call.methodInstance?.isProcedureLocal
+            ? `addr ${call.methodInstance.name}${params?`, ${params}`:''}`
+            : params
+        const code = call.methodInstance
+            ? `invoke ${methodName} ${methodParams}`
+            : `rvcall ${call.func!.name} ${params}`
+        ASM.addCode(code)
+    }
