@@ -2,7 +2,7 @@ import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
 import FuncElement from './funcElement.ts'
-import DataElement from './dataElement.ts'
+import DataElement, {getNumericKind} from './dataElement.ts'
 import FunctionArgument from './functionArgument.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 import {stringData,stringLiteralData} from '../stringLiteral.ts'
@@ -13,6 +13,7 @@ let asyncCallId = 0
 let superStringId = 0
 let methodStringId = 0
 let stringCharCodeAtId = 0
+let consoleLogId = 0
 
 function hasSameStructLayout(properties:DataElement[],classType:ReturnType<Base['getClass']>|null){
     return Boolean(classType
@@ -34,6 +35,7 @@ export class Call extends Base{
     arrayMethodIndex:FunctionArgument|null = null
     builtinArray:DataElement|null = null
     builtinStringCharCodeAt:DataElement|null = null
+    builtinConsoleLog = false
     functionVariable:DataElement|null = null
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
     prototypeMethod = false
@@ -46,6 +48,7 @@ export class Call extends Base{
     }
     set(tokenizer:Tokenizer){
         const name = tokenizer.get()
+        this.builtinConsoleLog = name==='console.log'
         if(tokenizer.get()!=='('){
             throw new Error(`Expected '(' after function "${name}"`)
         }
@@ -210,6 +213,10 @@ export class Call extends Base{
                 param.asm(ASM)
             }
         }
+        if(this.builtinConsoleLog){
+            this.emitConsoleLog(ASM)
+            return
+        }
         if(this.superCall){
             this.emitSuperCall(ASM)
             return
@@ -347,6 +354,96 @@ export class Call extends Base{
             ? `invoke ${methodName} ${methodParams}`
             : `rvcall ${this.func!.name} ${params}`
         ASM.addCode(code)
+    }
+    emitConsoleLog(ASM:Asm){
+        ASM.addImport('msvcrt','printf')
+        const emitPrintf = (format:string,value?:string,float=false)=>{
+            const formatLabel = `__ds_console_log_format_${++consoleLogId}`
+            ASM.addData(`${formatLabel} ${stringData(format)}`)
+            if(float){
+                if(!value){
+                    throw new Error('Unable to resolve floating-point console.log argument')
+                }
+                ASM.addCode('sub rsp, 40')
+                ASM.addCode(`lea rcx, [${formatLabel}]`)
+                ASM.addCode(`movsd xmm1, qword ${value}`)
+                ASM.addCode('movsd qword [rsp+32], xmm1')
+                ASM.addCode('mov rdx, qword [rsp+32]')
+                ASM.addCode('call [printf]')
+                ASM.addCode('add rsp, 40')
+            }else{
+                ASM.addCode(`invoke printf addr ${formatLabel}${value?`, ${value}`:''}`)
+            }
+        }
+
+        if(!this.params.length){
+            emitPrintf('\n')
+            return
+        }
+        this.params.forEach((param,index)=>{
+            const prefix = index===0?'':' '
+            const value = param.value
+            if(typeof value==='string'&&/^(['"])[\s\S]*\1$/.test(value)){
+                const label = `__ds_console_log_string_${++consoleLogId}`
+                ASM.addData(`${label} ${stringLiteralData(value)}`)
+                emitPrintf(`${prefix}%s`,`addr ${label}`)
+                return
+            }
+            if(typeof value==='string'&&['true','false','null','undefined'].includes(value)){
+                const label = `__ds_console_log_string_${++consoleLogId}`
+                ASM.addData(`${label} ${stringData(value)}`)
+                emitPrintf(`${prefix}%s`,`addr ${label}`)
+                return
+            }
+
+            const data = value instanceof DataElement?value:null
+            const type = param.classProperty?.type??data?.type
+            if(type==='string'){
+                const argument = param.getCode(true)
+                if(!argument){
+                    throw new Error('Unable to resolve string console.log argument')
+                }
+                emitPrintf(`${prefix}%s`,argument)
+                return
+            }
+            const inferredNumeric = data?.type===''
+                &&/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(data.value??'')
+            if(type==='number'||inferredNumeric||param.expression){
+                const argument = inferredNumeric&&data
+                    ? `[${data.name}]`
+                    : param.getCode(true)
+                if(!argument){
+                    throw new Error('Unable to resolve numeric console.log argument')
+                }
+                const numericKind = param.expression?.numericKind
+                    ??(inferredNumeric?getNumericKind(data?.value??''):data?.numericKind)
+                    ??'integer'
+                emitPrintf(`${prefix}${numericKind==='float'?'%f':'%lld'}`,argument,numericKind==='float')
+                return
+            }
+
+            let argument = param.getCode(true)
+            if(data){
+                if(data.isArray){
+                    argument = data.isParameter
+                        ? data.name
+                        : data.dynamicArray
+                            ? `[${data.name}]`
+                            : `addr ${data.name}`
+                }else if(data.isParameter){
+                    argument = data.name
+                }else if(data.classType||data.classLayoutProps){
+                    argument = data.isProcedureLocal&&data.isHeapAllocated
+                        ? `[${data.name}]`
+                        : `addr ${data.name}`
+                }
+            }
+            if(!argument){
+                throw new Error('Unable to resolve console.log argument')
+            }
+            emitPrintf(`${prefix}%p`,argument)
+        })
+        emitPrintf('\n')
     }
     emitSuperCall(ASM:Asm){
         if(!this.func?.name){
@@ -847,7 +944,7 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
-        if(token==='super'||token.startsWith('super.')||active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
+        if(token==='console.log'||token==='super'||token.startsWith('super.')||active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
             tokenizer.move(-1)
             const data = new Call(active)
             data.set(tokenizer)
