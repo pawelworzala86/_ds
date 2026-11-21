@@ -6,6 +6,7 @@ import DataElement, {getNumericKind} from './dataElement.ts'
 import FunctionArgument from './functionArgument.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 import {stringData,stringLiteralData} from '../stringLiteral.ts'
+import {getLiteralRegExpSeparator,parseRegExpLiteral} from '../regex.ts'
 
 let arrayPushId = 0
 let arrayMethodId = 0
@@ -147,7 +148,10 @@ export class Call extends Base{
             const separator = this.params[0]
             const isStringLiteral = typeof separator.value==='string'
                 &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(separator.value)
+            const isRegExpLiteral = typeof separator.value==='string'
+                &&Boolean(parseRegExpLiteral(separator.value))
             if(!isStringLiteral
+                &&!isRegExpLiteral
                 &&!(separator.value instanceof DataElement&&separator.value.type==='string'&&!separator.value.isArray)
                 &&separator.classProperty?.type!=='string'){
                 throw new Error('String.split separator must be a string')
@@ -992,7 +996,11 @@ export class Call extends Base{
         ASM.addProc(helper)
 
         let separatorArgument = separatorValue
-        if(typeof separator.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(separator.value)){
+        if(typeof separator.value==='string'&&parseRegExpLiteral(separator.value)){
+            const label = `__ds_string_split_separator_${id}`
+            ASM.addData(`${label} ${stringData(getLiteralRegExpSeparator(separator.value))}`)
+            separatorArgument = `addr ${label}`
+        }else if(typeof separator.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(separator.value)){
             const label = `__ds_string_split_separator_${id}`
             ASM.addData(`${label} ${stringLiteralData(separator.value)}`)
             separatorArgument = `addr ${label}`

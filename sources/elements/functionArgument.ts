@@ -5,6 +5,7 @@ import DataElement from './dataElement.ts'
 import FuncElement from './funcElement.ts'
 import Link from './link.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
+import {parseRegExpLiteral} from '../regex.ts'
 
 let argumentId = 0
 let methodCallbackId = 0
@@ -144,7 +145,7 @@ export class FunctionArgument{
         }
         if(this.value instanceof DataElement&&this.value.isParameter&&!this.value.isArray){
             this.tempName = `__ds_call_arg_${++argumentId}`
-        }else if(!this.expression&&!this.arrayPropertyAccess&&!this.arrayElementAccess&&!/^['"]/.test(text)&&(/\*\*|[+\-*/%]/.test(text)||/\[[^\]]+\]/.test(text)||/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(text))){
+        }else if(!this.expression&&!this.arrayPropertyAccess&&!this.arrayElementAccess&&!parseRegExpLiteral(text)&&!/^['"]/.test(text)&&(/\*\*|[+\-*/%]/.test(text)||/\[[^\]]+\]/.test(text)||/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(text))){
             this.expression = parseExpression(text,active)
             this.tempName = `__ds_call_arg_${++argumentId}`
         }

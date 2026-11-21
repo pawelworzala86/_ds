@@ -1,3 +1,5 @@
+import {parseRegExpLiteral,readRegExpLiteralAt} from './regex.ts'
+
 export class Tokenizer{
     original:string
     tokens:string[] = []
@@ -18,6 +20,15 @@ export class Tokenizer{
         }
         for(let index=0;index<text.length;index++){
             const char = text[index]
+            if(char==='/'&&text[index+1]!=='/'&&text[index+1]!=='*'&&Tokenizer.isRegexStart(text,index)){
+                const regexp = readRegExpLiteralAt(text,index)
+                if(regexp){
+                    pushToken()
+                    tokens.push(regexp.literal)
+                    index = regexp.end-1
+                    continue
+                }
+            }
             if(quote){
                 if(char==='\\'&&index+1<text.length){
                     token += char+text[++index]
@@ -83,6 +94,14 @@ export class Tokenizer{
                 }
                 continue
             }
+            if(char==='/'&&next!=='/'&&next!=='*'&&Tokenizer.isRegexStart(text,index)){
+                const regexp = readRegExpLiteralAt(text,index)
+                if(regexp){
+                    result += regexp.literal
+                    index = regexp.end-1
+                    continue
+                }
+            }
             if(char==='"'||char==="'"){
                 quote = char
                 result += char
@@ -108,6 +127,17 @@ export class Tokenizer{
             }
         }
         return result
+    }
+    static isRegexStart(text:string,index:number){
+        let previous = index-1
+        while(previous>=0&&/\s/.test(text[previous])){
+            previous--
+        }
+        if(previous<0||'([{,:;=!?&|+-*%^~<>'.includes(text[previous])){
+            return true
+        }
+        const word = text.slice(0,previous+1).match(/[a-z_$][\w$]*$/i)?.[0]
+        return Boolean(word&&['return','throw','case','yield','await'].includes(word))
     }
     get(index:number|null=null){
         if(index){
@@ -177,6 +207,11 @@ export class Tokenizer{
             }
             if(token=="'"||token=='"'){
                 quote = token
+                current += token
+                lastQuotedWord = false
+                continue
+            }
+            if(parseRegExpLiteral(token)){
                 current += token
                 lastQuotedWord = false
                 continue
