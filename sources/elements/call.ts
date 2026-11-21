@@ -6,7 +6,7 @@ import DataElement, {getNumericKind} from './dataElement.ts'
 import FunctionArgument from './functionArgument.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 import {stringData,stringLiteralData} from '../stringLiteral.ts'
-import {getLiteralRegExpSeparator,parseRegExpLiteral} from '../regex.ts'
+import {compileRegExpLiteral,parseRegExpLiteral} from '../regex.ts'
 
 let arrayPushId = 0
 let arrayMethodId = 0
@@ -804,6 +804,10 @@ export class Call extends Base{
         }
 
         const id = ++stringSplitId
+        const regexpLiteral = typeof separator.value==='string'&&parseRegExpLiteral(separator.value)
+            ? separator.value
+            : null
+        const compiledRegExp = regexpLiteral?compileRegExpLiteral(regexpLiteral):null
         const helperName = `__ds_string_split_${id}`
         const source = `__ds_split_${id}_source`
         const separatorPointer = `__ds_split_${id}_separator`
@@ -814,6 +818,7 @@ export class Call extends Base{
         const segmentLength = `__ds_split_${id}_segment_length`
         const result = `__ds_split_${id}_result`
         const items = `__ds_split_${id}_items`
+        const capacity = `__ds_split_${id}_capacity`
         const count = `__ds_split_${id}_count`
         const segment = `__ds_split_${id}_segment`
         const matchPointer = `__ds_split_${id}_match_pointer`
@@ -825,17 +830,94 @@ export class Call extends Base{
         const emptyLoop = `__ds_split_${id}_empty_loop`
         const appendSegment = `__ds_split_${id}_append_segment`
         const appendDispatch = `__ds_split_${id}_append_dispatch`
+        const appendCapture = `__ds_split_${id}_append_capture`
         const afterMatch = `__ds_split_${id}_after_match`
         const afterFinal = `__ds_split_${id}_after_final`
         const afterEmpty = `__ds_split_${id}_after_empty`
         const done = `__ds_split_${id}_done`
         const allocationFailure = `__ds_split_${id}_allocation_failure`
+        const scanStart = `__ds_split_${id}_scan_start`
+        const scanPosition = `__ds_split_${id}_scan_position`
+        const dfaState = `__ds_split_${id}_dfa_state`
+        const lastMatchEnd = `__ds_split_${id}_last_match_end`
+        const tryMatchStart = `__ds_split_${id}_try_match_start`
+        const consumeMatch = `__ds_split_${id}_consume_match`
+        const matchFinished = `__ds_split_${id}_match_finished`
+        const recordMatch = `__ds_split_${id}_record_match`
+        const matchFound = `__ds_split_${id}_match_found`
+        const transitionTable = `__ds_split_${id}_transition_table`
+        const transitionRows = compiledRegExp?.transitions.map((row,index)=>
+            `${index===0?transitionTable:`${transitionTable}_row_${index}`} db ${row.join(',')}`
+        )??[]
+        const acceptingTransitions = compiledRegExp?.acceptingStates.flatMap(state=>[
+            `cmp qword [${dfaState}], ${state}`,
+            `je ${recordMatch}`
+        ])??[]
+        const regexpMatcher = compiledRegExp?[
+            `mov rax, [${index}]`,
+            `mov [${scanStart}], rax`,
+            `${tryMatchStart}:`,
+            `mov rax, [${scanStart}]`,
+            `cmp rax, [${sourceLength}]`,
+            `jnb ${finalSegment}`,
+            `mov [${scanPosition}], rax`,
+            `mov qword [${dfaState}], 1`,
+            `mov qword [${lastMatchEnd}], -1`,
+            `${consumeMatch}:`,
+            `mov rax, [${scanPosition}]`,
+            `cmp rax, [${sourceLength}]`,
+            `jnb ${matchFinished}`,
+            `mov rdx, [${source}]`,
+            `add rdx, rax`,
+            'movzx eax, byte [rdx]',
+            `mov rdx, [${dfaState}]`,
+            'shl rdx, 8',
+            `lea r8, [${transitionTable}]`,
+            'add rdx, r8',
+            'add rdx, rax',
+            'movzx eax, byte [rdx]',
+            'test eax, eax',
+            `jz ${matchFinished}`,
+            `mov [${dfaState}], rax`,
+            `inc qword [${scanPosition}]`,
+            ...acceptingTransitions,
+            `jmp ${consumeMatch}`,
+            `${recordMatch}:`,
+            `mov rax, [${scanPosition}]`,
+            `mov [${lastMatchEnd}], rax`,
+            `jmp ${consumeMatch}`,
+            `${matchFinished}:`,
+            `cmp qword [${lastMatchEnd}], -1`,
+            `jne ${matchFound}`,
+            `inc qword [${scanStart}]`,
+            `jmp ${tryMatchStart}`,
+            `${matchFound}:`,
+            `mov rax, [${source}]`,
+            `add rax, [${scanStart}]`,
+            `mov [${matchPointer}], rax`,
+            `mov rax, [${lastMatchEnd}]`,
+            `sub rax, [${scanStart}]`,
+            `mov [${separatorLength}], rax`,
+            `jmp ${matched}`
+        ]:[
+            `mov rcx, [${source}]`,
+            `add rcx, [${index}]`,
+            `mov rdx, [${separatorPointer}]`,
+            'sub rsp, 40',
+            'call [strstr]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${finalSegment}`,
+            `mov [${matchPointer}], rax`
+        ]
 
         ASM.addImport('msvcrt','malloc')
         ASM.addImport('msvcrt','memset')
         ASM.addImport('msvcrt','memcpy')
         ASM.addImport('msvcrt','strlen')
-        ASM.addImport('msvcrt','strstr')
+        if(!compiledRegExp){
+            ASM.addImport('msvcrt','strstr')
+        }
         ASM.addImport('kernel32','ExitProcess')
         const helper = [
             `proc ${helperName}`,
@@ -848,10 +930,17 @@ export class Call extends Base{
             `local ${segmentLength} dq 0`,
             `local ${result} dq 0`,
             `local ${items} dq 0`,
+            `local ${capacity} dq 0`,
             `local ${count} dq 0`,
             `local ${segment} dq 0`,
             `local ${matchPointer} dq 0`,
             `local ${resume} dq 0`,
+            ...(compiledRegExp?[
+                `local ${scanStart} dq 0`,
+                `local ${scanPosition} dq 0`,
+                `local ${dfaState} dq 0`,
+                `local ${lastMatchEnd} dq 0`
+            ]:[]),
             `mov [${source}], rcx`,
             `mov [${separatorPointer}], rdx`,
             `mov rcx, [${source}]`,
@@ -873,6 +962,8 @@ export class Call extends Base{
             `mov [${result}], rax`,
             `mov rax, [${sourceLength}]`,
             'inc rax',
+            ...(compiledRegExp?.capturesWholeSeparator?['shl rax, 1']:[]),
+            `mov [${capacity}], rax`,
             'shl rax, 3',
             'mov rcx, rax',
             'sub rsp, 40',
@@ -883,28 +974,19 @@ export class Call extends Base{
             `mov [${items}], rax`,
             `mov rdx, [${result}]`,
             `mov [rdx], rax`,
-            `mov rax, [${sourceLength}]`,
-            'inc rax',
+            `mov rax, [${capacity}]`,
             `mov [rdx+16], rax`,
             `mov qword [rdx+8], 0`,
             `mov qword [${index}], 0`,
             `mov qword [${segmentStart}], 0`,
             `mov qword [${count}], 0`,
             `cmp qword [${separatorLength}], 0`,
-            `je ${emptySeparator}`,
+            compiledRegExp?`jmp ${mainLoop}`:`je ${emptySeparator}`,
             `${mainLoop}:`,
             `mov rax, [${index}]`,
             `cmp rax, [${sourceLength}]`,
             `jnb ${finalSegment}`,
-            `mov rcx, [${source}]`,
-            `add rcx, [${index}]`,
-            `mov rdx, [${separatorPointer}]`,
-            'sub rsp, 40',
-            'call [strstr]',
-            'add rsp, 40',
-            'test rax, rax',
-            `jz ${finalSegment}`,
-            `mov [${matchPointer}], rax`,
+            ...regexpMatcher,
             `${matched}:`,
             `mov rax, [${matchPointer}]`,
             `sub rax, [${source}]`,
@@ -975,10 +1057,43 @@ export class Call extends Base{
             'mov [rdx], rcx',
             `inc qword [${count}]`,
             `cmp qword [${resume}], 0`,
-            `je ${afterMatch}`,
+            `je ${compiledRegExp?.capturesWholeSeparator?appendCapture:afterMatch}`,
             `cmp qword [${resume}], 1`,
             `je ${afterFinal}`,
             `jmp ${afterEmpty}`,
+            ...(compiledRegExp?.capturesWholeSeparator?[
+                `${appendCapture}:`,
+                `mov rcx, [${separatorLength}]`,
+                'inc rcx',
+                'sub rsp, 40',
+                'call [malloc]',
+                'add rsp, 40',
+                'test rax, rax',
+                `jz ${allocationFailure}`,
+                `mov [${segment}], rax`,
+                `mov rcx, [${segment}]`,
+                `mov rdx, [${source}]`,
+                `add rdx, [${index}]`,
+                `mov r8, [${separatorLength}]`,
+                'sub rsp, 40',
+                'call [memcpy]',
+                'add rsp, 40',
+                `mov rcx, [${segment}]`,
+                `add rcx, [${separatorLength}]`,
+                'xor edx, edx',
+                'mov r8, 1',
+                'sub rsp, 40',
+                'call [memset]',
+                'add rsp, 40',
+                `mov rax, [${count}]`,
+                'shl rax, 3',
+                `mov rdx, [${items}]`,
+                'add rdx, rax',
+                `mov rcx, [${segment}]`,
+                'mov [rdx], rcx',
+                `inc qword [${count}]`,
+                `jmp ${afterMatch}`
+            ]:[]),
             `${allocationFailure}:`,
             'mov ecx, 1',
             'sub rsp, 40',
@@ -993,12 +1108,15 @@ export class Call extends Base{
             'ret',
             'endp'
         ].join('\n')
+        if(compiledRegExp){
+            ASM.addData(transitionRows.join('\n'))
+        }
         ASM.addProc(helper)
 
         let separatorArgument = separatorValue
-        if(typeof separator.value==='string'&&parseRegExpLiteral(separator.value)){
+        if(compiledRegExp){
             const label = `__ds_string_split_separator_${id}`
-            ASM.addData(`${label} ${stringData(getLiteralRegExpSeparator(separator.value))}`)
+            ASM.addData(`${label} db 0`)
             separatorArgument = `addr ${label}`
         }else if(typeof separator.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(separator.value)){
             const label = `__ds_string_split_separator_${id}`
