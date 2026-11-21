@@ -14,6 +14,7 @@ let superStringId = 0
 let methodStringId = 0
 let functionCallStringId = 0
 let stringCharCodeAtId = 0
+let stringSplitId = 0
 let consoleLogId = 0
 
 function hasSameStructLayout(properties:DataElement[],classType:ReturnType<Base['getClass']>|null){
@@ -36,6 +37,7 @@ export class Call extends Base{
     arrayMethodIndex:FunctionArgument|null = null
     builtinArray:DataElement|null = null
     builtinStringCharCodeAt:DataElement|null = null
+    builtinStringSplit:DataElement|null = null
     builtinConsoleLog = false
     functionVariable:DataElement|null = null
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
@@ -98,6 +100,14 @@ export class Call extends Base{
         this.builtinStringCharCodeAt = prototype?.method.kind==='builtin'&&prototype.method.name==='charCodeAt'
             ? prototype.instance
             : null
+        this.builtinStringSplit = prototype?.method.kind==='builtin'&&prototype.method.name==='split'
+            ? prototype.instance
+            : null
+        if(this.builtinStringSplit){
+            const split = new FuncElement('__ds_string_split',[])
+            split.returnArrayType = 'string[]'
+            this.func = split
+        }
         const argumentTexts = tokenizer.getCallArguments()
         this.params = argumentTexts.map(token=>new FunctionArgument(this,token))
         this.params.forEach((param,index)=>{
@@ -128,6 +138,19 @@ export class Call extends Base{
                 ||(index.value instanceof DataElement&&index.value.numericKind!=='integer')
                 ||numericKind!=='integer'){
                 throw new Error('String.charCodeAt index must be an integer')
+            }
+        }
+        if(this.builtinStringSplit){
+            if(this.params.length!==1){
+                throw new Error('String.split expects exactly one separator')
+            }
+            const separator = this.params[0]
+            const isStringLiteral = typeof separator.value==='string'
+                &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(separator.value)
+            if(!isStringLiteral
+                &&!(separator.value instanceof DataElement&&separator.value.type==='string'&&!separator.value.isArray)
+                &&separator.classProperty?.type!=='string'){
+                throw new Error('String.split separator must be a string')
             }
         }
         if(this.noOp&&this.params.length){
@@ -235,6 +258,10 @@ export class Call extends Base{
         }
         if(this.builtinStringCharCodeAt){
             this.emitStringCharCodeAt(ASM)
+            return
+        }
+        if(this.builtinStringSplit){
+            this.emitStringSplit(ASM)
             return
         }
         if(this.functionVariable){
@@ -759,6 +786,229 @@ export class Call extends Base{
         ASM.addCode(`mov rax, ${indexValue}`)
         ASM.addCode('add rdx, rax')
         ASM.addCode('movzx eax, byte [rdx]')
+    }
+    emitStringSplit(ASM:Asm){
+        const string = this.builtinStringSplit
+        const separator = this.params[0]
+        if(!string||!separator){
+            throw new Error('String.split is not initialized')
+        }
+        const stringValue = string.getCode(true)
+        const separatorValue = separator.getCode(true)
+        if(stringValue===null||separatorValue===null){
+            throw new Error('Unable to resolve String.split arguments')
+        }
+
+        const id = ++stringSplitId
+        const helperName = `__ds_string_split_${id}`
+        const source = `__ds_split_${id}_source`
+        const separatorPointer = `__ds_split_${id}_separator`
+        const sourceLength = `__ds_split_${id}_source_length`
+        const separatorLength = `__ds_split_${id}_separator_length`
+        const index = `__ds_split_${id}_index`
+        const segmentStart = `__ds_split_${id}_segment_start`
+        const segmentLength = `__ds_split_${id}_segment_length`
+        const result = `__ds_split_${id}_result`
+        const items = `__ds_split_${id}_items`
+        const count = `__ds_split_${id}_count`
+        const segment = `__ds_split_${id}_segment`
+        const matchPointer = `__ds_split_${id}_match_pointer`
+        const resume = `__ds_split_${id}_resume`
+        const mainLoop = `__ds_split_${id}_main_loop`
+        const matched = `__ds_split_${id}_matched`
+        const finalSegment = `__ds_split_${id}_final_segment`
+        const emptySeparator = `__ds_split_${id}_empty_separator`
+        const emptyLoop = `__ds_split_${id}_empty_loop`
+        const appendSegment = `__ds_split_${id}_append_segment`
+        const appendDispatch = `__ds_split_${id}_append_dispatch`
+        const afterMatch = `__ds_split_${id}_after_match`
+        const afterFinal = `__ds_split_${id}_after_final`
+        const afterEmpty = `__ds_split_${id}_after_empty`
+        const done = `__ds_split_${id}_done`
+        const allocationFailure = `__ds_split_${id}_allocation_failure`
+
+        ASM.addImport('msvcrt','malloc')
+        ASM.addImport('msvcrt','memset')
+        ASM.addImport('msvcrt','memcpy')
+        ASM.addImport('msvcrt','strlen')
+        ASM.addImport('msvcrt','strstr')
+        ASM.addImport('kernel32','ExitProcess')
+        const helper = [
+            `proc ${helperName}`,
+            `local ${source} dq 0`,
+            `local ${separatorPointer} dq 0`,
+            `local ${sourceLength} dq 0`,
+            `local ${separatorLength} dq 0`,
+            `local ${index} dq 0`,
+            `local ${segmentStart} dq 0`,
+            `local ${segmentLength} dq 0`,
+            `local ${result} dq 0`,
+            `local ${items} dq 0`,
+            `local ${count} dq 0`,
+            `local ${segment} dq 0`,
+            `local ${matchPointer} dq 0`,
+            `local ${resume} dq 0`,
+            `mov [${source}], rcx`,
+            `mov [${separatorPointer}], rdx`,
+            `mov rcx, [${source}]`,
+            'sub rsp, 40',
+            'call [strlen]',
+            'add rsp, 40',
+            `mov [${sourceLength}], rax`,
+            `mov rcx, [${separatorPointer}]`,
+            'sub rsp, 40',
+            'call [strlen]',
+            'add rsp, 40',
+            `mov [${separatorLength}], rax`,
+            'mov rcx, 24',
+            'sub rsp, 40',
+            'call [malloc]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${allocationFailure}`,
+            `mov [${result}], rax`,
+            `mov rax, [${sourceLength}]`,
+            'inc rax',
+            'shl rax, 3',
+            'mov rcx, rax',
+            'sub rsp, 40',
+            'call [malloc]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${allocationFailure}`,
+            `mov [${items}], rax`,
+            `mov rdx, [${result}]`,
+            `mov [rdx], rax`,
+            `mov rax, [${sourceLength}]`,
+            'inc rax',
+            `mov [rdx+16], rax`,
+            `mov qword [rdx+8], 0`,
+            `mov qword [${index}], 0`,
+            `mov qword [${segmentStart}], 0`,
+            `mov qword [${count}], 0`,
+            `cmp qword [${separatorLength}], 0`,
+            `je ${emptySeparator}`,
+            `${mainLoop}:`,
+            `mov rax, [${index}]`,
+            `cmp rax, [${sourceLength}]`,
+            `jnb ${finalSegment}`,
+            `mov rcx, [${source}]`,
+            `add rcx, [${index}]`,
+            `mov rdx, [${separatorPointer}]`,
+            'sub rsp, 40',
+            'call [strstr]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${finalSegment}`,
+            `mov [${matchPointer}], rax`,
+            `${matched}:`,
+            `mov rax, [${matchPointer}]`,
+            `sub rax, [${source}]`,
+            `mov [${index}], rax`,
+            `mov rax, [${index}]`,
+            `sub rax, [${segmentStart}]`,
+            `mov [${segmentLength}], rax`,
+            `mov qword [${resume}], 0`,
+            `jmp ${appendSegment}`,
+            `${afterMatch}:`,
+            `mov rax, [${index}]`,
+            `add rax, [${separatorLength}]`,
+            `mov [${index}], rax`,
+            `mov [${segmentStart}], rax`,
+            `jmp ${mainLoop}`,
+            `${finalSegment}:`,
+            `mov rax, [${sourceLength}]`,
+            `sub rax, [${segmentStart}]`,
+            `mov [${segmentLength}], rax`,
+            `mov qword [${resume}], 1`,
+            `jmp ${appendSegment}`,
+            `${afterFinal}:`,
+            `jmp ${done}`,
+            `${emptySeparator}:`,
+            `cmp qword [${sourceLength}], 0`,
+            `je ${done}`,
+            `mov qword [${index}], 0`,
+            `${emptyLoop}:`,
+            `mov rax, [${index}]`,
+            `cmp rax, [${sourceLength}]`,
+            `jnb ${done}`,
+            `mov [${segmentStart}], rax`,
+            `mov qword [${segmentLength}], 1`,
+            `mov qword [${resume}], 2`,
+            `jmp ${appendSegment}`,
+            `${afterEmpty}:`,
+            `inc qword [${index}]`,
+            `jmp ${emptyLoop}`,
+            `${appendSegment}:`,
+            `mov rcx, [${segmentLength}]`,
+            'inc rcx',
+            'sub rsp, 40',
+            'call [malloc]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${allocationFailure}`,
+            `mov [${segment}], rax`,
+            `mov rcx, [${segment}]`,
+            `mov rdx, [${source}]`,
+            `add rdx, [${segmentStart}]`,
+            `mov r8, [${segmentLength}]`,
+            'sub rsp, 40',
+            'call [memcpy]',
+            'add rsp, 40',
+            `${appendDispatch}:`,
+            `mov rcx, [${segment}]`,
+            `add rcx, [${segmentLength}]`,
+            'xor edx, edx',
+            'mov r8, 1',
+            'sub rsp, 40',
+            'call [memset]',
+            'add rsp, 40',
+            `mov rax, [${count}]`,
+            'shl rax, 3',
+            `mov rdx, [${items}]`,
+            'add rdx, rax',
+            `mov rcx, [${segment}]`,
+            'mov [rdx], rcx',
+            `inc qword [${count}]`,
+            `cmp qword [${resume}], 0`,
+            `je ${afterMatch}`,
+            `cmp qword [${resume}], 1`,
+            `je ${afterFinal}`,
+            `jmp ${afterEmpty}`,
+            `${allocationFailure}:`,
+            'mov ecx, 1',
+            'sub rsp, 40',
+            'call [ExitProcess]',
+            'add rsp, 40',
+            `jmp ${allocationFailure}`,
+            `${done}:`,
+            `mov rdx, [${result}]`,
+            `mov rax, [${count}]`,
+            `mov [rdx+8], rax`,
+            `mov rax, [${result}]`,
+            'ret',
+            'endp'
+        ].join('\n')
+        ASM.addProc(helper)
+
+        let separatorArgument = separatorValue
+        if(typeof separator.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(separator.value)){
+            const label = `__ds_string_split_separator_${id}`
+            ASM.addData(`${label} ${stringLiteralData(separator.value)}`)
+            separatorArgument = `addr ${label}`
+        }
+        const emitPointer = (register:string,value:string)=>{
+            if(value.startsWith('addr ')){
+                ASM.addCode(`lea ${register}, [${value.replace(/^addr\s+/,'')}]`)
+            }else{
+                ASM.addCode(`mov ${register}, ${value}`)
+            }
+        }
+        emitPointer('rcx',stringValue)
+        emitPointer('rdx',separatorArgument)
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode(`call ${helperName}`)
+        ASM.addCode('add rsp, 40')
     }
     emitArrayPush(ASM:Asm){
         const array = this.builtinArray!

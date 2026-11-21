@@ -15,6 +15,7 @@ export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
     | {kind:'data',value:DataElement,numericKind:NumericKind}
     | {kind:'stringLength',value:DataElement,numericKind:'integer'}
+    | {kind:'arrayLength',value:DataElement,numericKind:'integer'}
     | {kind:'index',value:DataElement,index:Expression,numericKind:NumericKind}
     | {kind:'unary',operator:'+'|'-',value:Expression,numericKind:NumericKind}
     | {kind:'binary',operator:BinaryOperator,left:Expression,right:Expression,numericKind:NumericKind}
@@ -148,6 +149,9 @@ export function parseExpression(text:string,active:Base):Expression{
             const value = active.getData(stringLength[1])
             if(value?.type==='string'&&!value.isArray){
                 return {kind:'stringLength',value,numericKind:'integer'}
+            }
+            if(value?.isArray&&value.dynamicArray){
+                return {kind:'arrayLength',value,numericKind:'integer'}
             }
         }
         const access = getClassPropertyAccess(active,token)
@@ -347,6 +351,15 @@ export function emitExpression(expression:Expression,ASM:Asm){
         ASM.addCode('sub rsp, 40')
         ASM.addCode('call [strlen]')
         ASM.addCode('add rsp, 40')
+        return
+    }
+    if(expression.kind==='arrayLength'){
+        if(expression.value.isParameter){
+            ASM.addCode(`mov rdx, ${expression.value.name}`)
+            ASM.addCode('mov rax, [rdx+8]')
+        }else{
+            ASM.addCode(`mov rax, [${expression.value.name}__length]`)
+        }
         return
     }
     if(expression.kind==='data'){
