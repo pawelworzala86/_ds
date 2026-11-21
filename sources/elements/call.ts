@@ -16,6 +16,7 @@ let methodStringId = 0
 let functionCallStringId = 0
 let stringCharCodeAtId = 0
 let stringSplitId = 0
+let stringReplaceId = 0
 let consoleLogId = 0
 
 function hasSameStructLayout(properties:DataElement[],classType:ReturnType<Base['getClass']>|null){
@@ -39,6 +40,7 @@ export class Call extends Base{
     builtinArray:DataElement|null = null
     builtinStringCharCodeAt:DataElement|null = null
     builtinStringSplit:DataElement|null = null
+    builtinStringReplace:DataElement|null = null
     builtinConsoleLog = false
     functionVariable:DataElement|null = null
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
@@ -104,10 +106,16 @@ export class Call extends Base{
         this.builtinStringSplit = prototype?.method.kind==='builtin'&&prototype.method.name==='split'
             ? prototype.instance
             : null
+        this.builtinStringReplace = prototype?.method.kind==='builtin'&&prototype.method.name==='replace'
+            ? prototype.instance
+            : null
         if(this.builtinStringSplit){
             const split = new FuncElement('__ds_string_split',[])
             split.returnArrayType = 'string[]'
             this.func = split
+        }
+        if(this.builtinStringReplace){
+            this.func = new FuncElement('__ds_string_replace',[])
         }
         const argumentTexts = tokenizer.getCallArguments()
         this.params = argumentTexts.map(token=>new FunctionArgument(this,token))
@@ -155,6 +163,25 @@ export class Call extends Base{
                 &&!(separator.value instanceof DataElement&&separator.value.type==='string'&&!separator.value.isArray)
                 &&separator.classProperty?.type!=='string'){
                 throw new Error('String.split separator must be a string')
+            }
+        }
+        if(this.builtinStringReplace){
+            if(this.params.length!==2){
+                throw new Error('String.replace expects exactly two arguments')
+            }
+            const search = this.params[0]
+            const replacement = this.params[1]
+            const isString = (argument:FunctionArgument)=>typeof argument.value==='string'
+                &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(argument.value)
+                ||argument.value instanceof DataElement&&argument.value.type==='string'&&!argument.value.isArray
+                ||argument.classProperty?.type==='string'&&!argument.classProperty.isArray
+            const isRegExpLiteral = typeof search.value==='string'
+                &&Boolean(parseRegExpLiteral(search.value))
+            if(!isRegExpLiteral&&!isString(search)){
+                throw new Error('String.replace search value must be a string or regular expression literal')
+            }
+            if(!isString(replacement)){
+                throw new Error('String.replace replacement must be a string')
             }
         }
         if(this.noOp&&this.params.length){
@@ -266,6 +293,10 @@ export class Call extends Base{
         }
         if(this.builtinStringSplit){
             this.emitStringSplit(ASM)
+            return
+        }
+        if(this.builtinStringReplace){
+            this.emitStringReplace(ASM)
             return
         }
         if(this.functionVariable){
@@ -1132,6 +1163,291 @@ export class Call extends Base{
         }
         emitPointer('rcx',stringValue)
         emitPointer('rdx',separatorArgument)
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode(`call ${helperName}`)
+        ASM.addCode('add rsp, 40')
+    }
+    emitStringReplace(ASM:Asm){
+        const string = this.builtinStringReplace
+        const search = this.params[0]
+        const replacement = this.params[1]
+        if(!string||!search||!replacement){
+            throw new Error('String.replace is not initialized')
+        }
+        const stringValue = string.getCode(true)
+        const searchValue = search.getCode(true)
+        const replacementValue = replacement.getCode(true)
+        if(stringValue===null||searchValue===null||replacementValue===null){
+            throw new Error('Unable to resolve String.replace arguments')
+        }
+
+        const id = ++stringReplaceId
+        const regexpLiteral = typeof search.value==='string'&&parseRegExpLiteral(search.value)
+            ? search.value
+            : null
+        const compiledRegExp = regexpLiteral?compileRegExpLiteral(regexpLiteral):null
+        const isGlobal = Boolean(regexpLiteral&&parseRegExpLiteral(regexpLiteral)?.flags.includes('g'))
+        const helperName = `__ds_string_replace_${id}`
+        const source = `__ds_replace_${id}_source`
+        const searchPointer = `__ds_replace_${id}_search`
+        const replacementPointer = `__ds_replace_${id}_replacement`
+        const sourceLength = `__ds_replace_${id}_source_length`
+        const searchLength = `__ds_replace_${id}_search_length`
+        const replacementLength = `__ds_replace_${id}_replacement_length`
+        const output = `__ds_replace_${id}_output`
+        const outputCapacity = `__ds_replace_${id}_output_capacity`
+        const outputLength = `__ds_replace_${id}_output_length`
+        const searchStart = `__ds_replace_${id}_search_start`
+        const segmentStart = `__ds_replace_${id}_segment_start`
+        const segmentLength = `__ds_replace_${id}_segment_length`
+        const matchStart = `__ds_replace_${id}_match_start`
+        const matchEnd = `__ds_replace_${id}_match_end`
+        const matchPointer = `__ds_replace_${id}_match_pointer`
+        const afterReplacement = `__ds_replace_${id}_after_replacement`
+        const mainLoop = `__ds_replace_${id}_main_loop`
+        const matched = `__ds_replace_${id}_matched`
+        const noMatch = `__ds_replace_${id}_no_match`
+        const copyTail = `__ds_replace_${id}_copy_tail`
+        const done = `__ds_replace_${id}_done`
+        const allocationFailure = `__ds_replace_${id}_allocation_failure`
+        const scanStart = `__ds_replace_${id}_scan_start`
+        const scanPosition = `__ds_replace_${id}_scan_position`
+        const dfaState = `__ds_replace_${id}_dfa_state`
+        const lastMatchEnd = `__ds_replace_${id}_last_match_end`
+        const tryMatchStart = `__ds_replace_${id}_try_match_start`
+        const consumeMatch = `__ds_replace_${id}_consume_match`
+        const matchFinished = `__ds_replace_${id}_match_finished`
+        const recordMatch = `__ds_replace_${id}_record_match`
+        const matchFound = `__ds_replace_${id}_match_found`
+        const transitionTable = `__ds_replace_${id}_transition_table`
+        const transitionRows = compiledRegExp?.transitions.map((row,index)=>
+            `${index===0?transitionTable:`${transitionTable}_row_${index}`} db ${row.join(',')}`
+        )??[]
+        const acceptingTransitions = compiledRegExp?.acceptingStates.flatMap(state=>[
+            `cmp qword [${dfaState}], ${state}`,
+            `je ${recordMatch}`
+        ])??[]
+        const regexpMatcher = compiledRegExp?[
+            `mov rax, [${searchStart}]`,
+            `mov [${scanStart}], rax`,
+            `${tryMatchStart}:`,
+            `mov rax, [${scanStart}]`,
+            `cmp rax, [${sourceLength}]`,
+            `jnb ${noMatch}`,
+            `mov [${scanPosition}], rax`,
+            `mov qword [${dfaState}], 1`,
+            `mov qword [${lastMatchEnd}], -1`,
+            `${consumeMatch}:`,
+            `mov rax, [${scanPosition}]`,
+            `cmp rax, [${sourceLength}]`,
+            `jnb ${matchFinished}`,
+            `mov rdx, [${source}]`,
+            `add rdx, rax`,
+            'movzx eax, byte [rdx]',
+            `mov rdx, [${dfaState}]`,
+            'shl rdx, 8',
+            `lea r8, [${transitionTable}]`,
+            'add rdx, r8',
+            'add rdx, rax',
+            'movzx eax, byte [rdx]',
+            'test eax, eax',
+            `jz ${matchFinished}`,
+            `mov [${dfaState}], rax`,
+            `inc qword [${scanPosition}]`,
+            ...acceptingTransitions,
+            `jmp ${consumeMatch}`,
+            `${recordMatch}:`,
+            `mov rax, [${scanPosition}]`,
+            `mov [${lastMatchEnd}], rax`,
+            `jmp ${consumeMatch}`,
+            `${matchFinished}:`,
+            `cmp qword [${lastMatchEnd}], -1`,
+            `jne ${matchFound}`,
+            `inc qword [${scanStart}]`,
+            `jmp ${tryMatchStart}`,
+            `${matchFound}:`,
+            `mov rax, [${scanStart}]`,
+            `mov [${matchStart}], rax`,
+            `mov rax, [${lastMatchEnd}]`,
+            `mov [${matchEnd}], rax`,
+            `jmp ${matched}`
+        ]:[
+            `mov rcx, [${source}]`,
+            `add rcx, [${searchStart}]`,
+            `mov rdx, [${searchPointer}]`,
+            'sub rsp, 40',
+            'call [strstr]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${noMatch}`,
+            `mov [${matchPointer}], rax`,
+            `mov rax, [${matchPointer}]`,
+            `sub rax, [${source}]`,
+            `mov [${matchStart}], rax`,
+            `add rax, [${searchLength}]`,
+            `mov [${matchEnd}], rax`,
+            `jmp ${matched}`
+        ]
+
+        ASM.addImport('msvcrt','malloc')
+        ASM.addImport('msvcrt','memcpy')
+        ASM.addImport('msvcrt','strlen')
+        if(!compiledRegExp){
+            ASM.addImport('msvcrt','strstr')
+        }
+        ASM.addImport('kernel32','ExitProcess')
+        const helper = [
+            `proc ${helperName}`,
+            `local ${source} dq 0`,
+            `local ${searchPointer} dq 0`,
+            `local ${replacementPointer} dq 0`,
+            `local ${sourceLength} dq 0`,
+            `local ${searchLength} dq 0`,
+            `local ${replacementLength} dq 0`,
+            `local ${output} dq 0`,
+            `local ${outputCapacity} dq 0`,
+            `local ${outputLength} dq 0`,
+            `local ${searchStart} dq 0`,
+            `local ${segmentStart} dq 0`,
+            `local ${segmentLength} dq 0`,
+            `local ${matchStart} dq 0`,
+            `local ${matchEnd} dq 0`,
+            `local ${matchPointer} dq 0`,
+            ...(compiledRegExp?[
+                `local ${scanStart} dq 0`,
+                `local ${scanPosition} dq 0`,
+                `local ${dfaState} dq 0`,
+                `local ${lastMatchEnd} dq 0`
+            ]:[]),
+            `mov [${source}], rcx`,
+            `mov [${searchPointer}], rdx`,
+            `mov [${replacementPointer}], r8`,
+            `mov rcx, [${source}]`,
+            'sub rsp, 40',
+            'call [strlen]',
+            'add rsp, 40',
+            `mov [${sourceLength}], rax`,
+            `mov rcx, [${searchPointer}]`,
+            'sub rsp, 40',
+            'call [strlen]',
+            'add rsp, 40',
+            `mov [${searchLength}], rax`,
+            `mov rcx, [${replacementPointer}]`,
+            'sub rsp, 40',
+            'call [strlen]',
+            'add rsp, 40',
+            `mov [${replacementLength}], rax`,
+            `mov rax, [${sourceLength}]`,
+            `mov rdx, [${replacementLength}]`,
+            'imul rax, rdx',
+            `add rax, [${sourceLength}]`,
+            `add rax, [${replacementLength}]`,
+            'inc rax',
+            `mov [${outputCapacity}], rax`,
+            'mov rcx, rax',
+            'sub rsp, 40',
+            'call [malloc]',
+            'add rsp, 40',
+            'test rax, rax',
+            `jz ${allocationFailure}`,
+            `mov [${output}], rax`,
+            `mov qword [${outputLength}], 0`,
+            `mov qword [${searchStart}], 0`,
+            `mov qword [${segmentStart}], 0`,
+            `${mainLoop}:`,
+            ...regexpMatcher,
+            `${matched}:`,
+            `mov rax, [${matchStart}]`,
+            `sub rax, [${segmentStart}]`,
+            `mov [${segmentLength}], rax`,
+            `mov rcx, [${output}]`,
+            `add rcx, [${outputLength}]`,
+            `mov rdx, [${source}]`,
+            `add rdx, [${segmentStart}]`,
+            `mov r8, [${segmentLength}]`,
+            'sub rsp, 40',
+            'call [memcpy]',
+            'add rsp, 40',
+            `mov rax, [${outputLength}]`,
+            `add rax, [${segmentLength}]`,
+            `mov [${outputLength}], rax`,
+            `cmp qword [${replacementLength}], 0`,
+            `je ${afterReplacement}`,
+            `mov rcx, [${output}]`,
+            `add rcx, [${outputLength}]`,
+            `mov rdx, [${replacementPointer}]`,
+            `mov r8, [${replacementLength}]`,
+            'sub rsp, 40',
+            'call [memcpy]',
+            'add rsp, 40',
+            `mov rax, [${outputLength}]`,
+            `add rax, [${replacementLength}]`,
+            `mov [${outputLength}], rax`,
+            `${afterReplacement}:`,
+            `mov rax, [${matchEnd}]`,
+            `mov [${segmentStart}], rax`,
+            `mov [${searchStart}], rax`,
+            ...(isGlobal?[`jmp ${mainLoop}`]:[`jmp ${copyTail}`]),
+            `${noMatch}:`,
+            `${copyTail}:`,
+            `mov rax, [${sourceLength}]`,
+            `sub rax, [${segmentStart}]`,
+            `mov [${segmentLength}], rax`,
+            `mov rcx, [${output}]`,
+            `add rcx, [${outputLength}]`,
+            `mov rdx, [${source}]`,
+            `add rdx, [${segmentStart}]`,
+            `mov r8, [${segmentLength}]`,
+            'sub rsp, 40',
+            'call [memcpy]',
+            'add rsp, 40',
+            `mov rax, [${output}]`,
+            `add rax, [${outputLength}]`,
+            `add rax, [${segmentLength}]`,
+            'mov byte [rax], 0',
+            `mov rax, [${output}]`,
+            `jmp ${done}`,
+            `${allocationFailure}:`,
+            'mov ecx, 1',
+            'sub rsp, 40',
+            'call [ExitProcess]',
+            'add rsp, 40',
+            `jmp ${allocationFailure}`,
+            `${done}:`,
+            'ret',
+            'endp'
+        ].join('\n')
+        if(compiledRegExp){
+            ASM.addData(transitionRows.join('\n'))
+        }
+        ASM.addProc(helper)
+
+        let searchArgument = searchValue
+        let replacementArgument = replacementValue
+        if(compiledRegExp){
+            const label = `__ds_string_replace_search_${id}`
+            ASM.addData(`${label} db 0`)
+            searchArgument = `addr ${label}`
+        }else if(typeof search.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(search.value)){
+            const label = `__ds_string_replace_search_${id}`
+            ASM.addData(`${label} ${stringLiteralData(search.value)}`)
+            searchArgument = `addr ${label}`
+        }
+        if(typeof replacement.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(replacement.value)){
+            const label = `__ds_string_replace_replacement_${id}`
+            ASM.addData(`${label} ${stringLiteralData(replacement.value)}`)
+            replacementArgument = `addr ${label}`
+        }
+        const emitPointer = (register:string,value:string)=>{
+            if(value.startsWith('addr ')){
+                ASM.addCode(`lea ${register}, [${value.replace(/^addr\s+/,'')}]`)
+            }else{
+                ASM.addCode(`mov ${register}, ${value}`)
+            }
+        }
+        emitPointer('rcx',stringValue)
+        emitPointer('rdx',searchArgument)
+        emitPointer('r8',replacementArgument)
         ASM.addCode('sub rsp, 40')
         ASM.addCode(`call ${helperName}`)
         ASM.addCode('add rsp, 40')

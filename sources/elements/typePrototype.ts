@@ -12,6 +12,7 @@ export class TypePrototypeRegistry{
         this.registerBuiltin('array','push')
         this.registerBuiltin('string','charCodeAt')
         this.registerBuiltin('string','split')
+        this.registerBuiltin('string','replace')
     }
 
     static normalize(type:string){
@@ -48,5 +49,6 @@ export class TypePrototypeRegistry{
 TypePrototypeRegistry.registerBuiltin('array','push')
 TypePrototypeRegistry.registerBuiltin('string','charCodeAt')
 TypePrototypeRegistry.registerBuiltin('string','split')
+TypePrototypeRegistry.registerBuiltin('string','replace')
 
 export default TypePrototypeRegistry

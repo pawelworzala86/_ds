@@ -21,6 +21,7 @@ export class Assign extends Base{
     stringAppend = false
     stringPropertyTarget = false
     stringSource:DataElement|null = null
+    stringCall:Call|null = null
     stringSourceIndex:Expression|null = null
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
     addressLabel:string|null = null
@@ -66,6 +67,15 @@ export class Assign extends Base{
             this.target = target
             this.stringAppend = append
             const value = expression.trim()
+            if(!append&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(value)){
+                const tokenizer = new Tokenizer(value)
+                const call = new Call(this.parent!)
+                call.set(tokenizer)
+                if(!tokenizer.has()&&call.builtinStringReplace){
+                    this.stringCall = call
+                    return
+                }
+            }
             const stringLiteral = value.match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
             if(stringLiteral){
                 this.stringValue = value
@@ -326,6 +336,11 @@ export class Assign extends Base{
         }
         if(this.target.type==='string'&&!this.target.isArray){
             if(!this.stringAppend){
+                if(this.stringCall){
+                    this.stringCall.asm(ASM)
+                    storeTarget('rax')
+                    return
+                }
                 if(this.stringValue){
                     const valueLabel = `__ds_str_assign_${++stringAssignId}`
                     ASM.addData(`${valueLabel} ${stringLiteralData(this.stringValue)}`)

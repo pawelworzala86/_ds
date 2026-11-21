@@ -112,7 +112,7 @@ class RegExpParser{
                     throw new Error('Lookaround and special regular expression groups are not supported')
                 }
             }else{
-                throw new Error('Capturing groups are not supported by String.split; use (?:...) for grouping')
+                throw new Error('Capturing groups are not supported by String.split or String.replace; use (?:...) for grouping')
             }
             const node = this.parseAlternative()
             if(this.pattern[this.index++]!==')'){
@@ -135,14 +135,14 @@ class RegExpParser{
             return {kind:'characters',characters}
         }
         if(char==='^'||char==='$'){
-            throw new Error('Regular expression anchors are not supported by String.split')
+            throw new Error('Regular expression anchors are not supported by String.split or String.replace')
         }
         if(char===')'||char==='*'||char==='+'||char==='?'||char==='{'){
             throw new Error(`Unexpected regular expression token "${char}"`)
         }
         const code = char.charCodeAt(0)
         if(code>255){
-            throw new Error('String.split regular expressions support ASCII and byte characters only')
+            throw new Error('Regular expressions for String.split and String.replace support ASCII and byte characters only')
         }
         return {kind:'characters',characters:this.normalizeCharacters(new Set([code]))}
     }
@@ -175,7 +175,7 @@ class RegExpParser{
             this.index += match[0].length
         }
         if(quantifier&&this.peek()==='?'){
-            throw new Error('Lazy regular expression quantifiers are not supported by String.split')
+            throw new Error('Lazy regular expression quantifiers are not supported by String.split or String.replace')
         }
         return quantifier
     }
@@ -234,7 +234,7 @@ class RegExpParser{
         }
         const code = char.charCodeAt(0)
         if(code>255){
-            throw new Error('String.split regular expressions support ASCII and byte characters only')
+            throw new Error('Regular expressions for String.split and String.replace support ASCII and byte characters only')
         }
         return new Set([code])
     }
@@ -273,12 +273,12 @@ class RegExpParser{
         }else if(escaped==='u'){
             code = this.readHex(4)
         }else if(/[a-z0-9]/i.test(escaped)){
-            throw new Error(`Regular expression escape "\\${escaped}" is not supported by String.split`)
+            throw new Error(`Regular expression escape "\\${escaped}" is not supported by String.split or String.replace`)
         }else{
             code = escaped.charCodeAt(0)
         }
         if(code>255){
-            throw new Error('String.split regular expressions support ASCII and byte characters only')
+            throw new Error('Regular expressions for String.split and String.replace support ASCII and byte characters only')
         }
         return {characters:new Set([code])}
     }
@@ -422,14 +422,14 @@ export function compileRegExpLiteral(literal:string):CompiledRegExp{
         throw new Error('Invalid regular expression literal')
     }
     if(/[duvy]/.test(regexp.flags)){
-        throw new Error(`Regular expression flags "${regexp.flags}" are not supported by String.split`)
+        throw new Error(`Regular expression flags "${regexp.flags}" are not supported by String.split or String.replace`)
     }
     const capturedPattern = unwrapWholeCapturingGroup(regexp.pattern)
     const ast = new RegExpParser(capturedPattern??regexp.pattern,regexp.flags).parse()
     const states:NfaState[] = []
     const nfa = compileNfa(ast,states)
     if(states.length>4096){
-        throw new Error('Regular expression is too complex for String.split')
+        throw new Error('Regular expression is too complex for String.split or String.replace')
     }
     const closure = (initial:number[])=>{
         const result = new Set(initial)
@@ -454,7 +454,7 @@ export function compileRegExpLiteral(literal:string):CompiledRegExp{
     subsetIds.set([...initial].sort((a,b)=>a-b).join(','),1)
     for(let index=1;index<subsets.length;index++){
         if(index>255){
-            throw new Error('Regular expression has too many states for String.split')
+            throw new Error('Regular expression has too many states for String.split or String.replace')
         }
         const subset = subsets[index]
         const row = Array(256).fill(0)
@@ -479,7 +479,7 @@ export function compileRegExpLiteral(literal:string):CompiledRegExp{
             if(target===undefined){
                 target = subsets.length
                 if(target>255){
-                    throw new Error('Regular expression has too many states for String.split')
+                    throw new Error('Regular expression has too many states for String.split or String.replace')
                 }
                 subsetIds.set(key,target)
                 subsets.push(destination)
@@ -489,7 +489,7 @@ export function compileRegExpLiteral(literal:string):CompiledRegExp{
         transitions.push(row)
     }
     if(acceptingStates.includes(1)){
-        throw new Error('Regular expression separators that can match an empty string are not supported by String.split')
+        throw new Error('Regular expressions that can match an empty string are not supported by String.split or String.replace')
     }
     return {transitions,acceptingStates,capturesWholeSeparator:capturedPattern!==null}
 }
