@@ -6,7 +6,8 @@ const text:string = '{"propA":"valueA","profile":{"enabled":true,"nickname":null
 
 
 let json:any = JSON.parse(text)
-const serialized:string = JSON.stringify(json)
+const serialized:string = JSON.stringify(json,null,4)
+const serializedFiltered:string = JSON.stringify(json,['propA','numbers'],2)
 const serializedProfile:string = JSON.stringify(json.profile)
 let rootArray:any = JSON.parse('[1,2,3]')
 const serializedArray:string = JSON.stringify(rootArray)
@@ -22,6 +23,7 @@ const serializedEmptyArray:string = JSON.stringify(emptyArray)
 console.log(json.propA, json.profile.label, json.profile.enabled, json.profile.nickname, json.numbers[1], json.flags[1], json.labels[0], json.mixed[1], rootArray[1])
 console.log(rootBoolean, rootNull)
 msvcrt.printf(' JSON: %s ', serialized)
+msvcrt.printf(' FILTERED: %s ', serializedFiltered)
 msvcrt.printf(' PROFILE: %s ', serializedProfile)
 msvcrt.printf(' ARRAY: %s ', serializedArray)
 msvcrt.printf(' MIXED: %s ', serializedMixed)

@@ -326,8 +326,8 @@ function parseJSONStringifyInitializer(tokens:string[],active:Base):string|null{
     if(!args){
         return null
     }
-    if(args.length!==1){
-        throw new Error('JSON.stringify currently expects exactly one argument')
+    if(args.length<1||args.length>3){
+        throw new Error('JSON.stringify expects between one and three arguments')
     }
     const argument = args[0]
     let value:JsonValue|undefined
@@ -349,7 +349,40 @@ function parseJSONStringifyInitializer(tokens:string[],active:Base):string|null{
     if(value===undefined){
         throw new Error('JSON.stringify currently requires a compile-time JSON value')
     }
-    const result = JSON.stringify(value)
+    let replacer:(string|number)[]|null = null
+    if(args.length>=2&&args[1]!=='null'&&args[1]!=='undefined'){
+        const replacerArgument = args[1]
+        if(!replacerArgument.startsWith('[')||!replacerArgument.endsWith(']')){
+            throw new Error('JSON.stringify compile-time replacer must be null, undefined, or an array of strings and numbers')
+        }
+        replacer = splitTopLevelArrayValues(replacerArgument.slice(1,-1)).map(item=>{
+            if(/^(['"])[\s\S]*\1$/.test(item)){
+                return decodeStringEscapes(getStringLiteralContents(item))
+            }
+            if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(item)){
+                const numeric = Number(item.replace(/f$/i,''))
+                if(Number.isFinite(numeric)){
+                    return numeric
+                }
+            }
+            throw new Error('JSON.stringify compile-time replacer arrays support only string and number literals')
+        })
+    }
+    let space:string|number|undefined
+    if(args.length===3&&args[2]!=='null'&&args[2]!=='undefined'){
+        const spaceArgument = args[2]
+        if(/^(['"])[\s\S]*\1$/.test(spaceArgument)){
+            space = decodeStringEscapes(getStringLiteralContents(spaceArgument))
+        }else if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(spaceArgument)){
+            space = Number(spaceArgument.replace(/f$/i,''))
+            if(!Number.isFinite(space)){
+                throw new Error('JSON.stringify space must be a finite number or string literal')
+            }
+        }else{
+            throw new Error('JSON.stringify space must be null, undefined, or a number or string literal')
+        }
+    }
+    const result = JSON.stringify(value,replacer,space)
     if(result===undefined){
         throw new Error('Unable to serialize JSON.stringify argument')
     }
