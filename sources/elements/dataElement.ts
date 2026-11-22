@@ -1,3 +1,5 @@
+import type {TypedArrayKind,TypedArrayValue} from './data/typedArrays.ts'
+
 export type NumericKind = 'integer'|'float'
 export type JsonValue = string|number|boolean|null|JsonValue[]|{[key:string]:JsonValue}
 
@@ -17,6 +19,9 @@ export class DataElement{
     classLayoutType:string|null = null
     classLayoutProps:DataElement[]|null = null
     arrayObjectValues:DataElement[][]|null = null
+    typedArrayKind:TypedArrayKind|null = null
+    typedArrayValues:TypedArrayValue[]|null = null
+    typedArrayBytes:number[]|null = null
     jsonValue:JsonValue|undefined
     classPropertyInstance:DataElement|null = null
     classPropertyPath:string|null = null

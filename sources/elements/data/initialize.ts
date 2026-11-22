@@ -10,6 +10,7 @@ import {createStructLayout,parseObjectLiteral} from './struct.ts'
 import {nextCallResultId,nextStructLayoutId} from './ids.ts'
 import type {JSONArrayLayout} from './types.ts'
 import {initializeArray} from './arrayInitializer.ts'
+import {getTypedArrayKind,initializeTypedArray} from './typedArrays.ts'
 import type Data from '../data.ts'
 
 export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
@@ -123,6 +124,28 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }else if(jsonStringifyValue!==null){
         type = 'string'
     }
+    let typedArrayInitializer:ReturnType<typeof initializeTypedArray>|null = null
+    const typedArrayCall = hasInitializer
+        ? initializerTokens.join('').match(/^new([A-Za-z0-9_$]+)\(([\s\S]*)\)$/)
+        : null
+    const typedArrayKind = getTypedArrayKind(typedArrayCall?.[1]??type)
+    if(typedArrayKind){
+        if(!typedArrayCall){
+            throw new Error(`Typed array "${name}" must be initialized with a ${typedArrayKind} constructor`)
+        }
+        if(type&&type!==typedArrayKind){
+            throw new Error(`Typed array "${name}" is declared as "${type}" but initialized as "${typedArrayCall[1]}"`)
+        }
+        const callTokenizer = new Tokenizer(`(${typedArrayCall[2]})`)
+        callTokenizer.get()
+        const args = callTokenizer.getCallArguments()
+        if(callTokenizer.has()){
+            throw new Error(`Invalid ${typedArrayKind} constructor`)
+        }
+        typedArrayInitializer = initializeTypedArray(data.parent!,typedArrayKind,args)
+        type = typedArrayInitializer.kind.startsWith('Big')?'bigint':'number'
+        value = typedArrayInitializer.values.join(', ')
+    }
     const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
     const arrayInitialization = initializeArray(data,name,tokens,initializerTokens,arrayType,jsonRootArray,value,eq)
     let arrayValues = arrayInitialization.arrayValues
@@ -161,7 +184,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
             }
         }
     }
-    if(type==='number'&&eq==='='&&jsonParseValue===undefined&&jsonStringifyValue===null){
+    if(type==='number'&&eq==='='&&jsonParseValue===undefined&&jsonStringifyValue===null&&!typedArrayInitializer){
         numericExpression = initializerTokens.join('').replace(/;$/,'')
         runtimeInitializer = !/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(numericExpression)
         if(runtimeInitializer){
@@ -274,6 +297,14 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         if(classType){
             data.element.classType = classType.name
         }
+    }
+    if(typedArrayInitializer){
+        data.element.isArray = true
+        data.element.dynamicArray = false
+        data.element.numericKind = typedArrayInitializer.kind.startsWith('Float')?'float':'integer'
+        data.element.typedArrayKind = typedArrayInitializer.kind
+        data.element.typedArrayValues = typedArrayInitializer.values
+        data.element.typedArrayBytes = typedArrayInitializer.bytes
     }
     if(!arrayType){
         data.element.classType = classType?.name??null

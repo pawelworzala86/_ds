@@ -2,6 +2,7 @@ import Asm from '../../asm.ts'
 import {emitExpression} from '../../maths.ts'
 import DataElement from '../dataElement.ts'
 import {getClassPropertyOffset} from '../clasElement.ts'
+import {getTypedArrayInfo} from '../data/typedArrays.ts'
 import {nextFunctionArgumentId} from './ids.ts'
 import type {FunctionArgument} from '../functionArgument.ts'
 
@@ -121,8 +122,15 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
     }
     if(argument.arrayElementAccess&&argument.tempName){
         const {array,indexExpression} = argument.arrayElementAccess
+        const typedArrayInfo = getTypedArrayInfo(array.typedArrayKind)
         emitExpression(indexExpression,ASM)
-        ASM.addCode('shl rax, 3')
+        if(typedArrayInfo){
+            if(typedArrayInfo.bytesPerElement>1){
+                ASM.addCode(`shl rax, ${Math.log2(typedArrayInfo.bytesPerElement)}`)
+            }
+        }else{
+            ASM.addCode('shl rax, 3')
+        }
         if(array.isParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             if(array.dynamicArray){
@@ -134,9 +142,29 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
                 : `lea rdx, [${array.name}]`)
         }
         ASM.addCode('add rdx, rax')
-        ASM.addCode('mov rax, [rdx]')
         ASM.addData(`${argument.tempName} dq 0`)
-        ASM.addCode(`mov [${argument.tempName}], rax`)
+        if(typedArrayInfo?.float){
+            if(typedArrayInfo.bytesPerElement===4){
+                ASM.addCode('cvtss2sd xmm0, dword [rdx]')
+            }else{
+                ASM.addCode('movsd xmm0, qword [rdx]')
+            }
+            ASM.addCode(`movsd qword [${argument.tempName}], xmm0`)
+        }else if(typedArrayInfo?.bigint){
+            ASM.addCode('mov rax, qword [rdx]')
+            ASM.addCode(`mov [${argument.tempName}], rax`)
+        }else if(typedArrayInfo){
+            const width = typedArrayInfo.bytesPerElement
+            const operand = width===1?'byte':width===2?'word':'dword'
+            const extension = typedArrayInfo.signed
+                ? width===4?'movsxd rax, dword [rdx]':`movsx rax, ${operand} [rdx]`
+                : width===4?'mov eax, dword [rdx]':`movzx rax, ${operand} [rdx]`
+            ASM.addCode(extension)
+            ASM.addCode(`mov [${argument.tempName}], rax`)
+        }else{
+            ASM.addCode('mov rax, [rdx]')
+            ASM.addCode(`mov [${argument.tempName}], rax`)
+        }
         return
     }
     if(argument.arrayPointerName&&argument.value instanceof DataElement){

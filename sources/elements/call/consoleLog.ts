@@ -100,6 +100,21 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                 emitPrintf(`${prefix}%s`,`addr ${label}`)
                 return
             }
+            if(type==='bigint'){
+                const typedArrayKind = data?.typedArrayKind
+                if(!typedArrayKind||!typedArrayKind.startsWith('Big')){
+                    throw new Error('Unable to resolve bigint console.log argument')
+                }
+                const argument = param.getCode(true)
+                if(!argument){
+                    throw new Error('Unable to resolve bigint console.log argument')
+                }
+                emitPrintf(
+                    `${prefix}${typedArrayKind==='BigUint64Array'?'%llu':'%lld'}n`,
+                    argument
+                )
+                return
+            }
             if(type==='string'){
                 const argument = param.getCode(true)
                 if(!argument){

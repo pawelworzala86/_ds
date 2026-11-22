@@ -2,6 +2,7 @@ import Asm from '../../asm.ts'
 import DataElement, {getNumericKind} from '../dataElement.ts'
 import {stringData,stringLiteralData} from '../../stringLiteral.ts'
 import {splitTopLevelArrayValues} from './arrays.ts'
+import {getTypedArrayInfo} from './typedArrays.ts'
 import {getStructFields,getStructLayoutMembers,initializeStackStructStrings,initializeStructStrings} from './struct.ts'
 import {nextObjectStringLabelId} from './ids.ts'
 import type Data from '../data.ts'
@@ -28,6 +29,16 @@ export function emitDataAsm(data:Data,ASM:Asm){
                 ASM.addCode(`local ${data.element.name} dq 0`)
             }else{
                 ASM.addData(`${data.element.name} dq 0`)
+            }
+            return
+        }
+        if(data.element.typedArrayKind){
+            const bytes = data.element.typedArrayBytes??[]
+            const value = bytes.length?bytes.join(', '):'0'
+            if(data.element.isProcedureLocal){
+                ASM.addCode(`local ${data.element.name} db ${value}`)
+            }else{
+                ASM.addData(`${data.element.name} db ${value}`)
             }
             return
         }

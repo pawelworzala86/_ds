@@ -153,6 +153,7 @@ export class FunctionArgument{
                     const element = new DataElement('let',`${array.name}[${arrayElement[2]}]`,array.type??'',array.value??'')
                     element.classType = array.classType
                     element.numericKind = array.numericKind
+                    element.typedArrayKind = array.typedArrayKind
                     this.value = element
                     this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
                 }
