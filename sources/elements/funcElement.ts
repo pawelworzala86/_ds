@@ -6,6 +6,8 @@ export class FuncElement{
     asyncWorkerName:string|null = null
     returnArrayType:string|null = null
     returnArrayNumericKind:'integer'|'float' = 'integer'
+    returnClassType:string|null = null
+    returnType:string|null = null
     constructor(name:string,params:{name:string,type:string,dynamicArray?:boolean}[],isAsync=false,asyncWorkerName:string|null=null){
         this.name = name
         this.params = params

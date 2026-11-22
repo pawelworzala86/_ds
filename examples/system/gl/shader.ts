@@ -7,7 +7,7 @@ export class Shader{
     fragmentShader:number = 0
     programID:number = 0
     load(vertFileName:string,fragFileName:string){
-        const vertexBufforTxt:number = fs.readFileSync(vertFileName)
+        const vertexBufforTxt:string = fs.readFileSync(vertFileName).toString()
         
             msvcrt.printf(' OK2 ')
             
@@ -25,7 +25,7 @@ export class Shader{
                 
             msvcrt.printf('OKb')
             
-            const fragmentBufforTxt:number = fs.readFileSync(fragFileName)
+            const fragmentBufforTxt:string = fs.readFileSync(fragFileName).toString()
             const fragmentBufferLength:number = msvcrt.strlen(fragmentBufforTxt)
             
                 //msvcrt.printf('OK2')

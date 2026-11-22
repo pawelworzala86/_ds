@@ -11,6 +11,9 @@ import {initializeData} from './data/initialize.ts'
 export class Data extends Base{
     element:DataElement|null = null
     initializerCall:Call|null = null
+    initializerCalls:Call[] = []
+    initializerTemps:DataElement[] = []
+    runtimeCallInitializer = false
     arrayInitializerCall:Call|null = null
     constructor(parent:Base){
         super(parent)
@@ -74,6 +77,12 @@ export class Data extends Base{
             if(data.initializerCall){
                 active.children.push(data.initializerCall)
             }
+            for(const temporary of data.initializerTemps){
+                const declaration = new Data(active)
+                declaration.element = temporary
+                active.children.push(declaration)
+            }
+            active.children.push(...data.initializerCalls)
             return data
         }
         return null

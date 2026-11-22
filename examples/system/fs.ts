@@ -1,5 +1,6 @@
 import * as kernel from './lib/kernel.ts'
 import * as msvcrt from './lib/msvcrt.ts'
+import Buffer from './buffer.ts'
 
 const GENERIC_READ:number = 0x80000000
 const GENERIC_WRITE:number = 0x40000000
@@ -11,7 +12,7 @@ export function readFileSync(fileName:string){
 
     let handle:number = 0
     let fsize:number = 0
-    let buffor:number = 0
+    let buffer:Buffer = new Buffer()
 
     //lea rax, [fileName]
     //msvcrt.printf(" %s ",fileName)
@@ -24,15 +25,15 @@ export function readFileSync(fileName:string){
     //mov fsize, rax
     //msvcrt.printf(" sz %i ",fsize)
 
-    buffor = msvcrt.calloc(fsize + 1, 1)
+    buffer.buffer = msvcrt.calloc(fsize + 1, 1)
     //mov buffor, rax
-    kernel.ReadFile(handle, buffor, fsize, 0, 0)
+    kernel.ReadFile(handle, buffer.buffer, fsize, 0, 0)
     //printf('%s',buffor)
     kernel.CloseHandle(handle)
 
     //msvcrt.printf(" %s ", buffor)
 
-    return buffor
+    return buffer
 }
 
 export function writeFileSync(fileName:string,contents:any){

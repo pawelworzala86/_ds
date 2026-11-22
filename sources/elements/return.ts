@@ -14,6 +14,7 @@ export class Return extends Base{
     condition:Iff|null = null
     call:Call|Invoke|null = null
     arrayValue:DataElement|null = null
+    classValue:DataElement|null = null
 
     constructor(parent:Base){
         super(parent)
@@ -39,40 +40,68 @@ export class Return extends Base{
                 this.condition = new Iff(this)
                 this.condition.condition = this.condition.parseCondition(expression)
             }else{
-                const callSyntax = expression.match(/^([a-z_$][\w.$]*)\([\s\S]*\)$/i)
-                if(callSyntax){
-                    const [,name] = callSyntax
-                    const callTokenizer = new Tokenizer(expression)
-                    const call = isInvoke(name)
-                        ? new Invoke(this)
-                        : new Call(this)
-                    call.set(callTokenizer)
-                    if(!callTokenizer.has()){
-                        this.call = call
+                const returnedData = this.parent?.getData(expression)
+                if(returnedData?.classType&&!returnedData.isArray){
+                    this.classValue = returnedData
+                    let functionScope = this.parent
+                    while(functionScope&&!functionScope.isFunctionScope){
+                        functionScope = functionScope.parent
                     }
-                }
-                if(!this.call){
-                    const array = this.parent?.getData(expression)
-                    if(array?.isArray){
-                        if(!array.dynamicArray){
-                            throw new Error('Only dynamic arrays can be returned from functions')
-                        }
-                        this.arrayValue = array
-                        array.isReturnedArray = true
-                        let functionScope = this.parent
-                        while(functionScope&&!functionScope.isFunctionScope){
-                            functionScope = functionScope.parent
-                        }
-                        if(functionScope){
-                            const returnArrayType = `${array.type}[]`
-                            if(functionScope.returnArrayType&&functionScope.returnArrayType!==returnArrayType){
-                                throw new Error('Function cannot return arrays of different types')
+                    if(functionScope){
+                        let valueScope = this.parent
+                        while(valueScope){
+                            if(valueScope.DATA.includes(returnedData)){
+                                if(!returnedData.isParameter){
+                                    returnedData.isHeapAllocated = true
+                                }
+                                break
                             }
-                            functionScope.returnArrayType = returnArrayType
-                            functionScope.returnArrayNumericKind = array.numericKind
+                            if(valueScope===functionScope){
+                                break
+                            }
+                            valueScope = valueScope.parent
                         }
-                    }else{
-                        this.expression = parseExpression(expression,this)
+                        if(functionScope.returnClassType&&functionScope.returnClassType!==returnedData.classType){
+                            throw new Error('Function cannot return values of different classes')
+                        }
+                        functionScope.returnClassType = returnedData.classType
+                    }
+                }else{
+                    const callSyntax = expression.match(/^([a-z_$][\w.$]*)\([\s\S]*\)$/i)
+                    if(callSyntax){
+                        const [,name] = callSyntax
+                        const callTokenizer = new Tokenizer(expression)
+                        const call = isInvoke(name)
+                            ? new Invoke(this)
+                            : new Call(this)
+                        call.set(callTokenizer)
+                        if(!callTokenizer.has()){
+                            this.call = call
+                        }
+                    }
+                    if(!this.call){
+                        const array = this.parent?.getData(expression)
+                        if(array?.isArray){
+                            if(!array.dynamicArray){
+                                throw new Error('Only dynamic arrays can be returned from functions')
+                            }
+                            this.arrayValue = array
+                            array.isReturnedArray = true
+                            let functionScope = this.parent
+                            while(functionScope&&!functionScope.isFunctionScope){
+                                functionScope = functionScope.parent
+                            }
+                            if(functionScope){
+                                const returnArrayType = `${array.type}[]`
+                                if(functionScope.returnArrayType&&functionScope.returnArrayType!==returnArrayType){
+                                    throw new Error('Function cannot return arrays of different types')
+                                }
+                                functionScope.returnArrayType = returnArrayType
+                                functionScope.returnArrayNumericKind = array.numericKind
+                            }
+                        }else{
+                            this.expression = parseExpression(expression,this)
+                        }
                     }
                 }
             }
@@ -99,6 +128,13 @@ export class Return extends Base{
             ASM.addCode(this.arrayValue.isParameter
                 ? `mov rax, ${name}`
                 : `lea rax, [${name}]`)
+        }else if(this.classValue){
+            const value = this.classValue
+            ASM.addCode(value.isHeapAllocated
+                ? `mov rax, [${value.name}]`
+                : value.isParameter
+                    ? `mov rax, ${value.name}`
+                    : `lea rax, [${value.name}]`)
         }else if(this.expression){
             emitExpression(this.expression,ASM)
         }

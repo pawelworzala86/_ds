@@ -3,7 +3,7 @@ import * as fs from './system/fs.ts'
 
 
 
-const buffor:number = fs.readFileSync('test.txt')
+const buffor:string = fs.readFileSync('test.txt').toString()
 
 msvcrt.printf(' file: %s ', buffor)
 

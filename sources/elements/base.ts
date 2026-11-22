@@ -15,6 +15,7 @@ export class Base{
     isFunctionScope = false
     returnArrayType:string|null = null
     returnArrayNumericKind:'integer'|'float' = 'integer'
+    returnClassType:string|null = null
     children:Base[] = []
     DATA:DataElement[] = []
     FUNCTIONS:FuncElement[] = []
@@ -77,8 +78,8 @@ export class Base{
     addClass(value:ClassElement){
         this.CLASSES.push(value)
     }
-    addExport(name:string,kind:'data'|'function'|'class'='data'){
-        this.EXPORT[name] = {name,kind}
+    addExport(name:string,kind:'data'|'function'|'class'='data',targetName=name){
+        this.EXPORT[name] = {name:targetName,kind}
     }
     getExport():any{
         if(Object.keys(this.EXPORT).length){

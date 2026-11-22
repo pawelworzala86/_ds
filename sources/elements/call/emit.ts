@@ -138,7 +138,7 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             ASM.addCode(`invoke [${call.functionVariable.name}] ${params}`)
             return
         }
-        if(call.methodInstance?.isProcedureLocal){
+        if(call.methodInstance?.isProcedureLocal||call.methodInstance?.isReferenceAlias){
             call.emitLocalMethodCall(ASM)
             return
         }

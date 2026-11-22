@@ -15,6 +15,14 @@ export function emitDataAsm(data:Data,ASM:Asm){
             ASM.addCode(`${data.element.name} = ${data.element.value}`)
             return
         }
+        if(data.runtimeCallInitializer){
+            if(data.element.isProcedureLocal){
+                ASM.addCode(`local ${data.element.name} dq 0`)
+            }else{
+                ASM.addData(`${data.element.name} dq 0`)
+            }
+            return
+        }
         if(data.element.isReferenceAlias){
             if(data.element.isProcedureLocal){
                 ASM.addCode(`local ${data.element.name} dq 0`)

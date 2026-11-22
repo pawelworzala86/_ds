@@ -24,6 +24,7 @@ import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl}
 
 export class Call extends Base{
     func:FuncElement|null = null
+    resultTarget:DataElement|null = null
     params:FunctionArgument[] = []
     methodInstance:DataElement|null = null
     arrayMethodArray:DataElement|null = null
@@ -75,6 +76,9 @@ export class Call extends Base{
     }
     asm(ASM:Asm,asyncMode:'detached'|'handle'|'await'='detached'){
         emitCallImpl(this,ASM,asyncMode)
+        if(this.resultTarget){
+            ASM.addCode(`mov [${this.resultTarget.name}], rax`)
+        }
     }
     emitConsoleLog(ASM:Asm){
         emitConsoleLogImpl(this,ASM)

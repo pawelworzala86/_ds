@@ -1,4 +1,5 @@
 import Tokenizer from '../../tokenizer.ts'
+import type Base from '../base.ts'
 import DataElement, {getNumericKind} from '../dataElement.ts'
 import Assign from '../assign.ts'
 import ClassElement, {getClassPropertyAccess} from '../clasElement.ts'
@@ -6,7 +7,7 @@ import Call from '../call.ts'
 import {getStringLiteralContents} from '../../stringLiteral.ts'
 import {parseJSONParseInitializer,parseJSONStringifyInitializer,createJSONArrayLayout,getJSONValueFromProperties,getJSONValueFromData,isJSONObject,createJSONProperties,createJSONDataElement} from './json.ts'
 import {createStructLayout,parseObjectLiteral} from './struct.ts'
-import {nextStructLayoutId} from './ids.ts'
+import {nextCallResultId,nextStructLayoutId} from './ids.ts'
 import type {JSONArrayLayout} from './types.ts'
 import {initializeArray} from './arrayInitializer.ts'
 import type Data from '../data.ts'
@@ -53,6 +54,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const hasInitializer = initializerIndex!==-1
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
     const eq = hasInitializer?'=':undefined
+    const chainedMethodCall = initializerTokens.join('').match(/^([a-z_$][\w.$]*\([\s\S]*\))\.([a-z_$][\w$]*)\(\)$/i)
     const jsonParseValue = hasInitializer&&data.parent
         ? parseJSONParseInitializer(initializerTokens,data.parent)
         : undefined
@@ -200,7 +202,10 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }
     let values = [value]
     if(type=='string'){
-        values = [jsonParseValue!==undefined
+        if(chainedMethodCall){
+            value = '0'
+        }
+        values = chainedMethodCall?['0']: [jsonParseValue!==undefined
             ? JSON.stringify(jsonParseValue).slice(1,-1)
             : jsonStringifyValue!==null
                 ? JSON.stringify(jsonStringifyValue).slice(1,-1)
@@ -215,6 +220,46 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         data.element.jsonValue = getJSONValueFromProperties(classLayout.props,data.parent)
     }else if(data.parent){
         data.element.jsonValue = getJSONValueFromData(data.element,data.parent)
+    }
+    if(chainedMethodCall&&type==='string'&&data.parent){
+        const [,callExpression,methodName] = chainedMethodCall
+        const callTokenizer = new Tokenizer(callExpression)
+        const initializerCall = new Call(data.parent)
+        initializerCall.set(callTokenizer)
+        if(callTokenizer.has()){
+            throw new Error('Invalid function call in chained method initializer')
+        }
+        const className = initializerCall.func?.returnClassType
+            ??(initializerCall.func?.returnType?data.parent.getClass(initializerCall.func.returnType)?.name:null)
+        const classType = className?data.parent.getClass(className):null
+        const method = classType?.getFunction(methodName)
+        if(!className||!method){
+            throw new Error(`Unable to resolve method "${methodName}" on returned class`)
+        }
+        if(method.params.length||method.returnType!=='string'){
+            throw new Error(`Chained method "${methodName}" must take no arguments and return a string`)
+        }
+        let temporaryName = ''
+        do{
+            temporaryName = `__ds_call_result_${nextCallResultId()}`
+        }while(data.parent.getData(temporaryName))
+        const temporary = new DataElement('let',temporaryName,className,'0')
+        temporary.classType = className
+        temporary.isReferenceAlias = true
+        temporary.isHeapAllocated = true
+        let functionScope:Base|null = data.parent
+        while(functionScope&&!functionScope.isFunctionScope){
+            functionScope = functionScope.parent
+        }
+        temporary.isProcedureLocal = Boolean(functionScope)
+        data.parent.addData(temporary)
+        initializerCall.resultTarget = temporary
+        const methodCall = new Call(data.parent)
+        methodCall.set(new Tokenizer(`${temporaryName}.${methodName}()`))
+        methodCall.resultTarget = data.element
+        data.initializerTemps.push(temporary)
+        data.initializerCalls.push(initializerCall,methodCall)
+        data.runtimeCallInitializer = true
     }
     if(classLayout){
         data.element.classLayoutType = classLayout.type

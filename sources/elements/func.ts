@@ -179,6 +179,8 @@ export class Func extends Base{
 
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
+        const signatureEnd = tokens.indexOf(')')
+        const returnType = tokens[signatureEnd+1]===':'?tokens[signatureEnd+2]??null:null
         tokens = tokens.slice(bodyStart + 1, bodyEnd)
 
         for(const param of params){
@@ -219,12 +221,16 @@ export class Func extends Base{
         })),isAsync,workerName)
         element.returnArrayType = this.returnArrayType
         element.returnArrayNumericKind = this.returnArrayNumericKind
+        element.returnClassType = this.returnClassType
+        element.returnType = returnType
         if(predeclared){
             predeclared.params = element.params
             predeclared.isAsync = element.isAsync
             predeclared.asyncWorkerName = element.asyncWorkerName
             predeclared.returnArrayType = element.returnArrayType
             predeclared.returnArrayNumericKind = element.returnArrayNumericKind
+            predeclared.returnClassType = element.returnClassType
+            predeclared.returnType = element.returnType
             this.element = predeclared
             Func.predeclared.delete(predeclared)
         }else{
