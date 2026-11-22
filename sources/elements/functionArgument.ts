@@ -1,13 +1,14 @@
 import Asm from '../asm.ts'
 import Base from './base.ts'
-import {emitExpression, parseExpression, type Expression} from '../maths.ts'
+import {parseExpression, type Expression} from '../maths.ts'
 import DataElement, {type JsonValue} from './dataElement.ts'
 import FuncElement from './funcElement.ts'
 import Link from './link.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
+import {emitFunctionArgument} from './functionArgument/emit.ts'
+import {nextFunctionArgumentId} from './functionArgument/ids.ts'
 import {parseRegExpLiteral} from '../regex.ts'
 
-let argumentId = 0
 let methodCallbackId = 0
 
 export class FunctionArgument{
@@ -89,7 +90,7 @@ export class FunctionArgument{
                 this.classPropertyPath = access.path
                 this.classPropertyOffsetPath = member[1].split('.').slice(1).join('.')
                 if(instance.isParameter&&!property.isArray){
-                    this.tempName = `__ds_call_arg_${++argumentId}`
+                    this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
                 }
                 if(property.isArray&&member[2]){
                     const arrayIndex = parseExpression(member[2],active)
@@ -110,7 +111,7 @@ export class FunctionArgument{
                         index:arrayIndex,
                         numericKind:property.numericKind
                     }
-                    this.tempName = `__ds_call_arg_${++argumentId}`
+                    this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
                 }
             }
             const arrayMember = text.match(/^([a-z_$][\w.$]*)\[([^\]]+)\]\.(\w+)$/i)
@@ -128,7 +129,7 @@ export class FunctionArgument{
                             property,
                             offset
                         }
-                        this.tempName = `__ds_call_arg_${++argumentId}`
+                        this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
                     }
                 }
             }
@@ -153,178 +154,24 @@ export class FunctionArgument{
                     element.classType = array.classType
                     element.numericKind = array.numericKind
                     this.value = element
-                    this.tempName = `__ds_call_arg_${++argumentId}`
+                    this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
                 }
             }
         }
         if(this.value instanceof DataElement&&this.value.isArray&&this.value.isParameter){
-            this.arrayPointerName = `__ds_call_array_${++argumentId}`
+            this.arrayPointerName = `__ds_call_array_${nextFunctionArgumentId()}`
         }
         if(this.value instanceof DataElement&&this.value.isParameter&&!this.value.isArray){
-            this.tempName = `__ds_call_arg_${++argumentId}`
+            this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
         }else if(!this.expression&&!this.arrayPropertyAccess&&!this.arrayElementAccess&&!parseRegExpLiteral(text)&&!/^['"]/.test(text)&&(/\*\*|[+\-*/%]/.test(text)||/\[[^\]]+\]/.test(text)||/^(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(text))){
             this.expression = parseExpression(text,active)
-            this.tempName = `__ds_call_arg_${++argumentId}`
+            this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
         }
     }
 
     asm(ASM:Asm){
-        if(this.addressOf&&this.classPropertyInstance&&this.classProperty){
-            if(this.classPropertyInstance.isHeapAllocated){
-                const classType = this.classPropertyInstance.classType
-                    ? this.scope.getClass(this.classPropertyInstance.classType)
-                    : null
-                const offset = classType
-                    ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??this.classProperty.name??'',name=>this.scope.getClass(name))
-                    : null
-                if(offset===null){
-                    throw new Error(`Unable to resolve local struct property "${this.classPropertyOffsetPath??this.classProperty.name}"`)
-                }
-                this.tempName ??= `__ds_call_arg_${++argumentId}`
-                ASM.addCode(`mov rdx, [${this.classPropertyInstance.name}]`)
-                if(offset){
-                    ASM.addCode(`add rdx, ${offset}`)
-                }
-                ASM.addData(`${this.tempName} dq 0`)
-                ASM.addCode(`mov [${this.tempName}], rdx`)
-                return
-            }
-            return
-        }
-        if(this.methodPointerName&&this.methodInstance&&this.methodName&&this.methodClassType){
-            const methodLabel = `${this.methodClassType}.${this.methodName}`
-            const callbackParams = Array.from(
-                {length:Math.min(this.methodParamCount,3)},
-                (_,index)=>`__ds_method_arg_${index+1}`
-            )
-            const body = [`proc ${this.methodPointerName}${callbackParams.length?`, ${callbackParams.join(', ')}`:''}`]
-            for(let index=0;index<callbackParams.length;index++){
-                body.push(`mov ${['rdx','r8','r9'][index]}, ${callbackParams[index]}`)
-            }
-            body.push(this.methodInstance.isHeapAllocated
-                ? `mov rcx, [${this.methodInstance.name}]`
-                : `lea rcx, [${this.methodInstance.name}]`)
-            body.push('sub rsp, 32')
-            body.push(`call ${methodLabel}`)
-            body.push('add rsp, 32')
-            body.push('ret')
-            body.push('endp')
-            ASM.addProc(body.join('\n'))
-        }
-        if(this.classPropertyInstance?.isProcedureLocal&&this.classProperty&&!this.classProperty.isArray&&this.value instanceof DataElement){
-            const classType = this.classPropertyInstance.classType
-                ? this.scope.getClass(this.classPropertyInstance.classType)
-                : null
-            const offset = classType
-                ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??this.classProperty.name??'',name=>this.scope.getClass(name))
-                : null
-            if(offset===null){
-                throw new Error(`Unable to resolve local struct property "${this.classPropertyOffsetPath??this.classProperty.name}"`)
-            }
-            this.tempName ??= `__ds_call_arg_${++argumentId}`
-            ASM.addCode(this.classPropertyInstance.isHeapAllocated
-                ? `mov rdx, [${this.classPropertyInstance.name}]`
-                : `lea rdx, [${this.classPropertyInstance.name}]`)
-            if(offset){
-                ASM.addCode(`add rdx, ${offset}`)
-            }
-            if(this.classProperty.type==='number'&&this.classProperty.numericKind==='float'){
-                ASM.addCode('movsd xmm0, qword [rdx]')
-                ASM.addData(`${this.tempName} dq 0`)
-                ASM.addCode(`movsd qword [${this.tempName}], xmm0`)
-            }else{
-                ASM.addCode('mov rax, [rdx]')
-                ASM.addData(`${this.tempName} dq 0`)
-                ASM.addCode(`mov [${this.tempName}], rax`)
-            }
-            return
-        }
-        if(this.classPropertyInstance&&this.classProperty&&this.value instanceof DataElement){
-            this.value.name = this.getClassPropertyAccessName()
-        }
-        if(this.classPropertyInstance?.isParameter&&this.classProperty&&!this.classProperty.isArray&&this.tempName){
-            const classType = this.classPropertyInstance.classType
-                ? this.scope.getClass(this.classPropertyInstance.classType)
-                : null
-            const offset = classType
-                ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??this.classProperty.name??'',name=>this.scope.getClass(name))
-                : null
-            if(offset===null){
-                throw new Error(`Unable to resolve struct parameter property "${this.classProperty.name}"`)
-            }
-            ASM.addCode(`mov rdx, ${this.classPropertyInstance.name}`)
-            ASM.addCode(`mov rax, [rdx+${offset}]`)
-            ASM.addData(`${this.tempName} dq 0`)
-            ASM.addCode(`mov [${this.tempName}], rax`)
-            return
-        }
-        if(this.arrayPropertyAccess&&this.tempName){
-            const {array,indexExpression,property,offset} = this.arrayPropertyAccess
-            emitExpression(indexExpression,ASM)
-            ASM.addCode('shl rax, 3')
-            if(array.isParameter){
-                ASM.addCode(`mov rdx, ${array.name}`)
-                if(array.dynamicArray){
-                    ASM.addCode('mov rdx, [rdx]')
-                }
-            }else{
-                ASM.addCode(array.dynamicArray
-                    ? `mov rdx, [${array.name}]`
-                    : `lea rdx, [${array.name}]`)
-            }
-            ASM.addCode('add rdx, rax')
-            ASM.addCode('mov rax, [rdx]')
-            if(offset){
-                ASM.addCode(`add rax, ${offset}`)
-            }
-            ASM.addCode('mov rax, [rax]')
-            ASM.addData(`${this.tempName} dq 0`)
-            ASM.addCode(`mov [${this.tempName}], rax`)
-            return
-        }
-        if(this.arrayElementAccess&&this.tempName){
-            const {array,indexExpression} = this.arrayElementAccess
-            emitExpression(indexExpression,ASM)
-            ASM.addCode('shl rax, 3')
-            if(array.isParameter){
-                ASM.addCode(`mov rdx, ${array.name}`)
-                if(array.dynamicArray){
-                    ASM.addCode('mov rdx, [rdx]')
-                }
-            }else{
-                ASM.addCode(array.dynamicArray
-                    ? `mov rdx, [${array.name}]`
-                    : `lea rdx, [${array.name}]`)
-            }
-            ASM.addCode('add rdx, rax')
-            ASM.addCode('mov rax, [rdx]')
-            ASM.addData(`${this.tempName} dq 0`)
-            ASM.addCode(`mov [${this.tempName}], rax`)
-            return
-        }
-        if(this.arrayPointerName&&this.value instanceof DataElement){
-            ASM.addData(`${this.arrayPointerName} dq 0`)
-            ASM.addCode(this.value.dynamicArray
-                ? `mov rax, [${this.value.name}]`
-                : `mov rax, ${this.value.name}`)
-            ASM.addCode(`mov [${this.arrayPointerName}], rax`)
-        }
-        if(this.tempName&&this.value instanceof DataElement&&this.value.isParameter&&!this.expression){
-            ASM.addData(`${this.tempName} dq 0`)
-            ASM.addCode(`mov rax, ${this.value.name}`)
-            ASM.addCode(`mov [${this.tempName}], rax`)
-            return
-        }
-        if(!this.expression||!this.tempName){
-            return
-        }
-        emitExpression(this.expression,ASM)
-        ASM.addData(`${this.tempName} dq 0`)
-        ASM.addCode(this.expression.numericKind==='float'
-            ? `movsd qword [${this.tempName}], xmm0`
-            : `mov [${this.tempName}], rax`)
+        emitFunctionArgument(this,ASM)
     }
-
     getCode(byValue=false){
         if(this.addressOf){
             if(this.classPropertyInstance&&this.classProperty){

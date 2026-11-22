@@ -4,152 +4,11 @@ import Make from '../make.ts'
 import Base from './base.ts'
 import Call from './call.ts'
 import DataElement from './dataElement.ts'
-import {emitExpression,parseExpression,type Expression} from '../maths.ts'
-import {stringLiteralData} from '../stringLiteral.ts'
-
-type StringOperand =
-    | {kind:'literal',value:string}
-    | {kind:'data',value:DataElement}
-
-type Condition =
-    | {kind:'and',left:Condition,right:Condition}
-    | {kind:'or',left:Condition,right:Condition}
-    | {kind:'not',value:Condition}
-    | {kind:'boolean',value:boolean}
-    | {kind:'compare',left:Expression|StringOperand,right:Expression|StringOperand,operator:string,calls:ConditionCall[]}
-    | {kind:'truthy',value:Expression,calls:ConditionCall[]}
-
-type ConditionCall = {call:Call,temp:DataElement}
-type ParsedOperand = {value:Expression|StringOperand,calls:ConditionCall[]}
-
-let ifId = 0
-
-function nextLabel(prefix:string){
-    return `__ds_if_${prefix}_${++ifId}`
-}
-
-function isWrapped(text:string){
-    if(text[0]!=='('||text[text.length-1]!==')'){
-        return false
-    }
-    let depth = 0
-    let quote:string|null = null
-    for(let index=0;index<text.length;index++){
-        const char = text[index]
-        if(quote){
-            if(char==='\\'){
-                index++
-            }else if(char===quote){
-                quote = null
-            }
-            continue
-        }
-        if(char==="'"||char==='"'){
-            quote = char
-        }else if(char==='('){
-            depth++
-        }else if(char===')'){
-            depth--
-            if(depth===0&&index!==text.length-1){
-                return false
-            }
-        }
-    }
-    return depth===0
-}
-
-function findTopLevel(text:string,operator:string,fromRight=false){
-    const matches:number[] = []
-    let parentheses = 0
-    let brackets = 0
-    let quote:string|null = null
-    for(let index=0;index<=text.length-operator.length;index++){
-        const char = text[index]
-        if(quote){
-            if(char==='\\'){
-                index++
-            }else if(char===quote){
-                quote = null
-            }
-            continue
-        }
-        if(char==="'"||char==='"'){
-            quote = char
-        }else if(char==='('){
-            parentheses++
-        }else if(char===')'){
-            parentheses--
-        }else if(char==='['){
-            brackets++
-        }else if(char===']'){
-            brackets--
-        }else if(parentheses===0&&brackets===0&&text.startsWith(operator,index)){
-            matches.push(index)
-            index += operator.length-1
-        }
-    }
-    return matches.length?matches[fromRight?matches.length-1:0]:-1
-}
-
-function findComparison(text:string){
-    let parentheses = 0
-    let brackets = 0
-    let quote:string|null = null
-    const operators = ['===','!==','==','!=','<=','>=','<','>']
-    for(let index=0;index<text.length;index++){
-        const char = text[index]
-        if(quote){
-            if(char==='\\'){
-                index++
-            }else if(char===quote){
-                quote = null
-            }
-            continue
-        }
-        if(char==="'"||char==='"'){
-            quote = char
-        }else if(char==='('){
-            parentheses++
-        }else if(char===')'){
-            parentheses--
-        }else if(char==='['){
-            brackets++
-        }else if(char===']'){
-            brackets--
-        }else if(parentheses===0&&brackets===0){
-            const operator = operators.find(value=>text.startsWith(value,index))
-            if(operator){
-                return {index,operator}
-            }
-        }
-    }
-    return null
-}
-
-function findClosingParenthesis(text:string,open:number){
-    let depth = 0
-    let quote:string|null = null
-    for(let index=open;index<text.length;index++){
-        const char = text[index]
-        if(quote){
-            if(char==='\\'){
-                index++
-            }else if(char===quote){
-                quote = null
-            }
-        }else if(char==="'"||char==='"'){
-            quote = char
-        }else if(char==='('){
-            depth++
-        }else if(char===')'){
-            depth--
-            if(depth===0){
-                return index
-            }
-        }
-    }
-    throw new Error('Unclosed function call in if condition')
-}
+import {parseExpression,type Expression} from '../maths.ts'
+import type {Condition, ConditionCall, ParsedOperand, StringOperand} from './iff/types.ts'
+import {isWrapped, findTopLevel, findComparison, findClosingParenthesis} from './iff/scan.ts'
+import {nextLabel} from './iff/ids.ts'
+import {isStringOperand, isFloatOperand, emitCalls, emitOperand, emitBranch, emitComparisonJump} from './iff/emit.ts'
 
 export class Iff extends Base{
     condition:Condition|null = null
@@ -424,167 +283,27 @@ export class Iff extends Base{
     }
 
     isStringOperand(value:Expression|StringOperand):value is StringOperand{
-        if('kind' in value&&value.kind==='literal'){
-            return true
-        }
-        if('kind' in value&&value.kind==='data'){
-            return value.value.type==='string'
-        }
-        return false
+        return isStringOperand(this,value)
     }
 
     isFloatOperand(value:Expression|StringOperand){
-        return !this.isStringOperand(value)&&value.numericKind==='float'
+        return isFloatOperand(this,value)
     }
 
     emitCalls(calls:ConditionCall[],ASM:Asm){
-        for(const {call,temp} of calls){
-            ASM.addData(`${temp.name} dq 0`)
-            call.asm(ASM)
-            ASM.addCode(`mov [${temp.name}], rax`)
-        }
+        emitCalls(this,calls,ASM)
     }
 
     emitOperand(value:Expression|StringOperand,ASM:Asm){
-        if(!this.isStringOperand(value)){
-            emitExpression(value,ASM)
-            return
-        }
-        if(value.kind==='literal'){
-            const label = nextLabel('string')
-            ASM.addData(`${label} ${stringLiteralData(value.value)}`)
-            ASM.addCode(`lea rax, [${label}]`)
-        }else{
-            const data = value.value
-            const instance = data.classPropertyInstance
-            const offset = data.classPropertyOffset
-            if(data.isReferenceAlias){
-                ASM.addCode(`mov rdx, [${data.name}]`)
-                ASM.addCode('mov rax, [rdx]')
-            }else if(data.isParameter&&!instance){
-                ASM.addCode(`mov rax, ${data.name}`)
-            }else if(instance?.isProcedureLocal&&offset!==null){
-                ASM.addCode(instance.isHeapAllocated
-                    ? `mov rdx, [${instance.name}]`
-                    : `lea rdx, [${instance.name}]`)
-                if(offset){
-                    ASM.addCode(`add rdx, ${offset}`)
-                }
-                ASM.addCode('mov rax, [rdx]')
-            }else{
-                ASM.addCode(`mov rax, [${data.getAccessName()}]`)
-            }
-        }
+        emitOperand(this,value,ASM)
     }
 
     emitBranch(condition:Condition,ASM:Asm,trueLabel:string,falseLabel:string){
-        if(condition.kind==='not'){
-            this.emitBranch(condition.value,ASM,falseLabel,trueLabel)
-            return
-        }
-        if(condition.kind==='and'){
-            const next = nextLabel('and')
-            this.emitBranch(condition.left,ASM,next,falseLabel)
-            ASM.addCode(`${next}:`)
-            this.emitBranch(condition.right,ASM,trueLabel,falseLabel)
-            return
-        }
-        if(condition.kind==='or'){
-            const next = nextLabel('or')
-            this.emitBranch(condition.left,ASM,trueLabel,next)
-            ASM.addCode(`${next}:`)
-            this.emitBranch(condition.right,ASM,trueLabel,falseLabel)
-            return
-        }
-        if(condition.kind==='boolean'){
-            ASM.addCode(`jmp ${condition.value?trueLabel:falseLabel}`)
-            return
-        }
-        if(condition.kind==='truthy'){
-            this.emitCalls(condition.calls,ASM)
-            emitExpression(condition.value,ASM)
-            if(condition.value.numericKind==='float'){
-                ASM.addCode('xorpd xmm1, xmm1')
-                ASM.addCode('ucomisd xmm0, xmm1')
-                ASM.addCode(`jp ${trueLabel}`)
-                ASM.addCode(`jne ${trueLabel}`)
-            }else{
-                ASM.addCode('test rax, rax')
-                ASM.addCode(`jnz ${trueLabel}`)
-            }
-            ASM.addCode(`jmp ${falseLabel}`)
-            return
-        }
-        this.emitCalls(condition.calls,ASM)
-        if(this.isStringOperand(condition.left)&&this.isStringOperand(condition.right)){
-            this.emitOperand(condition.left,ASM)
-            ASM.addCode('push rax')
-            this.emitOperand(condition.right,ASM)
-            ASM.addCode('mov rdx, rax')
-            ASM.addCode('pop rcx')
-            ASM.addCode('sub rsp, 40')
-            ASM.addCode('call [strcmp]')
-            ASM.addCode('add rsp, 40')
-            ASM.addImport('msvcrt','strcmp')
-            ASM.addCode('test eax, eax')
-            ASM.addCode(['==','==='].includes(condition.operator)
-                ? `je ${trueLabel}`
-                : `jne ${trueLabel}`)
-            ASM.addCode(`jmp ${falseLabel}`)
-            return
-        }
-        const isFloat = this.isFloatOperand(condition.left)
-        const rightIsFloat = this.isFloatOperand(condition.right)
-        if(isFloat||rightIsFloat){
-            this.emitOperand(condition.left,ASM)
-            const leftFloat = this.isFloatOperand(condition.left)
-            if(!leftFloat){
-                ASM.addCode('cvtsi2sd xmm0, rax')
-            }
-            ASM.addCode('sub rsp, 8')
-            ASM.addCode('movsd qword [rsp], xmm0')
-            this.emitOperand(condition.right,ASM)
-            const rightFloat = this.isFloatOperand(condition.right)
-            if(!rightFloat){
-                ASM.addCode('cvtsi2sd xmm0, rax')
-            }
-            ASM.addCode('movsd xmm1, xmm0')
-            ASM.addCode('movsd xmm0, qword [rsp]')
-            ASM.addCode('add rsp, 8')
-            ASM.addCode('ucomisd xmm0, xmm1')
-            this.emitComparisonJump(condition.operator,ASM,trueLabel,falseLabel,true)
-            return
-        }
-        this.emitOperand(condition.left,ASM)
-        ASM.addCode('push rax')
-        this.emitOperand(condition.right,ASM)
-        ASM.addCode('mov rcx, rax')
-        ASM.addCode('pop rax')
-        ASM.addCode('cmp rax, rcx')
-        this.emitComparisonJump(condition.operator,ASM,trueLabel,falseLabel,false)
+        emitBranch(this,condition,ASM,trueLabel,falseLabel)
     }
 
     emitComparisonJump(operator:string,ASM:Asm,trueLabel:string,falseLabel:string,float:boolean){
-        const jumps:Record<string,string> = float
-            ? {'==':'je','===':'je','!=':'jne','!==':'jne','<':'jb','<=':'jbe','>':'ja'}
-            : {'==':'je','===':'je','!=':'jne','!==':'jne','<':'jl','<=':'jle','>':'jg'}
-        if(operator==='>='){
-            if(float){
-                ASM.addCode(`jp ${falseLabel}`)
-                ASM.addCode(`jb ${falseLabel}`)
-            }else{
-                ASM.addCode(`jl ${falseLabel}`)
-            }
-            ASM.addCode(`jmp ${trueLabel}`)
-            return
-        }
-        if(float&&['==','===','<','<=','>','>='].includes(operator)){
-            ASM.addCode(`jp ${falseLabel}`)
-        }else if(float&&['!=','!=='].includes(operator)){
-            ASM.addCode(`jp ${trueLabel}`)
-        }
-        ASM.addCode(`${jumps[operator]} ${trueLabel}`)
-        ASM.addCode(`jmp ${falseLabel}`)
+        emitComparisonJump(this,operator,ASM,trueLabel,falseLabel,float)
     }
 
     asm(ASM:Asm){
