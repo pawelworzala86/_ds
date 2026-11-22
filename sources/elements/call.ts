@@ -21,6 +21,7 @@ import {emitStringReplace as emitStringReplaceImpl} from './call/stringReplace.t
 import {emitStringSearch as emitStringSearchImpl} from './call/stringSearch.ts'
 import {emitStringRange as emitStringRangeImpl} from './call/stringRange.ts'
 import {emitStringConcat as emitStringConcatImpl} from './call/stringConcat.ts'
+import {emitPromiseMethod as emitPromiseMethodImpl} from './call/promise.ts'
 import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl} from './call/methodLookup.ts'
 
 
@@ -42,6 +43,7 @@ export class Call extends Base{
     builtinStringRange:DataElement|null = null
     builtinStringRangeMethod:string|null = null
     builtinStringConcat:DataElement|null = null
+    builtinPromiseMethod:string|null = null
     builtinConsoleLog = false
     functionVariable:DataElement|null = null
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
@@ -122,6 +124,9 @@ export class Call extends Base{
     }
     emitStringConcat(ASM:Asm){
         emitStringConcatImpl(this,ASM)
+    }
+    emitPromiseMethod(ASM:Asm){
+        emitPromiseMethodImpl(this,ASM)
     }
     emitArrayPush(ASM:Asm){
         emitArrayPushImpl(this,ASM)

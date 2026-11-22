@@ -12,6 +12,7 @@ import type {JSONArrayLayout} from './types.ts'
 import {initializeArray} from './arrayInitializer.ts'
 import {getTypedArrayKind,initializeTypedArray} from './typedArrays.ts'
 import type Data from '../data.ts'
+import {parsePromiseInitializer} from '../promise.ts'
 
 export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     let tokens:string[] = []
@@ -73,6 +74,9 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const hasInitializer = initializerIndex!==-1
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
     const eq = hasInitializer?'=':undefined
+    const promiseInitializerExpression = initializerTokens.join('')
+    const hasPromiseInitializer = /^Promise\.(?:resolve|reject)\(/.test(promiseInitializerExpression)
+        ||promiseInitializerExpression.startsWith('newPromise(')
     const chainedMethodCall = initializerTokens.join('').match(/^([a-z_$][\w.$]*\([\s\S]*\))\.([a-z_$][\w$]*)\(\)$/i)
     const jsonParseValue = hasInitializer&&data.parent
         ? parseJSONParseInitializer(initializerTokens,data.parent)
@@ -100,6 +104,13 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         type='string'
     }
     let value = initializerTokens[0]
+    if(hasPromiseInitializer){
+        if(classField){
+            throw new Error('Promise class fields are not supported')
+        }
+        type ??= 'Promise'
+        value = '0'
+    }
     if(!hasInitializer&&(type==='Function'||type==='function')){
         value='0'
     }
@@ -266,6 +277,14 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
                 : hasInitializer?getStringLiteralContents(initializerTokens.join('')):'']
     }
     data.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
+    if(hasPromiseInitializer&&data.parent){
+        data.promiseInitializer = parsePromiseInitializer(
+            data.parent,
+            data.element,
+            promiseInitializerExpression,
+            type
+        )
+    }
     if(jsonParseValue!==undefined){
         data.element.jsonValue = jsonParseValue
     }else if(jsonStringifyValue!==null){

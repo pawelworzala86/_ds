@@ -17,6 +17,10 @@ Obsługiwane metody `String` to również `indexOf`, `includes`, `startsWith` i 
 
 Typ `boolean` obsługuje wartości `true` i `false`, przypisania, warunki, tablice oraz parametry funkcji. Wyniki metod `includes`, `startsWith` i `endsWith` można przypisać do zmiennej `boolean`.
 
+## Uproszczone Promise
+
+Obsługiwane są synchroniczne `Promise.resolve(value)`, `Promise.reject(value)`, executor wywołujący bezpośrednio `resolve(value)` lub `reject(value)`, oraz `.then(namedFunction)` i `.catch(namedFunction)`. Wartości mogą być typu `number`, `string` lub `boolean`, a funkcja zwrotna musi przyjmować jeden argument tego typu. Callback jest wywoływany od razu przy rejestracji, jeśli stan Promise pasuje do metody. Nie są obsługiwane mikrozadania, asynchroniczne resolve/reject, funkcje strzałkowe jako callbacki, domknięcia ani łańcuchy Promise.
+
 ## Tablice typowane
 
 Obsługiwane typy tablic typowanych to `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`, `BigInt64Array` i `BigUint64Array`. Konstruktor przyjmuje długość, literał tablicy wartości odpowiedniego typu, znaną kompilatorowi tablicę albo widok `innaTablica.buffer`; widok może dodatkowo podawać bajtowy offset i długość. Literały BigInt używają składni `n`, np. `new BigInt64Array([-1n, 2n])`. Konwersja wartości oraz bajtowa reprezentacja używają semantyki typowanych tablic JavaScript i porządku little-endian. Obsługiwane są inicjalizacja i odczyt indeksowanych elementów, np. `console.log(bytes[0])`; modyfikowanie elementów nie jest jeszcze obsługiwane.

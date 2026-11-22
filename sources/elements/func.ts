@@ -208,6 +208,7 @@ export class Func extends Base{
                     ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
                     ||data.type==='ArrayBuffer'&&!data.isArray
                     ||data.type==='Task'
+                    ||/^Promise<(?:number|string|boolean)>$/i.test(data.type??'')
                     ||Boolean(data.classType)&&!data.isArray
                 )
             )){

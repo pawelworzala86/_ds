@@ -7,6 +7,7 @@ import ClassElement from './clasElement.ts'
 import Call from './call.ts'
 import {emitDataAsm} from './data/asm.ts'
 import {initializeData} from './data/initialize.ts'
+import type {PromiseInitializer} from './promise.ts'
 
 export class Data extends Base{
     element:DataElement|null = null
@@ -15,6 +16,7 @@ export class Data extends Base{
     initializerTemps:DataElement[] = []
     runtimeCallInitializer = false
     arrayInitializerCall:Call|null = null
+    promiseInitializer:PromiseInitializer|null = null
     constructor(parent:Base){
         super(parent)
     }
@@ -76,6 +78,9 @@ export class Data extends Base{
             active.children.push(data)
             if(data.initializerCall){
                 active.children.push(data.initializerCall)
+            }
+            if(data.promiseInitializer){
+                active.children.push(data.promiseInitializer)
             }
             for(const temporary of data.initializerTemps){
                 const declaration = new Data(active)

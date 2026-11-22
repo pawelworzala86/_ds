@@ -107,6 +107,10 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             call.emitStringConcat(ASM)
             return
         }
+        if(call.builtinPromiseMethod){
+            call.emitPromiseMethod(ASM)
+            return
+        }
         if(call.functionVariable){
             const params = call.params.map(param=>{
                 const value = param.getCode()

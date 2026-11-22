@@ -32,6 +32,18 @@ export function emitDataAsm(data:Data,ASM:Asm){
             }
             return
         }
+        if(/^Promise<(?:number|string|boolean)>$/i.test(data.element.type??'')){
+            const state = `${data.element.name}__state`
+            const value = `${data.element.name}__value`
+            if(data.element.isProcedureLocal){
+                ASM.addCode(`local ${state} dq 0`)
+                ASM.addCode(`local ${value} dq 0`)
+            }else{
+                ASM.addData(`${state} dq 0`)
+                ASM.addData(`${value} dq 0`)
+            }
+            return
+        }
         if(data.element.typedArrayKind){
             const bytes = data.element.typedArrayBytes??[]
             const value = bytes.length?bytes.join(', '):'0'

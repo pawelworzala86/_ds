@@ -41,6 +41,7 @@ export class Timeout extends Base{
                 data.type==='number'&&!data.isArray
                 ||data.type==='number'&&data.isArray&&!data.dynamicArray
                 ||data.type==='Task'
+                ||/^Promise<(?:number|string|boolean)>$/i.test(data.type??'')
                 ||Boolean(data.classType)&&!data.isArray
             )){
                 data.isProcedureLocal = true

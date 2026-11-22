@@ -4,6 +4,7 @@ import FunctionArgument from '../functionArgument.ts'
 import FuncElement from '../funcElement.ts'
 import {parseRegExpLiteral} from '../../regex.ts'
 import Call from '../call.ts'
+import {getPromiseValueTypeFromData} from '../promise.ts'
 
 let arrayPushId = 0
 let arrayToStringArgumentId = 0
@@ -91,6 +92,13 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     instance.builtinStringConcat = prototype?.method.kind==='builtin'&&prototype.method.name==='concat'
         ? prototype.instance
         : null
+    instance.builtinPromiseMethod = prototype?.method.kind==='builtin'
+        &&/^Promise(?:<.*>)?$/i.test(prototype.type)
+        ? prototype.method.name
+        : null
+    if(instance.builtinPromiseMethod){
+        instance.methodInstance ??= prototype?.instance??null
+    }
     if(instance.builtinStringSplit){
         const split = new FuncElement('__ds_string_split',[])
         split.returnArrayType = 'string[]'
@@ -156,6 +164,22 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             ||(index.value instanceof DataElement&&index.value.numericKind!=='integer')
             ||numericKind!=='integer'){
             throw new Error('String.charCodeAt index must be an integer')
+        }
+    }
+    if(instance.builtinPromiseMethod){
+        const promiseType = getPromiseValueTypeFromData(instance.methodInstance!)
+        if(!promiseType){
+            throw new Error('Promise methods require a Promise<number>, Promise<string>, or Promise<boolean>')
+        }
+        if(instance.params.length!==1){
+            throw new Error(`Promise.${instance.builtinPromiseMethod} expects exactly one callback`)
+        }
+        const callback = instance.params[0].value
+        if(!(callback instanceof FuncElement)){
+            throw new Error(`Promise.${instance.builtinPromiseMethod} only supports named callback functions`)
+        }
+        if(callback.isAsync||callback.params.length!==1||callback.params[0].type!==promiseType){
+            throw new Error(`Promise.${instance.builtinPromiseMethod} callback must accept one ${promiseType} argument`)
         }
     }
     if(instance.builtinStringSplit){

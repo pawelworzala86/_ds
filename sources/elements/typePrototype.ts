@@ -22,9 +22,14 @@ export class TypePrototypeRegistry{
         this.registerBuiltin('string','substring')
         this.registerBuiltin('string','slice')
         this.registerBuiltin('string','concat')
+        this.registerBuiltin('Promise','then')
+        this.registerBuiltin('Promise','catch')
     }
 
     static normalize(type:string){
+        if(/^promise(?:<.*>)?$/i.test(type)){
+            return 'promise'
+        }
         const normalized = type.toLowerCase()
         return normalized==='array[]'?'array':normalized
     }
@@ -68,5 +73,7 @@ TypePrototypeRegistry.registerBuiltin('string','endsWith')
 TypePrototypeRegistry.registerBuiltin('string','substring')
 TypePrototypeRegistry.registerBuiltin('string','slice')
 TypePrototypeRegistry.registerBuiltin('string','concat')
+TypePrototypeRegistry.registerBuiltin('Promise','then')
+TypePrototypeRegistry.registerBuiltin('Promise','catch')
 
 export default TypePrototypeRegistry
