@@ -100,7 +100,11 @@ export class Assign extends Base{
                 const tokenizer = new Tokenizer(value)
                 const call = new Call(this.parent!)
                 call.set(tokenizer)
-                if(!tokenizer.has()&&call.builtinStringReplace){
+                if(!tokenizer.has()&&(
+                    call.builtinStringReplace
+                    ||call.builtinStringRange
+                    ||call.builtinStringConcat
+                )){
                     this.stringCall = call
                     return
                 }

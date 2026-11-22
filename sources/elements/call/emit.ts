@@ -91,6 +91,14 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             call.emitStringSearch(ASM)
             return
         }
+        if(call.builtinStringRange){
+            call.emitStringRange(ASM)
+            return
+        }
+        if(call.builtinStringConcat){
+            call.emitStringConcat(ASM)
+            return
+        }
         if(call.functionVariable){
             const params = call.params.map(param=>{
                 const value = param.getCode()

@@ -17,6 +17,9 @@ export class TypePrototypeRegistry{
         this.registerBuiltin('string','includes')
         this.registerBuiltin('string','startsWith')
         this.registerBuiltin('string','endsWith')
+        this.registerBuiltin('string','substring')
+        this.registerBuiltin('string','slice')
+        this.registerBuiltin('string','concat')
     }
 
     static normalize(type:string){
@@ -58,5 +61,8 @@ TypePrototypeRegistry.registerBuiltin('string','indexOf')
 TypePrototypeRegistry.registerBuiltin('string','includes')
 TypePrototypeRegistry.registerBuiltin('string','startsWith')
 TypePrototypeRegistry.registerBuiltin('string','endsWith')
+TypePrototypeRegistry.registerBuiltin('string','substring')
+TypePrototypeRegistry.registerBuiltin('string','slice')
+TypePrototypeRegistry.registerBuiltin('string','concat')
 
 export default TypePrototypeRegistry

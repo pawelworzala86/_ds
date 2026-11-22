@@ -44,4 +44,38 @@ msvcrt.printf('includes: %d, empty: %d, missing: %d\n', hasText, hasEmpty, hasMi
 msvcrt.printf('startsWith: %d, missing: %d\n', startsCorrectly, startsIncorrectly)
 msvcrt.printf('endsWith: %d, empty: %d, too long: %d\n', endsCorrectly, endsWithEmpty, endsWithTooLong)
 
+let substringText: string = '0123456789'
+let substringRange: string = 'placeholder'
+let substringToEnd: string = 'placeholder'
+let substringReversed: string = 'placeholder'
+let substringClamped: string = 'placeholder'
+substringRange = substringText.substring(2, 6)
+substringToEnd = substringText.substring(7)
+substringReversed = substringText.substring(6, 2)
+substringClamped = substringText.substring(-3, 99)
+msvcrt.printf('substring: %s, to end: %s, reversed: %s, clamped: %s\n', substringRange, substringToEnd, substringReversed, substringClamped)
+
+let sliceText: string = '0123456789'
+let sliceRange: string = 'placeholder'
+let sliceFromEnd: string = 'placeholder'
+let sliceNegativeRange: string = 'placeholder'
+let sliceEmpty: string = 'placeholder'
+sliceRange = sliceText.slice(2, 6)
+sliceFromEnd = sliceText.slice(-4)
+sliceNegativeRange = sliceText.slice(-7, -3)
+sliceEmpty = sliceText.slice(8, 3)
+msvcrt.printf('slice: %s, from end: %s, negative range: %s, empty: "%s"\n', sliceRange, sliceFromEnd, sliceNegativeRange, sliceEmpty)
+
+let concatText: string = 'compiler'
+let concatenated: string = 'placeholder'
+concatenated = concatText.concat(' text!')
+msvcrt.printf('concat: %s\n', concatenated)
+
+let replaceText: string = 'red red'
+let firstReplace: string = 'placeholder'
+let allReplace: string = 'placeholder'
+firstReplace = replaceText.replace('red', 'blue')
+allReplace = replaceText.replace(/red/g, 'blue')
+msvcrt.printf('replace first: %s, global: %s\n', firstReplace, allReplace)
+
 kernel.ExitProcess(0)

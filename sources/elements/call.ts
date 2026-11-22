@@ -18,6 +18,8 @@ import {emitStringCharCodeAt as emitStringCharCodeAtImpl} from './call/stringCha
 import {emitStringSplit as emitStringSplitImpl} from './call/stringSplit.ts'
 import {emitStringReplace as emitStringReplaceImpl} from './call/stringReplace.ts'
 import {emitStringSearch as emitStringSearchImpl} from './call/stringSearch.ts'
+import {emitStringRange as emitStringRangeImpl} from './call/stringRange.ts'
+import {emitStringConcat as emitStringConcatImpl} from './call/stringConcat.ts'
 import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl} from './call/methodLookup.ts'
 
 let arrayPushId = 0
@@ -35,6 +37,9 @@ export class Call extends Base{
     builtinStringReplace:DataElement|null = null
     builtinStringSearch:DataElement|null = null
     builtinStringSearchMethod:string|null = null
+    builtinStringRange:DataElement|null = null
+    builtinStringRangeMethod:string|null = null
+    builtinStringConcat:DataElement|null = null
     builtinConsoleLog = false
     functionVariable:DataElement|null = null
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
@@ -109,6 +114,15 @@ export class Call extends Base{
             ? prototype.method.name
             : null
         this.builtinStringSearch = this.builtinStringSearchMethod?prototype!.instance:null
+        const stringRangeMethods = ['substring','slice']
+        this.builtinStringRangeMethod = prototype?.method.kind==='builtin'
+            &&stringRangeMethods.includes(prototype.method.name)
+            ? prototype.method.name
+            : null
+        this.builtinStringRange = this.builtinStringRangeMethod?prototype!.instance:null
+        this.builtinStringConcat = prototype?.method.kind==='builtin'&&prototype.method.name==='concat'
+            ? prototype.instance
+            : null
         if(this.builtinStringSplit){
             const split = new FuncElement('__ds_string_split',[])
             split.returnArrayType = 'string[]'
@@ -119,6 +133,12 @@ export class Call extends Base{
         }
         if(this.builtinStringSearch){
             this.func = new FuncElement(`__ds_string_${this.builtinStringSearchMethod}`,[])
+        }
+        if(this.builtinStringRange){
+            this.func = new FuncElement(`__ds_string_${this.builtinStringRangeMethod}`,[])
+        }
+        if(this.builtinStringConcat){
+            this.func = new FuncElement('__ds_string_concat',[])
         }
         const argumentTexts = tokenizer.getCallArguments()
         this.params = argumentTexts.map(token=>new FunctionArgument(this,token))
@@ -190,6 +210,33 @@ export class Call extends Base{
         if(this.builtinStringSearch){
             if(this.params.length!==1){
                 throw new Error(`String.${this.builtinStringSearchMethod} expects exactly one string argument`)
+            }
+            if(this.builtinStringRange){
+                if(this.params.length<1||this.params.length>2){
+                    throw new Error(`String.${this.builtinStringRangeMethod} expects one or two integer arguments`)
+                }
+                for(const index of this.params){
+                    const isNumericValue = Boolean(index.expression
+                        ||index.value instanceof DataElement&&index.value.type==='number')
+                    const numericKind = index.expression?.numericKind
+                        ??(index.value instanceof DataElement?index.value.numericKind:'integer')
+                    if(!isNumericValue||numericKind!=='integer'){
+                        throw new Error(`String.${this.builtinStringRangeMethod} arguments must be integers`)
+                    }
+                }
+            }
+            if(this.builtinStringConcat){
+                if(this.params.length!==1){
+                    throw new Error('String.concat expects exactly one string argument')
+                }
+                const value = this.params[0]
+                const isString = typeof value.value==='string'
+                    &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(value.value)
+                    ||value.value instanceof DataElement&&value.value.type==='string'&&!value.value.isArray
+                    ||value.classProperty?.type==='string'&&!value.classProperty.isArray
+                if(!isString){
+                    throw new Error('String.concat argument must be a string')
+                }
             }
             const search = this.params[0]
             const isString = typeof search.value==='string'
@@ -281,6 +328,12 @@ export class Call extends Base{
     }
     emitStringSearch(ASM:Asm){
         emitStringSearchImpl(this,ASM)
+    }
+    emitStringRange(ASM:Asm){
+        emitStringRangeImpl(this,ASM)
+    }
+    emitStringConcat(ASM:Asm){
+        emitStringConcatImpl(this,ASM)
     }
     emitArrayPush(ASM:Asm){
         emitArrayPushImpl(this,ASM)
