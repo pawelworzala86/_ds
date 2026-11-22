@@ -100,7 +100,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
     if((target.type==='string'||target.type==='string[]')&&(!target.isArray||!indexText)){
         throw new Error('String assignment is only supported for string array elements')
     }
-    if((target.type!=='number'&&target.type!=='boolean'&&target.type!=='Function'&&target.type!=='function'&&!target.isArray)&&(target.type!=='string'&&target.type!=='string[]')){
+    if((target.type!=='number'&&target.type!=='boolean'&&target.type!=='Function'&&target.type!=='function'&&target.type!=='ArrayBuffer'&&!target.isArray)&&(target.type!=='string'&&target.type!=='string[]')){
         throw new Error('Assignment is only supported for number and function variables and string array elements')
     }
     assignment.target = target

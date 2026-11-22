@@ -6,6 +6,7 @@ import {parseRegExpLiteral} from '../../regex.ts'
 import Call from '../call.ts'
 
 let arrayPushId = 0
+let arrayToStringArgumentId = 0
 let stringCharCodeAtId = 0
 
 export function initializeCall(instance:Call,tokenizer:Tokenizer){
@@ -56,6 +57,16 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     instance.builtinArray = prototype?.method.kind==='builtin'&&prototype.method.name==='push'
         ? prototype.instance
         : null
+    instance.builtinArrayToString = prototype?.method.kind==='builtin'
+        &&prototype.method.name==='toString'
+        &&prototype.type==='array'
+        ? prototype.instance
+        : null
+    instance.builtinArrayBufferToString = prototype?.method.kind==='builtin'
+        &&prototype.method.name==='toString'
+        &&prototype.type==='ArrayBuffer'
+        ? prototype.instance
+        : null
     instance.builtinStringCharCodeAt = prototype?.method.kind==='builtin'&&prototype.method.name==='charCodeAt'
         ? prototype.instance
         : null
@@ -101,6 +112,24 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     instance.params = argumentTexts.map(token=>new FunctionArgument(instance,token))
     instance.params.forEach((param,index)=>{
         const argument = argumentTexts[index]
+        const arrayToString = argument.match(/^([a-z_$][\w$]*)\.toString\(\)$/i)
+        const toStringReceiver = arrayToString?instance.getData(arrayToString[1].split('.')[0]):null
+        if(arrayToString&&(toStringReceiver?.isArray||toStringReceiver?.type==='ArrayBuffer')){
+            const nestedTokenizer = new Tokenizer(argument)
+            const nestedCall = new Call(instance)
+            nestedCall.set(nestedTokenizer)
+            const isArrayToString = Boolean(toStringReceiver?.isArray&&nestedCall.builtinArrayToString)
+            const isArrayBufferToString = Boolean(
+                toStringReceiver?.type==='ArrayBuffer'&&nestedCall.builtinArrayBufferToString
+            )
+            if(nestedTokenizer.has()||!isArrayToString&&!isArrayBufferToString){
+                throw new Error('Unable to resolve toString call')
+            }
+            param.tempName = `__ds_array_to_string_arg_${++arrayToStringArgumentId}`
+            param.value = new DataElement('let',param.tempName,'string','0')
+            instance.nestedArgumentCalls.set(param,nestedCall)
+            return
+        }
         if(!/^[a-z_$][\w$]*\.charCodeAt\([\s\S]*\)$/i.test(argument)){
             return
         }
@@ -220,8 +249,15 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     if(instance.prototypeReceiver&&prototype){
         instance.params.unshift(new FunctionArgument(instance,prototype.instance.name??''))
     }
+    if(instance.builtinArrayToString&&instance.params.length!==0){
+        throw new Error('Array.toString expects no arguments')
+    }
+    if(instance.builtinArrayBufferToString&&instance.params.length!==0){
+        throw new Error('ArrayBuffer.toString expects no arguments')
+    }
     if(instance.builtinArray){
         instance.builtinArray.dynamicArray = true
+        instance.builtinArray.arrayHasMutation = true
         if(instance.params.length!==1){
             throw new Error('Array.push expects exactly one argument')
         }

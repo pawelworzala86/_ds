@@ -166,11 +166,13 @@ export function emitExpression(expression:Expression,ASM:Asm){
         return
     }
     if(expression.kind==='arrayLength'){
-        if(expression.value.isParameter){
+        if(expression.value.dynamicArray&&expression.value.isParameter){
             ASM.addCode(`mov rdx, ${expression.value.name}`)
             ASM.addCode('mov rax, [rdx+8]')
-        }else{
+        }else if(expression.value.dynamicArray){
             ASM.addCode(`mov rax, [${expression.value.name}__length]`)
+        }else{
+            ASM.addCode(`mov rax, ${expression.value.arrayLength??0}`)
         }
         return
     }

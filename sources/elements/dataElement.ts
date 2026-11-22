@@ -19,6 +19,8 @@ export class DataElement{
     classLayoutType:string|null = null
     classLayoutProps:DataElement[]|null = null
     arrayObjectValues:DataElement[][]|null = null
+    arrayLength:number|null = null
+    arrayHasMutation = false
     typedArrayKind:TypedArrayKind|null = null
     typedArrayValues:TypedArrayValue[]|null = null
     typedArrayBytes:number[]|null = null
@@ -59,6 +61,9 @@ export class DataElement{
             return this.isHeapAllocated?`[${this.name}]`:'addr '+this.name
         }
         if(this.type=='string'){
+            return this.isParameter?this.name:`[${this.name}]`
+        }
+        if(byValue&&this.type==='ArrayBuffer'){
             return this.isParameter?this.name:`[${this.name}]`
         }
         if(byValue&&(this.type=='number'||this.type==='boolean')){

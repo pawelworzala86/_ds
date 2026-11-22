@@ -75,6 +75,14 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             call.emitArrayPush(ASM)
             return
         }
+        if(call.builtinArrayToString){
+            call.emitArrayToString(ASM)
+            return
+        }
+        if(call.builtinArrayBufferToString){
+            call.emitArrayBufferToString(ASM)
+            return
+        }
         if(call.builtinStringCharCodeAt){
             call.emitStringCharCodeAt(ASM)
             return

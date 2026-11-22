@@ -62,11 +62,24 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const jsonStringifyValue = hasInitializer&&data.parent
         ? parseJSONStringifyInitializer(initializerTokens,data.parent)
         : null
+    const arrayToStringCall = initializerTokens.join('').match(/^([a-z_$][\w$]*)\.toString\(\)$/i)
+    const toStringReceiver = arrayToStringCall?data.parent?.getData(arrayToStringCall[1]):null
+    const arrayToStringInitializer = arrayToStringCall&&toStringReceiver?.isArray?arrayToStringCall:null
+    const arrayBufferToStringInitializer = arrayToStringCall&&toStringReceiver?.type==='ArrayBuffer'
+        ? arrayToStringCall
+        : null
+    const toStringInitializer = arrayToStringInitializer??arrayBufferToStringInitializer
     if(jsonParseValue!==undefined&&type&&type!=='any'){
         throw new Error(`JSON.parse result cannot be assigned to "${type}"`)
     }
     if(jsonStringifyValue!==null&&type&&type!=='string'){
         throw new Error(`JSON.stringify result cannot be assigned to "${type}"`)
+    }
+    if(toStringInitializer&&type&&type!=='string'){
+        throw new Error(`toString result cannot be assigned to "${type}"`)
+    }
+    if(toStringInitializer&&!type){
+        type='string'
     }
     let value = initializerTokens[0]
     if(!hasInitializer&&(type==='Function'||type==='function')){
@@ -225,10 +238,10 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }
     let values = [value]
     if(type=='string'){
-        if(chainedMethodCall){
+        if(chainedMethodCall||toStringInitializer){
             value = '0'
         }
-        values = chainedMethodCall?['0']: [jsonParseValue!==undefined
+        values = chainedMethodCall||toStringInitializer?['0']: [jsonParseValue!==undefined
             ? JSON.stringify(jsonParseValue).slice(1,-1)
             : jsonStringifyValue!==null
                 ? JSON.stringify(jsonStringifyValue).slice(1,-1)
@@ -244,6 +257,22 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }else if(data.parent){
         data.element.jsonValue = getJSONValueFromData(data.element,data.parent)
     }
+    if(toStringInitializer&&data.parent){
+        const toStringCall = new Call(data.parent)
+        toStringCall.set(new Tokenizer(initializerTokens.join('')))
+        const isArrayToString = Boolean(arrayToStringInitializer
+            &&toStringCall.params.length===0
+            &&toStringCall.builtinArrayToString)
+        const isArrayBufferToString = Boolean(arrayBufferToStringInitializer
+            &&toStringCall.params.length===0
+            &&toStringCall.builtinArrayBufferToString)
+        if(!isArrayToString&&!isArrayBufferToString){
+            throw new Error(`Unable to resolve toString call "${initializerTokens.join('')}"`)
+        }
+        toStringCall.resultTarget = data.element
+        data.initializerCalls.push(toStringCall)
+        data.runtimeCallInitializer = true
+    }
     if(chainedMethodCall&&type==='string'&&data.parent){
         const [,callExpression,methodName] = chainedMethodCall
         const callTokenizer = new Tokenizer(callExpression)
@@ -252,14 +281,17 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         if(callTokenizer.has()){
             throw new Error('Invalid function call in chained method initializer')
         }
-        const className = initializerCall.func?.returnClassType
-            ??(initializerCall.func?.returnType?data.parent.getClass(initializerCall.func.returnType)?.name:null)
+        const isArrayBufferResult = initializerCall.func?.returnType==='ArrayBuffer'
+        const className = isArrayBufferResult
+            ? 'ArrayBuffer'
+            : initializerCall.func?.returnClassType
+                ??(initializerCall.func?.returnType?data.parent.getClass(initializerCall.func.returnType)?.name:null)
         const classType = className?data.parent.getClass(className):null
         const method = classType?.getFunction(methodName)
-        if(!className||!method){
+        if(!className||(!isArrayBufferResult&&!method)||isArrayBufferResult&&methodName!=='toString'){
             throw new Error(`Unable to resolve method "${methodName}" on returned class`)
         }
-        if(method.params.length||method.returnType!=='string'){
+        if(!isArrayBufferResult&&(method!.params.length||method!.returnType!=='string')){
             throw new Error(`Chained method "${methodName}" must take no arguments and return a string`)
         }
         let temporaryName = ''
@@ -267,7 +299,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
             temporaryName = `__ds_call_result_${nextCallResultId()}`
         }while(data.parent.getData(temporaryName))
         const temporary = new DataElement('let',temporaryName,className,'0')
-        temporary.classType = className
+        temporary.classType = isArrayBufferResult?null:className
         temporary.isReferenceAlias = true
         temporary.isHeapAllocated = true
         let functionScope:Base|null = data.parent
@@ -291,6 +323,9 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     if(arrayType){
         data.element.isArray = true
         data.element.dynamicArray = arrayValues.length===0
+        data.element.arrayLength = data.arrayInitializerCall
+            ? null
+            : arrayObjectValues?.length??arrayValues.length
         data.element.arrayObjectValues = arrayObjectValues
         data.element.numericKind = data.arrayInitializerCall?.func?.returnArrayNumericKind
             ??(arrayType[1]==='number'&&arrayValues.some(item=>getNumericKind(item)==='float')?'float':'integer')
@@ -301,6 +336,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     if(typedArrayInitializer){
         data.element.isArray = true
         data.element.dynamicArray = false
+        data.element.arrayLength = typedArrayInitializer.values.length
         data.element.numericKind = typedArrayInitializer.kind.startsWith('Float')?'float':'integer'
         data.element.typedArrayKind = typedArrayInitializer.kind
         data.element.typedArrayValues = typedArrayInitializer.values

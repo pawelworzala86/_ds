@@ -1,4 +1,5 @@
 const nums: number[] = [12.13, 15.12]
+const growing: number[] = []
 const floatArray: Float64Array = new Float64Array(nums)
 const float32Array: Float32Array = new Float32Array(nums)
 const byteArray: Uint8Array = new Uint8Array(floatArray.buffer)
@@ -8,7 +9,14 @@ const unsigned64Array: BigUint64Array = new BigUint64Array([18446744073709551615
 const convertedBytes: Uint8Array = new Uint8Array([-1, 257, 12.7])
 const clampedBytes: Uint8ClampedArray = new Uint8ClampedArray([12.5, 255.9, 2.5])
 const signed64Bytes: Uint8Array = new Uint8Array(signed64Array.buffer)
+const numsText: string = nums.toString()
 
+growing.push(7)
+console.log('Array lengths:', nums.length, floatArray.length, byteArray.length)
+console.log('Dynamic array length:', growing.length)
+console.log('Array text:', numsText)
+console.log('Inline array text:', nums.toString())
+console.log('Byte array text:', byteArray.toString())
 console.log('First element:', floatArray[0])
 console.log('Second element:', floatArray[1])
 console.log('Float32 element:', float32Array[0])
@@ -19,3 +27,5 @@ console.log('Unsigned 64-bit value:', unsigned64Array[0])
 console.log('Signed 64-bit bytes:', signed64Bytes[0], signed64Bytes[7])
 console.log('Converted byte values:', convertedBytes[0], convertedBytes[1], convertedBytes[2])
 console.log('Clamped byte values:', clampedBytes[0], clampedBytes[1], clampedBytes[2])
+
+console.log('floatArray.length:', floatArray.length)

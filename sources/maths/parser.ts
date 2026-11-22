@@ -60,7 +60,7 @@ export function parseExpression(text:string,active:Base):Expression{
             if(value?.type==='string'&&!value.isArray){
                 return {kind:'stringLength',value,numericKind:'integer'}
             }
-            if(value?.isArray&&value.dynamicArray){
+            if(value?.isArray){
                 return {kind:'arrayLength',value,numericKind:'integer'}
             }
         }

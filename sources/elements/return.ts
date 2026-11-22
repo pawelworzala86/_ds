@@ -41,7 +41,8 @@ export class Return extends Base{
                 this.condition.condition = this.condition.parseCondition(expression)
             }else{
                 const returnedData = this.parent?.getData(expression)
-                if(returnedData?.classType&&!returnedData.isArray){
+                if(returnedData?.classType&&!returnedData.isArray
+                    ||returnedData?.type==='ArrayBuffer'&&!returnedData.isArray){
                     this.classValue = returnedData
                     let functionScope = this.parent
                     while(functionScope&&!functionScope.isFunctionScope){
@@ -130,7 +131,7 @@ export class Return extends Base{
                 : `lea rax, [${name}]`)
         }else if(this.classValue){
             const value = this.classValue
-            ASM.addCode(value.isHeapAllocated
+            ASM.addCode(value.type==='ArrayBuffer'||value.isHeapAllocated
                 ? `mov rax, [${value.name}]`
                 : value.isParameter
                     ? `mov rax, ${value.name}`

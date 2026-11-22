@@ -206,6 +206,7 @@ export class Func extends Base{
                     ||data.type==='number'&&data.isArray&&!data.dynamicArray
                     ||data.type==='boolean'&&!data.isArray
                     ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
+                    ||data.type==='ArrayBuffer'&&!data.isArray
                     ||data.type==='Task'
                     ||Boolean(data.classType)&&!data.isArray
                 )
