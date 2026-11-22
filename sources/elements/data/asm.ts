@@ -5,6 +5,7 @@ import {splitTopLevelArrayValues} from './arrays.ts'
 import {getTypedArrayInfo} from './typedArrays.ts'
 import {getStructFields,getStructLayoutMembers,initializeStackStructStrings,initializeStructStrings} from './struct.ts'
 import {nextObjectStringLabelId} from './ids.ts'
+import {isPromiseType} from '../promise.ts'
 import type Data from '../data.ts'
 
 export function emitDataAsm(data:Data,ASM:Asm){
@@ -32,7 +33,7 @@ export function emitDataAsm(data:Data,ASM:Asm){
             }
             return
         }
-        if(/^Promise<(?:number|string|boolean)>$/i.test(data.element.type??'')){
+        if(isPromiseType(data.element.type??undefined)&&data.element.type!=='Promise'){
             const state = `${data.element.name}__state`
             const value = `${data.element.name}__value`
             if(data.element.isProcedureLocal){

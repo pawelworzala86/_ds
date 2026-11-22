@@ -31,9 +31,7 @@ export class New{
             if(args.length){
                 throw new Error(`Class "${className}" has no constructor`)
             }
-            return true
-        }
-        if(args.length!==constructor.params.length){
+        }else if(args.length!==constructor.params.length){
             throw new Error(`Constructor for "${className}" expects ${constructor.params.length} arguments, received ${args.length}`)
         }
 
@@ -49,9 +47,11 @@ export class New{
         declaration.element = instance
         active.children.push(declaration)
 
-        const call = new Call(active)
-        call.set(new Tokenizer(`${instanceName}.constructor(${args.join(',')})`))
-        active.children.push(call)
+        if(constructor){
+            const call = new Call(active)
+            call.set(new Tokenizer(`${instanceName}.constructor(${args.join(',')})`))
+            active.children.push(call)
+        }
         return true
     }
 }

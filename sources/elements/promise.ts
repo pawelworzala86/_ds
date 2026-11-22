@@ -4,11 +4,15 @@ import {stringLiteralData} from '../stringLiteral.ts'
 import Base from './base.ts'
 import DataElement, {getNumericKind} from './dataElement.ts'
 import FunctionArgument from './functionArgument.ts'
+import New from './new.ts'
+import Tokenizer from '../tokenizer.ts'
+import Timeout from './timeout.ts'
 
 export class PromiseInitializer extends Base{
     target:DataElement
     status:1|2
     value:FunctionArgument
+    timeout:Timeout|null = null
 
     constructor(parent:Base,target:DataElement,status:1|2,value:FunctionArgument){
         super(parent)
@@ -18,6 +22,19 @@ export class PromiseInitializer extends Base{
     }
 
     asm(ASM:Asm){
+        if(this.timeout){
+            const name = this.target.name
+            if(!name){
+                throw new Error('Promise initializer target is not initialized')
+            }
+            ASM.addCode(`mov qword [${name}__state], 0`)
+            this.timeout.asm(ASM)
+            return
+        }
+        this.emitSettlement(ASM)
+    }
+
+    emitSettlement(ASM:Asm){
         const name = this.target.name
         if(!name){
             throw new Error('Promise initializer target is not initialized')
@@ -31,6 +48,12 @@ export class PromiseInitializer extends Base{
         }else if(value instanceof DataElement){
             if(value.isConstAlias){
                 ASM.addCode(`mov rax, ${value.name}`)
+            }else if(value.classType&&!value.isArray){
+                ASM.addCode(value.isParameter
+                    ? `mov rax, ${value.name}`
+                    : value.isReferenceAlias||value.isHeapAllocated
+                        ? `mov rax, [${value.name}]`
+                        : `lea rax, [${value.name}]`)
             }else if(value.type==='string'){
                 ASM.addCode(value.isParameter
                     ? `mov rax, ${value.name}`
@@ -52,17 +75,49 @@ export class PromiseInitializer extends Base{
         ASM.addCode(`mov [${name}__value], rax`)
         ASM.addCode(`mov qword [${name}__state], ${this.status}`)
     }
+
+    setTimeout(parent:Base,delay:string){
+        this.timeout = new Timeout(parent)
+        this.timeout.set(new Tokenizer(`setTimeout(()=>{},${delay})`))
+        this.timeout.children.push(new PromiseSettlement(this.timeout,this))
+    }
 }
 
-function getPromiseValueType(type:string|undefined){
-    return type?.match(/^Promise(?:<\s*(number|string|boolean)\s*>)?$/i)?.[1]?.toLowerCase()??null
+class PromiseSettlement extends Base{
+    initializer:PromiseInitializer
+
+    constructor(parent:Base,initializer:PromiseInitializer){
+        super(parent)
+        this.initializer = initializer
+    }
+
+    asm(ASM:Asm){
+        this.initializer.emitSettlement(ASM)
+    }
+}
+
+export function getPromiseValueType(type:string|undefined){
+    const valueType = type?.match(/^Promise(?:<\s*([a-z_$][\w$]*)\s*>)?$/i)?.[1]
+    if(!valueType){
+        return null
+    }
+    return ['number','string','boolean'].includes(valueType.toLowerCase())
+        ? valueType.toLowerCase()
+        : valueType
+}
+
+export function isPromiseType(type:string|undefined){
+    return Boolean(type?.match(/^Promise(?:<\s*[a-z_$][\w$]*\s*>)?$/i))
 }
 
 function getValueType(argument:FunctionArgument){
     const value = argument.value
     if(value instanceof DataElement){
-        return value.type==='number'||value.type==='string'||value.type==='boolean'
-            ? value.type
+        if(value.type==='number'||value.type==='string'||value.type==='boolean'){
+            return value.type
+        }
+        return !value.isArray&&!/^Promise(?:<.*>)?$/i.test(value.type??'')
+            ? value.classType??value.type
             : null
     }
     if(typeof value==='string'){
@@ -79,6 +134,24 @@ function getValueType(argument:FunctionArgument){
     return null
 }
 
+function getPromiseArgument(parent:Base,expression:string){
+    const argument = new FunctionArgument(parent,expression)
+    if(typeof argument.value!=='string'||!/^new[a-z_$][\w$]*\([\s\S]*\)$/i.test(expression)){
+        return argument
+    }
+    const previousDataCount = parent.DATA.length
+    const tokenizer = new Tokenizer(`${expression.replace(/^new/i,'new ')};`)
+    New.test(parent,tokenizer)
+    if(tokenizer.has()){
+        throw new Error('Invalid Promise class constructor value')
+    }
+    const instance = parent.DATA.slice(previousDataCount).find(data=>data.classType&&!data.isArray)
+    if(!instance?.name){
+        throw new Error('Unable to initialize Promise class value')
+    }
+    return new FunctionArgument(parent,instance.name)
+}
+
 export function parsePromiseInitializer(
     parent:Base,
     target:DataElement,
@@ -87,6 +160,7 @@ export function parsePromiseInitializer(
 ){
     let status:1|2
     let valueExpression:string
+    let timeoutDelay:string|null = null
     const staticCall = expression.match(/^Promise\.(resolve|reject)\(([\s\S]*)\)$/)
     if(staticCall){
         status = staticCall[1]==='resolve'?1:2
@@ -104,9 +178,17 @@ export function parsePromiseInitializer(
             ||parameters.some(name=>!/^[a-z_$][\w$]*$/i.test(name))){
             throw new Error('Promise executor must accept resolve and optional reject callbacks')
         }
-        const resolution = constructor[2].trim().match(/^([a-z_$][\w$]*)\(([\s\S]*)\);?$/i)
+        const executorBody = constructor[2].trim()
+        const timer = executorBody.match(/^setTimeout\(\(\)=>\{([\s\S]*)\},([\s\S]*)\)$/)
+        let resolution:string[]|null
+        if(timer){
+            timeoutDelay = timer[2].trim()
+            resolution = timer[1].trim().match(/^([a-z_$][\w$]*)\(([\s\S]*)\);?$/i)
+        }else{
+            resolution = executorBody.match(/^([a-z_$][\w$]*)\(([\s\S]*)\);?$/i)
+        }
         if(!resolution){
-            throw new Error('Promise executor only supports a direct resolve(value) or reject(value) call')
+            throw new Error('Promise executor must directly resolve/reject or use setTimeout to resolve/reject')
         }
         const resolveName = parameters[0]
         const rejectName = parameters[1]
@@ -119,11 +201,11 @@ export function parsePromiseInitializer(
         }
         valueExpression = resolution[2]
     }
-    const argument = new FunctionArgument(parent,valueExpression)
+    const argument = getPromiseArgument(parent,valueExpression)
     const valueType = getValueType(argument)
     const argumentValue = argument.value
     if(!valueType){
-        throw new Error('Promise values must be number, string, or boolean')
+        throw new Error('Promise values must have a supported scalar or class type')
     }
     const declaredValueType = getPromiseValueType(declaredType)
     if(declaredType&&!declaredValueType){
@@ -140,7 +222,11 @@ export function parsePromiseInitializer(
                 : typeof argumentValue==='string'?getNumericKind(argumentValue):'integer')
     }
     target.value = '0'
-    return new PromiseInitializer(parent,target,status,argument)
+    const initializer = new PromiseInitializer(parent,target,status,argument)
+    if(timeoutDelay){
+        initializer.setTimeout(parent,timeoutDelay)
+    }
+    return initializer
 }
 
 export function getPromiseValueTypeFromData(data:DataElement){

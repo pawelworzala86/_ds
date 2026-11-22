@@ -3,6 +3,7 @@ import Asm from '../asm.ts'
 import Base from './base.ts'
 import Make from '../make.ts'
 import {emitExpression,parseExpression,type Expression} from '../maths.ts'
+import {isPromiseType} from './promise.ts'
 
 let timeoutId = 0
 
@@ -41,7 +42,7 @@ export class Timeout extends Base{
                 data.type==='number'&&!data.isArray
                 ||data.type==='number'&&data.isArray&&!data.dynamicArray
                 ||data.type==='Task'
-                ||/^Promise<(?:number|string|boolean)>$/i.test(data.type??'')
+                ||isPromiseType(data.type??undefined)&&data.type!=='Promise'
                 ||Boolean(data.classType)&&!data.isArray
             )){
                 data.isProcedureLocal = true

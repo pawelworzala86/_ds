@@ -169,7 +169,7 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     if(instance.builtinPromiseMethod){
         const promiseType = getPromiseValueTypeFromData(instance.methodInstance!)
         if(!promiseType){
-            throw new Error('Promise methods require a Promise<number>, Promise<string>, or Promise<boolean>')
+            throw new Error('Promise methods require a typed Promise<T>')
         }
         if(instance.params.length!==1){
             throw new Error(`Promise.${instance.builtinPromiseMethod} expects exactly one callback`)

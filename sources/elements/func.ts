@@ -5,6 +5,7 @@ import Asm from "./../asm.ts"
 import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
 import ClassElement from './clasElement.ts'
+import {isPromiseType} from './promise.ts'
 
 let returnId = 0
 let asyncWorkerId = 0
@@ -208,7 +209,7 @@ export class Func extends Base{
                     ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
                     ||data.type==='ArrayBuffer'&&!data.isArray
                     ||data.type==='Task'
-                    ||/^Promise<(?:number|string|boolean)>$/i.test(data.type??'')
+                    ||isPromiseType(data.type??undefined)&&data.type!=='Promise'
                     ||Boolean(data.classType)&&!data.isArray
                 )
             )){

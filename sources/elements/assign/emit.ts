@@ -1,6 +1,7 @@
 import Asm from '../../asm.ts'
 import {emitExpression} from '../../maths.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
+import {getStructFields} from '../data/struct.ts'
 import type {Assign} from '../assign.ts'
 
 let stringAssignId = 0
@@ -44,11 +45,53 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         const id = ++promiseAwaitId
         const failure = `__ds_promise_await_failure_${id}`
         const done = `__ds_promise_await_done_${id}`
+        const wait = `__ds_promise_await_wait_${id}`
+        const settled = `__ds_promise_await_settled_${id}`
         ASM.addImport('kernel32','ExitProcess')
+        ASM.addImport('kernel32','Sleep')
+        ASM.addCode(`${wait}:`)
+        ASM.addCode(`cmp qword [${promise.name}__state], 0`)
+        ASM.addCode(`jne ${settled}`)
+        ASM.addCode('mov ecx, 1')
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode('call [Sleep]')
+        ASM.addCode('add rsp, 40')
+        ASM.addCode(`jmp ${wait}`)
+        ASM.addCode(`${settled}:`)
         ASM.addCode(`cmp qword [${promise.name}__state], 1`)
         ASM.addCode(`jne ${failure}`)
         ASM.addCode(`mov rax, [${promise.name}__value]`)
-        if(assignment.target.type==='number'&&assignment.target.numericKind==='float'){
+        if(assignment.target.classType&&!assignment.target.isArray){
+            const classType = assignment.parent?.getClass(assignment.target.classType)
+            if(!classType){
+                throw new Error(`Unknown class type "${assignment.target.classType}" for awaited Promise`)
+            }
+            const fields = getStructFields(
+                assignment.target.classLayoutProps??classType.props,
+                name=>assignment.parent!.getClass(name)
+            )
+            ASM.addCode('mov rdx, rax')
+            const instance = assignment.target.classPropertyInstance
+            const offset = assignment.target.classPropertyOffset
+            if(instance?.isProcedureLocal&&offset!==null&&offset!==undefined){
+                ASM.addCode(instance.isHeapAllocated
+                    ? `mov rcx, [${instance.name}]`
+                    : `lea rcx, [${instance.name}]`)
+                if(offset){
+                    ASM.addCode(`add rcx, ${offset}`)
+                }
+            }else if(assignment.target.isProcedureLocal
+                &&(assignment.target.isHeapAllocated||assignment.target.isReferenceAlias)){
+                ASM.addCode(`mov rcx, [${targetName}]`)
+            }else{
+                ASM.addCode(`lea rcx, [${targetName}]`)
+            }
+            fields.forEach((_,index)=>{
+                const fieldOffset = index*8
+                ASM.addCode(`mov rax, [rdx+${fieldOffset}]`)
+                ASM.addCode(`mov [rcx+${fieldOffset}], rax`)
+            })
+        }else if(assignment.target.type==='number'&&assignment.target.numericKind==='float'){
             ASM.addCode('movq xmm0, rax')
             storeTarget('xmm0',true)
         }else{

@@ -85,7 +85,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         const promise = data.parent?.getData(initializerTokens[1])
         const promiseType = promise?getPromiseValueTypeFromData(promise):null
         if(!promise||!promiseType){
-            throw new Error('Await expects a Promise<number>, Promise<string>, or Promise<boolean> variable')
+            throw new Error('Await expects a Promise<T> variable')
         }
         if(type&&type!==promiseType){
             throw new Error(`Awaited Promise value type "${promiseType}" does not match "${type}"`)
@@ -264,7 +264,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         ? {type:jsonParseClass.name!,props:jsonParseClass.props}
         : null
     let classInitializerArgs:string[]|null = null
-    if(classType&&!arrayType&&eq==='='&&!jsonParseClass){
+    if(classType&&!arrayType&&eq==='='&&!jsonParseClass&&!hasPromiseInitializer&&!hasAwaitInitializer){
         if(initializerTokens[0]==='{'){
             const properties = parseObjectLiteral(initializerTokens)
             classLayout = createStructLayout(properties,classType,name)

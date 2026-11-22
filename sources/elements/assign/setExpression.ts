@@ -21,7 +21,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
         const promise = assignment.parent?.getData(promiseAwait[1])
         const valueType = promise?getPromiseValueTypeFromData(promise):null
         if(!promise||!valueType){
-            throw new Error(`Await expects a Promise<number>, Promise<string>, or Promise<boolean> variable`)
+            throw new Error('Await expects a Promise<T> variable')
         }
         if(target.type!==valueType||target.isArray){
             throw new Error(`Awaited Promise value type "${valueType}" does not match "${target.type}"`)

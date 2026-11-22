@@ -45,11 +45,18 @@ class MyClass {
     }
 }
 
-const executorRes:Promise<number> = new Promise((resolve,reject) => {
-    resolve(15)
+/*function showClass(value:MyClass){
+    console.log('promise class callback:',value.value)
+}*/
+
+const executorRes:Promise<MyClass> = new Promise((resolve,reject) => {
+    setTimeout(() => {
+        resolve(new MyClass(44))
+    }, 1000)
 })
-let executorResValue:number = await executorRes
-console.log('executorResValue:',executorResValue)
+//executorRes.then(showClass)
+let executorResValue:MyClass = await executorRes
+console.log('executorResValue:',executorResValue.value)
 
 
 
