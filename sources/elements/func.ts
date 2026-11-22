@@ -249,6 +249,9 @@ export class Func extends Base{
         for(const node of this.children){
             node.asm(asm)
         }
+        if(asm.hasBackgroundThreads){
+            ASM.markBackgroundThreads()
+        }
         asm.addCode(`${this.returnLabel}:`)
         asm.addCode('ret')
         asm.addCode(`endp`)
@@ -286,6 +289,8 @@ export class Func extends Base{
                 worker.addCode('call [free]')
                 worker.addCode('add rsp, 40')
             }
+            worker.addCode('lock')
+            worker.addCode('dec qword [__ds_active_threads]')
             worker.addCode('xor eax, eax')
             worker.addCode('ret')
             worker.addCode('endp')

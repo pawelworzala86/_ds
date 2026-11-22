@@ -16,13 +16,18 @@ import type Data from '../data.ts'
 export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     let tokens:string[] = []
     let objectDepth = 0
+    let timeoutCallbackDepth = 0
+    let timeoutCall = false
+    let timeoutCallbackPending = false
     while(tokenizer.has()){
         const token = tokenizer.get()
         if(token==='\n'){
             if(objectDepth===0){
                 break
             }
-            continue
+            if(timeoutCallbackDepth===0){
+                continue
+            }
         }
         if(token===';'&&objectDepth===0){
             break
@@ -30,8 +35,21 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         tokens.push(token)
         if(token==='{'){
             objectDepth++
+            if(timeoutCallbackPending){
+                timeoutCallbackDepth = 1
+                timeoutCallbackPending = false
+            }else if(timeoutCallbackDepth>0){
+                timeoutCallbackDepth++
+            }
         }else if(token==='}'){
             objectDepth--
+            if(timeoutCallbackDepth>0){
+                timeoutCallbackDepth--
+            }
+        }else if(token==='setTimeout'){
+            timeoutCall = true
+        }else if(token==='=>'&&timeoutCall){
+            timeoutCallbackPending = true
         }
     }
     if(!classField&&tokens[1]==='{'){

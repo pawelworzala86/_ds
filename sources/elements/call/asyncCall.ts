@@ -25,6 +25,7 @@ export function emitAsyncCall(call:Call,ASM:Asm,mode:'detached'|'handle'|'await'
         const done = `__ds_async_call_done_${id}`
         const hasParams = call.params.length>0
 
+        ASM.markBackgroundThreads()
         ASM.addImport('kernel32','CreateThread')
         ASM.addImport('kernel32','CloseHandle')
         ASM.addImport('kernel32','ExitProcess')
@@ -44,6 +45,8 @@ export function emitAsyncCall(call:Call,ASM:Asm,mode:'detached'|'handle'|'await'
             })
         }
 
+        ASM.addCode('lock')
+        ASM.addCode('inc qword [__ds_active_threads]')
         ASM.addCode('xor ecx, ecx')
         ASM.addCode('xor edx, edx')
         ASM.addCode(`lea r8, [${func.asyncWorkerName}]`)
@@ -84,6 +87,8 @@ export function emitAsyncCall(call:Call,ASM:Asm,mode:'detached'|'handle'|'await'
         call.emitAsyncFailure(ASM)
         ASM.addCode(`jmp ${done}`)
         ASM.addCode(`${createFailure}:`)
+        ASM.addCode('lock')
+        ASM.addCode('dec qword [__ds_active_threads]')
         if(hasParams){
             ASM.addImport('msvcrt','free')
             ASM.addCode('mov rcx, rbx')

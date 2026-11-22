@@ -45,6 +45,8 @@ export class Assign extends Base{
             }
             this.target = target
             this.timeout = timeout
+            target.timeoutLockName = timeout.lockName
+            target.timeoutCompletedName = timeout.completedName
             return
         }
         const call = new Call(this.parent!)

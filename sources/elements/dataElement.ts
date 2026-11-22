@@ -27,6 +27,8 @@ export class DataElement{
     jsonValue:JsonValue|undefined
     classPropertyInstance:DataElement|null = null
     classPropertyPath:string|null = null
+    timeoutLockName:string|null = null
+    timeoutCompletedName:string|null = null
     numericKind:NumericKind = 'integer'
     isArray = false
     dynamicArray = false

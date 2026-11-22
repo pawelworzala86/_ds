@@ -9,6 +9,8 @@ let timeoutId = 0
 export class Timeout extends Base{
     id = ++timeoutId
     workerName = `__ds_timeout_worker_${this.id}`
+    lockName = `__ds_timeout_lock_${this.id}`
+    completedName = `__ds_timeout_completed_${this.id}`
     delay:Expression|null = null
 
     constructor(parent:Base){
@@ -80,6 +82,9 @@ export class Timeout extends Base{
         const done = `__ds_timeout_done_${this.id}`
         const returnLabel = `__ds_timeout_return_${this.id}`
         this.returnLabel = returnLabel
+        ASM.markBackgroundThreads()
+        ASM.addData(`${this.lockName} dq 0`)
+        ASM.addData(`${this.completedName} dq 0`)
         ASM.addImport('kernel32','CreateThread')
         ASM.addImport('kernel32','CloseHandle')
         ASM.addImport('kernel32','Sleep')
@@ -88,6 +93,8 @@ export class Timeout extends Base{
         emitExpression(this.delay,ASM)
         ASM.addCode('mov r9, rax')
         ASM.addCode('push rbx')
+        ASM.addCode('lock')
+        ASM.addCode('inc qword [__ds_active_threads]')
         ASM.addCode('xor ecx, ecx')
         ASM.addCode('xor edx, edx')
         ASM.addCode(`lea r8, [${this.workerName}]`)
@@ -110,6 +117,8 @@ export class Timeout extends Base{
             ASM.addCode(`jmp ${done}`)
         }
         ASM.addCode(`${failure}:`)
+        ASM.addCode('lock')
+        ASM.addCode('dec qword [__ds_active_threads]')
         ASM.addCode('mov ecx, 1')
         ASM.addCode('sub rsp, 32')
         ASM.addCode('call [ExitProcess]')
@@ -140,6 +149,18 @@ export class Timeout extends Base{
             'add rsp, 40',
             ...callbackASM.getCode(),
             `${returnLabel}:`,
+            `__ds_timeout_acquire_${this.id}:`,
+            'mov rax, 1',
+            `xchg qword [${this.lockName}], rax`,
+            'test rax, rax',
+            `jnz __ds_timeout_acquire_${this.id}`,
+            `cmp qword [${this.completedName}], 0`,
+            `jne __ds_timeout_release_${this.id}`,
+            `mov qword [${this.completedName}], 1`,
+            'lock',
+            'dec qword [__ds_active_threads]',
+            `__ds_timeout_release_${this.id}:`,
+            `mov qword [${this.lockName}], 0`,
             'xor eax, eax',
             'ret',
             'endp'

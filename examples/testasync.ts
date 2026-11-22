@@ -21,7 +21,7 @@ const timerId = setTimeout(() => {
     numC++
     msvcrt.printf(' t=%i ', numC)
 }, 100)
-clearTimeout(timerId);
+//clearTimeout(timerId);
 msvcrt.printf(' c=%i ', numC)
 
 //kernel.ExitProcess(0)
