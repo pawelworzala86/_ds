@@ -43,6 +43,9 @@ export class Func extends Base{
                         break
                     }
                     type = 'string'
+                }else if(tokens[cursor]==='true'||tokens[cursor]==='false'){
+                    type = 'boolean'
+                    value = tokens[cursor++]==='true'?'1':'0'
                 }else{
                     value = tokens[cursor++]??''
                     if(!/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(value)){
@@ -199,6 +202,8 @@ export class Func extends Base{
                 ||!data.isReturnedArray&&(
                     data.type==='number'&&!data.isArray
                     ||data.type==='number'&&data.isArray&&!data.dynamicArray
+                    ||data.type==='boolean'&&!data.isArray
+                    ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
                     ||data.type==='Task'
                     ||Boolean(data.classType)&&!data.isArray
                 )

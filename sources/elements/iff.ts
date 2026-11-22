@@ -344,6 +344,8 @@ export class Iff extends Base{
                     type = 'object'
                 }else if(subjectData.type==='number'||subjectData.type==='string'){
                     type = subjectData.type
+                }else if(subjectData.type==='boolean'){
+                    type = 'boolean'
                 }else if(subjectData.type==='Function'){
                     type = 'function'
                 }

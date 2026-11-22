@@ -118,6 +118,9 @@ export function parseExpression(text:string,active:Base):Expression{
         if(!token){
             throw new Error('Expected a value in numeric expression')
         }
+        if(token==='true'||token==='false'){
+            return {kind:'number',value:token==='true'?'1':'0',numericKind:'integer'}
+        }
         if(isMathFunction(token)&&current()==='('){
             const name = token as MathFunctionName
             const expectedArguments = ['atan2','pow','fmod'].includes(name)?2:1
@@ -178,7 +181,7 @@ export function parseExpression(text:string,active:Base):Expression{
             }
         }
         if(tokens[index]==='['){
-            if(!data.isArray&&data.type!=='number'){
+            if(!data.isArray&&data.type!=='number'&&data.type!=='boolean'){
                 throw new Error(`Value "${token}" is not an array`)
             }
             index++
@@ -194,7 +197,7 @@ export function parseExpression(text:string,active:Base):Expression{
         if(data.isArray){
             throw new Error(`Array "${token}" must be accessed with an index`)
         }
-        if(data.type!=='number'){
+        if(data.type!=='number'&&data.type!=='boolean'){
             throw new Error(`Value "${token}" is not a number`)
         }
         return {kind:'data',value:data,numericKind:data.numericKind}

@@ -3,7 +3,7 @@ import Base from './base.ts'
 import Asm from "./../asm.ts"
 import DataElement, {getNumericKind,type JsonValue} from './dataElement.ts'
 import Assign from './assign.ts'
-import ClassElement from './clasElement.ts'
+import ClassElement, {getClassPropertyAccess} from './clasElement.ts'
 import Call from './call.ts'
 import {decodeStringEscapes,getStringLiteralContents,stringData,stringLiteralData} from '../stringLiteral.ts'
 
@@ -532,6 +532,8 @@ function parseObjectLiteral(tokens:string[]):ObjectLiteralProperty[]{
         const stringLiteral = value.match(/^(['"])[\s\S]*\1$/)
         if(stringLiteral){
             properties.push({name,type:'string',value:getStringLiteralContents(value)})
+        }else if(value==='true'||value==='false'){
+            properties.push({name,type:'boolean',value:value==='true'?'1':'0'})
         }else if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(value)){
             properties.push({name,type:'number',value})
         }else{
@@ -801,7 +803,7 @@ export class Data extends Base{
         if(arrayType&&!jsonRootArray){
             const itemType = arrayType[1]
             const classType = this.parent?.getClass(itemType)
-            const allowedItemTypes = ['number','string']
+            const allowedItemTypes = ['number','string','boolean']
             if((!allowedItemTypes.includes(itemType)&&!classType&&itemType!=='any')||eq!=='='){
                 throw new Error(`Array "${name}" must be initialized with an array literal`)
             }
@@ -854,6 +856,12 @@ export class Data extends Base{
                         throw new Error(`Array "${name}" must contain string literals`)
                     }
                     value = arrayValues.join(', ')
+                }else if(itemType==='boolean'){
+                    if(arrayValues.some(item=>item!=='true'&&item!=='false')){
+                        throw new Error(`Array "${name}" must contain boolean literals`)
+                    }
+                    arrayValues = arrayValues.map(item=>item==='true'?'1':'0')
+                    value = arrayValues.join(', ')
                 }else if(classType){
                     if(arrayValues.some(item=>!item||!new RegExp(`^new\\s+${itemType.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*\\(\\s*\\)$`,`i`).test(item.trim()))){
                         throw new Error(`Array "${name}" must contain "new ${itemType}()" initializers`)
@@ -885,6 +893,36 @@ export class Data extends Base{
         }
         let numericExpression:string|null = null
         let runtimeInitializer = false
+        if(type==='boolean'){
+            if(!hasInitializer){
+                value = '0'
+            }else{
+                const expression = initializerTokens.join('')
+                if(expression==='true'||expression==='false'){
+                    value = expression==='true'?'1':'0'
+                }else{
+                    const source = this.parent?.getData(expression)
+                    const sourceAccess = this.parent?getClassPropertyAccess(this.parent,expression):null
+                    let isBooleanCall = false
+                    if(/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(expression)){
+                        const callTokenizer = new Tokenizer(expression)
+                        const call = new Call(this.parent!)
+                        call.set(callTokenizer)
+                        isBooleanCall = !callTokenizer.has()
+                            &&Boolean(call.builtinStringSearchMethod&&call.builtinStringSearchMethod!=='indexOf')
+                    }
+                    if(source?.type==='boolean'&&!source.isArray
+                        ||sourceAccess?.property.type==='boolean'&&!sourceAccess.property.isArray
+                        ||isBooleanCall){
+                        numericExpression = expression
+                        runtimeInitializer = true
+                        value = '0'
+                    }else{
+                        throw new Error(`Boolean "${name}" must be initialized with true, false, another boolean, or a boolean-returning string method`)
+                    }
+                }
+            }
+        }
         if(type==='number'&&eq==='='&&jsonParseValue===undefined&&jsonStringifyValue===null){
             numericExpression = initializerTokens.join('').replace(/;$/,'')
             runtimeInitializer = !/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(numericExpression)
@@ -1015,17 +1053,17 @@ export class Data extends Base{
             if(!property){
                 throw new Error(`Unknown property "${name}" in struct "${classType.name}"`)
             }
-            if(property.isArray||property.classType||!['number','string'].includes(property.type??'')){
+            if(property.isArray||property.classType||!['number','string','boolean'].includes(property.type??'')){
                 throw new Error(`Struct destructuring does not support array or nested property "${name}"`)
             }
             const layoutProperty = source.classLayoutProps?.find(item=>item.name===name)
             const value = layoutProperty?.value??property.value??''
-            const element = new DataElement(tokens[0],name,property.type??'',property.type==='number'?'0':value)
+            const element = new DataElement(tokens[0],name,property.type??'',property.type==='number'||property.type==='boolean'?'0':value)
             this.parent?.addData(element)
             const declaration = new Data(this.parent!)
             declaration.element = element
             this.parent?.children.push(declaration)
-            if(property.type==='number'){
+            if(property.type==='number'||property.type==='boolean'){
                 const initializer = new Assign(this.parent!)
                 initializer.setExpression(element,`${sourceName}.${name}`,true)
                 this.parent?.children.push(initializer)

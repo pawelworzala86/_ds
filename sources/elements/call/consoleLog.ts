@@ -47,6 +47,30 @@ export function emitConsoleLog(call:Call,ASM:Asm){
             }
 
             const data = value instanceof DataElement?value:null
+            const type = param.classProperty?.type??data?.type
+            if(type==='boolean'&&data&&!data.isArray){
+                const id = ++consoleLogId
+                const trueLabel = `__ds_console_log_true_${id}`
+                const falseLabel = `__ds_console_log_false_${id}`
+                const trueBranch = `__ds_console_log_boolean_true_${id}`
+                const done = `__ds_console_log_boolean_done_${id}`
+                ASM.addData(`${trueLabel} ${stringData('true')}`)
+                ASM.addData(`${falseLabel} ${stringData('false')}`)
+                const argument = data.isParameter?data.name:param.getCode(true)
+                if(!argument){
+                    throw new Error('Unable to resolve boolean console.log argument')
+                }
+                ASM.addCode(`mov rax, ${argument}`)
+                ASM.addCode('test rax, rax')
+                ASM.addCode(`jnz ${trueBranch}`)
+                ASM.addCode(`lea rdx, [${falseLabel}]`)
+                ASM.addCode(`jmp ${done}`)
+                ASM.addCode(`${trueBranch}:`)
+                ASM.addCode(`lea rdx, [${trueLabel}]`)
+                ASM.addCode(`${done}:`)
+                emitPrintf(`${prefix}%s`,'rdx')
+                return
+            }
             const jsonValue = param.jsonValue!==undefined
                 ? param.jsonValue
                 : param.classProperty?.jsonValue!==undefined
@@ -76,7 +100,6 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                 emitPrintf(`${prefix}%s`,`addr ${label}`)
                 return
             }
-            const type = param.classProperty?.type??data?.type
             if(type==='string'){
                 const argument = param.getCode(true)
                 if(!argument){

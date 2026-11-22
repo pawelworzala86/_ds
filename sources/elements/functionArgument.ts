@@ -349,7 +349,7 @@ export class FunctionArgument{
             if(this.classProperty.isArray){
                 return 'addr '+name
             }
-            if(byValue&&this.classProperty.type==='number'){
+            if(byValue&&(this.classProperty.type==='number'||this.classProperty.type==='boolean')){
                 return '['+name+']'
             }
             return name

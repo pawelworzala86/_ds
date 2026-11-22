@@ -17,6 +17,7 @@ import {emitArrayPush as emitArrayPushImpl} from './call/arrayPush.ts'
 import {emitStringCharCodeAt as emitStringCharCodeAtImpl} from './call/stringCharCodeAt.ts'
 import {emitStringSplit as emitStringSplitImpl} from './call/stringSplit.ts'
 import {emitStringReplace as emitStringReplaceImpl} from './call/stringReplace.ts'
+import {emitStringSearch as emitStringSearchImpl} from './call/stringSearch.ts'
 import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl} from './call/methodLookup.ts'
 
 let arrayPushId = 0
@@ -32,6 +33,8 @@ export class Call extends Base{
     builtinStringCharCodeAt:DataElement|null = null
     builtinStringSplit:DataElement|null = null
     builtinStringReplace:DataElement|null = null
+    builtinStringSearch:DataElement|null = null
+    builtinStringSearchMethod:string|null = null
     builtinConsoleLog = false
     functionVariable:DataElement|null = null
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
@@ -100,6 +103,12 @@ export class Call extends Base{
         this.builtinStringReplace = prototype?.method.kind==='builtin'&&prototype.method.name==='replace'
             ? prototype.instance
             : null
+        const stringSearchMethods = ['indexOf','includes','startsWith','endsWith']
+        this.builtinStringSearchMethod = prototype?.method.kind==='builtin'
+            &&stringSearchMethods.includes(prototype.method.name)
+            ? prototype.method.name
+            : null
+        this.builtinStringSearch = this.builtinStringSearchMethod?prototype!.instance:null
         if(this.builtinStringSplit){
             const split = new FuncElement('__ds_string_split',[])
             split.returnArrayType = 'string[]'
@@ -107,6 +116,9 @@ export class Call extends Base{
         }
         if(this.builtinStringReplace){
             this.func = new FuncElement('__ds_string_replace',[])
+        }
+        if(this.builtinStringSearch){
+            this.func = new FuncElement(`__ds_string_${this.builtinStringSearchMethod}`,[])
         }
         const argumentTexts = tokenizer.getCallArguments()
         this.params = argumentTexts.map(token=>new FunctionArgument(this,token))
@@ -173,6 +185,19 @@ export class Call extends Base{
             }
             if(!isString(replacement)){
                 throw new Error('String.replace replacement must be a string')
+            }
+        }
+        if(this.builtinStringSearch){
+            if(this.params.length!==1){
+                throw new Error(`String.${this.builtinStringSearchMethod} expects exactly one string argument`)
+            }
+            const search = this.params[0]
+            const isString = typeof search.value==='string'
+                &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(search.value)
+                ||search.value instanceof DataElement&&search.value.type==='string'&&!search.value.isArray
+                ||search.classProperty?.type==='string'&&!search.classProperty.isArray
+            if(!isString){
+                throw new Error(`String.${this.builtinStringSearchMethod} search value must be a string`)
             }
         }
         if(this.noOp&&this.params.length){
@@ -253,6 +278,9 @@ export class Call extends Base{
     }
     emitStringReplace(ASM:Asm){
         emitStringReplaceImpl(this,ASM)
+    }
+    emitStringSearch(ASM:Asm){
+        emitStringSearchImpl(this,ASM)
     }
     emitArrayPush(ASM:Asm){
         emitArrayPushImpl(this,ASM)

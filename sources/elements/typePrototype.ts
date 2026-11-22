@@ -13,6 +13,10 @@ export class TypePrototypeRegistry{
         this.registerBuiltin('string','charCodeAt')
         this.registerBuiltin('string','split')
         this.registerBuiltin('string','replace')
+        this.registerBuiltin('string','indexOf')
+        this.registerBuiltin('string','includes')
+        this.registerBuiltin('string','startsWith')
+        this.registerBuiltin('string','endsWith')
     }
 
     static normalize(type:string){
@@ -50,5 +54,9 @@ TypePrototypeRegistry.registerBuiltin('array','push')
 TypePrototypeRegistry.registerBuiltin('string','charCodeAt')
 TypePrototypeRegistry.registerBuiltin('string','split')
 TypePrototypeRegistry.registerBuiltin('string','replace')
+TypePrototypeRegistry.registerBuiltin('string','indexOf')
+TypePrototypeRegistry.registerBuiltin('string','includes')
+TypePrototypeRegistry.registerBuiltin('string','startsWith')
+TypePrototypeRegistry.registerBuiltin('string','endsWith')
 
 export default TypePrototypeRegistry

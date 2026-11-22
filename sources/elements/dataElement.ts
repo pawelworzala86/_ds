@@ -56,7 +56,7 @@ export class DataElement{
         if(this.type=='string'){
             return this.isParameter?this.name:`[${this.name}]`
         }
-        if(byValue&&this.type=='number'){
+        if(byValue&&(this.type=='number'||this.type==='boolean')){
             return '['+this.name+']'
         }
         return this.name

@@ -39,6 +39,35 @@ export class Assign extends Base{
         if(!initializer&&target.kind==='const'){
             throw new Error(`Cannot assign to constant "${target.name}"`)
         }
+        if(target.type==='boolean'&&!target.isArray){
+            const value = expression.trim()
+            if(value==='true'||value==='false'){
+                this.target = target
+                this.expression = parseExpression(value,this.parent!)
+                return
+            }
+            const source = this.parent?.getData(value)
+            const sourceAccess = this.parent?getClassPropertyAccess(this.parent,value):null
+            if(source?.type==='boolean'&&!source.isArray
+                ||sourceAccess?.property.type==='boolean'&&!sourceAccess.property.isArray){
+                this.target = target
+                this.expression = parseExpression(value,this.parent!)
+                return
+            }
+            if(/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(value)){
+                const call = new Call(this.parent!)
+                const tokenizer = new Tokenizer(value)
+                call.set(tokenizer)
+                if(!tokenizer.has()
+                    &&call.builtinStringSearchMethod
+                    &&call.builtinStringSearchMethod!=='indexOf'){
+                    this.target = target
+                    this.functionCall = call
+                    return
+                }
+            }
+            throw new Error(`Boolean "${target.name}" can only be assigned a boolean value`)
+        }
         if(target.isArray&&!indexText){
             const callSyntax = expression.trim().match(/^[a-z_$][\w.$]*\([\s\S]*\)$/i)
             if(callSyntax){
@@ -91,7 +120,7 @@ export class Assign extends Base{
         if((target.type==='string'||target.type==='string[]')&&(!target.isArray||!indexText)){
             throw new Error('String assignment is only supported for string array elements')
         }
-        if((target.type!=='number'&&target.type!=='Function'&&target.type!=='function'&&!target.isArray)&&(target.type!=='string'&&target.type!=='string[]')){
+        if((target.type!=='number'&&target.type!=='boolean'&&target.type!=='Function'&&target.type!=='function'&&!target.isArray)&&(target.type!=='string'&&target.type!=='string[]')){
             throw new Error('Assignment is only supported for number and function variables and string array elements')
         }
         this.target = target

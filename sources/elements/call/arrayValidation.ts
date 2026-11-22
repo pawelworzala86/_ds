@@ -25,6 +25,13 @@ export function validateArrayPush(call:Call,array:DataElement,param:FunctionArgu
             }
             return
         }
+        if(array.type==='boolean'){
+            const literal = typeof param.value==='string'&&(param.value==='true'||param.value==='false')
+            if(!literal&&elementType!=='boolean'){
+                throw new Error(`Array.push for "${array.name}" requires a boolean`)
+            }
+            return
+        }
         if(array.classType){
             if(elementClass!==array.classType){
                 throw new Error(`Array.push for "${array.name}" requires an instance of ${array.classType}`)
