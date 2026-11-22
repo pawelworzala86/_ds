@@ -73,4 +73,18 @@ for(let s = 0; s < slashParts.length; s++) {
     msvcrt.printf('%s\n', slashParts[s])
 }
 
+
+
+
+
+let str2: string = 'Hello, World! World!'
+
+str2 = str2.replace('Hello', 'Hi')
+str2 = str2.replace(/World/g, 'there')
+console.log(str2)
+
+let firstOnly: string = 'cat cat'
+firstOnly = firstOnly.replace(/cat/, 'dog')
+console.log(firstOnly)
+
 kernel.ExitProcess(0)
