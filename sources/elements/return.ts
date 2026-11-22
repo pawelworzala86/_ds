@@ -39,11 +39,10 @@ export class Return extends Base{
                 this.condition = new Iff(this)
                 this.condition.condition = this.condition.parseCondition(expression)
             }else{
-                const callTokenizer = new Tokenizer(expression)
-                const name = callTokenizer.get()
-                const opening = callTokenizer.get()
-                if(/^[a-z_$][\w$]*$/i.test(name??'')&&opening==='('){
-                    callTokenizer.move(-2)
+                const callSyntax = expression.match(/^([a-z_$][\w.$]*)\([\s\S]*\)$/i)
+                if(callSyntax){
+                    const [,name] = callSyntax
+                    const callTokenizer = new Tokenizer(expression)
                     const call = isInvoke(name)
                         ? new Invoke(this)
                         : new Call(this)

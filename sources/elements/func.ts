@@ -254,6 +254,9 @@ export class Func extends Base{
                 ASM.addImport(dll,importedFunction)
             }
         }
+        for(const procedure of asm.proc){
+            ASM.addProc(procedure.trimEnd())
+        }
         ASM.addProc(code)
         if(this.element?.isAsync&&this.element.asyncWorkerName){
             const worker = new Asm()

@@ -203,40 +203,50 @@ export class Call extends Base{
             if(!isRegExpLiteral&&!isString(search)){
                 throw new Error('String.replace search value must be a string or regular expression literal')
             }
-            if(!isString(replacement)){
-                throw new Error('String.replace replacement must be a string')
+            const callback = replacement.value instanceof FuncElement
+                ? replacement.value
+                : null
+            const isCallback = callback!==null
+            if(!isString(replacement)&&!isCallback){
+                throw new Error('String.replace replacement must be a string or callback function')
+            }
+            if(callback&&(
+                callback.params.length!==1
+                ||callback.params[0].type!=='string'
+            )){
+                throw new Error('String.replace callback must accept exactly one string argument')
+            }
+        }
+        if(this.builtinStringRange){
+            if(this.params.length<1||this.params.length>2){
+                throw new Error(`String.${this.builtinStringRangeMethod} expects one or two integer arguments`)
+            }
+            for(const index of this.params){
+                const isNumericValue = Boolean(index.expression
+                    ||index.value instanceof DataElement&&index.value.type==='number')
+                const numericKind = index.expression?.numericKind
+                    ??(index.value instanceof DataElement?index.value.numericKind:'integer')
+                if(!isNumericValue||numericKind!=='integer'){
+                    throw new Error(`String.${this.builtinStringRangeMethod} arguments must be integers`)
+                }
+            }
+        }
+        if(this.builtinStringConcat){
+            if(this.params.length!==1){
+                throw new Error('String.concat expects exactly one string argument')
+            }
+            const value = this.params[0]
+            const isString = typeof value.value==='string'
+                &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(value.value)
+                ||value.value instanceof DataElement&&value.value.type==='string'&&!value.value.isArray
+                ||value.classProperty?.type==='string'&&!value.classProperty.isArray
+            if(!isString){
+                throw new Error('String.concat argument must be a string')
             }
         }
         if(this.builtinStringSearch){
             if(this.params.length!==1){
                 throw new Error(`String.${this.builtinStringSearchMethod} expects exactly one string argument`)
-            }
-            if(this.builtinStringRange){
-                if(this.params.length<1||this.params.length>2){
-                    throw new Error(`String.${this.builtinStringRangeMethod} expects one or two integer arguments`)
-                }
-                for(const index of this.params){
-                    const isNumericValue = Boolean(index.expression
-                        ||index.value instanceof DataElement&&index.value.type==='number')
-                    const numericKind = index.expression?.numericKind
-                        ??(index.value instanceof DataElement?index.value.numericKind:'integer')
-                    if(!isNumericValue||numericKind!=='integer'){
-                        throw new Error(`String.${this.builtinStringRangeMethod} arguments must be integers`)
-                    }
-                }
-            }
-            if(this.builtinStringConcat){
-                if(this.params.length!==1){
-                    throw new Error('String.concat expects exactly one string argument')
-                }
-                const value = this.params[0]
-                const isString = typeof value.value==='string'
-                    &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(value.value)
-                    ||value.value instanceof DataElement&&value.value.type==='string'&&!value.value.isArray
-                    ||value.classProperty?.type==='string'&&!value.classProperty.isArray
-                if(!isString){
-                    throw new Error('String.concat argument must be a string')
-                }
             }
             const search = this.params[0]
             const isString = typeof search.value==='string'

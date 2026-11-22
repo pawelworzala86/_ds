@@ -78,4 +78,12 @@ firstReplace = replaceText.replace('red', 'blue')
 allReplace = replaceText.replace(/red/g, 'blue')
 msvcrt.printf('replace first: %s, global: %s\n', firstReplace, allReplace)
 
+function replaceRedWithBlue(match:string){
+    return match.replace('red', 'blue')
+}
+
+let callbackReplace: string = 'placeholder'
+callbackReplace = replaceText.replace(/red/g, replaceRedWithBlue)
+msvcrt.printf('replace callback: %s\n', callbackReplace)
+
 kernel.ExitProcess(0)
