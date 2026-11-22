@@ -2,7 +2,7 @@ import Asm from '../asm.ts'
 import {emitExpression} from '../maths.ts'
 import {stringLiteralData} from '../stringLiteral.ts'
 import Base from './base.ts'
-import DataElement from './dataElement.ts'
+import DataElement, {getNumericKind} from './dataElement.ts'
 import FunctionArgument from './functionArgument.ts'
 
 export class PromiseInitializer extends Base{
@@ -121,6 +121,7 @@ export function parsePromiseInitializer(
     }
     const argument = new FunctionArgument(parent,valueExpression)
     const valueType = getValueType(argument)
+    const argumentValue = argument.value
     if(!valueType){
         throw new Error('Promise values must be number, string, or boolean')
     }
@@ -132,6 +133,12 @@ export function parsePromiseInitializer(
         throw new Error(`Promise value type "${valueType}" does not match "${declaredValueType}"`)
     }
     target.type = `Promise<${declaredValueType??valueType}>`
+    if(valueType==='number'){
+        target.numericKind = argument.expression?.numericKind
+            ??(argumentValue instanceof DataElement
+                ? argumentValue.numericKind
+                : typeof argumentValue==='string'?getNumericKind(argumentValue):'integer')
+    }
     target.value = '0'
     return new PromiseInitializer(parent,target,status,argument)
 }

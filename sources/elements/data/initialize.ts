@@ -12,7 +12,7 @@ import type {JSONArrayLayout} from './types.ts'
 import {initializeArray} from './arrayInitializer.ts'
 import {getTypedArrayKind,initializeTypedArray} from './typedArrays.ts'
 import type Data from '../data.ts'
-import {parsePromiseInitializer} from '../promise.ts'
+import {getPromiseValueTypeFromData,parsePromiseInitializer} from '../promise.ts'
 
 export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     let tokens:string[] = []
@@ -77,6 +77,21 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const promiseInitializerExpression = initializerTokens.join('')
     const hasPromiseInitializer = /^Promise\.(?:resolve|reject)\(/.test(promiseInitializerExpression)
         ||promiseInitializerExpression.startsWith('newPromise(')
+    const hasAwaitInitializer = initializerTokens[0]==='await'
+    if(hasAwaitInitializer){
+        if(initializerTokens.length!==2){
+            throw new Error('Await initializer must contain one Promise variable')
+        }
+        const promise = data.parent?.getData(initializerTokens[1])
+        const promiseType = promise?getPromiseValueTypeFromData(promise):null
+        if(!promise||!promiseType){
+            throw new Error('Await expects a Promise<number>, Promise<string>, or Promise<boolean> variable')
+        }
+        if(type&&type!==promiseType){
+            throw new Error(`Awaited Promise value type "${promiseType}" does not match "${type}"`)
+        }
+        type ??= promiseType
+    }
     const chainedMethodCall = initializerTokens.join('').match(/^([a-z_$][\w.$]*\([\s\S]*\))\.([a-z_$][\w$]*)\(\)$/i)
     const jsonParseValue = hasInitializer&&data.parent
         ? parseJSONParseInitializer(initializerTokens,data.parent)
@@ -103,7 +118,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     if(toStringInitializer&&!type){
         type='string'
     }
-    let value = initializerTokens[0]
+    let value = hasAwaitInitializer?'0':initializerTokens[0]
     if(hasPromiseInitializer){
         if(classField){
             throw new Error('Promise class fields are not supported')
@@ -196,7 +211,12 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     value = arrayInitialization.value
     let numericExpression:string|null = null
     let runtimeInitializer = false
-    if(type==='boolean'){
+    if(hasAwaitInitializer){
+        numericExpression = `await ${initializerTokens[1]}`
+        runtimeInitializer = true
+        value = '0'
+    }
+    if(type==='boolean'&&!hasAwaitInitializer){
         if(!hasInitializer){
             value = '0'
         }else{
@@ -226,7 +246,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
             }
         }
     }
-    if(type==='number'&&eq==='='&&jsonParseValue===undefined&&jsonStringifyValue===null&&!typedArrayInitializer){
+    if(type==='number'&&!hasAwaitInitializer&&eq==='='&&jsonParseValue===undefined&&jsonStringifyValue===null&&!typedArrayInitializer){
         numericExpression = initializerTokens.join('').replace(/;$/,'')
         runtimeInitializer = !/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(numericExpression)
         if(runtimeInitializer){
@@ -270,7 +290,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         if(chainedMethodCall||toStringInitializer){
             value = '0'
         }
-        values = chainedMethodCall||toStringInitializer?['0']: [jsonParseValue!==undefined
+        values = hasAwaitInitializer||chainedMethodCall||toStringInitializer?['0']: [jsonParseValue!==undefined
             ? JSON.stringify(jsonParseValue).slice(1,-1)
             : jsonStringifyValue!==null
                 ? JSON.stringify(jsonStringifyValue).slice(1,-1)
@@ -406,7 +426,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     if(runtimeInitializer&&numericExpression&&data.parent){
         const initializer = new Assign(data.parent)
         initializer.setExpression(data.element,numericExpression,true)
-        data.parent.children.push(initializer)
+        data.runtimeInitializer = initializer
     }
     if(isAsyncInitializer&&data.parent){
         const initializer = new Assign(data.parent)

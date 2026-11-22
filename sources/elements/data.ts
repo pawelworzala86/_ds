@@ -14,6 +14,7 @@ export class Data extends Base{
     initializerCall:Call|null = null
     initializerCalls:Call[] = []
     initializerTemps:DataElement[] = []
+    runtimeInitializer:Assign|null = null
     runtimeCallInitializer = false
     arrayInitializerCall:Call|null = null
     promiseInitializer:PromiseInitializer|null = null
@@ -81,6 +82,9 @@ export class Data extends Base{
             }
             if(data.promiseInitializer){
                 active.children.push(data.promiseInitializer)
+            }
+            if(data.runtimeInitializer){
+                active.children.push(data.runtimeInitializer)
             }
             for(const temporary of data.initializerTemps){
                 const declaration = new Data(active)

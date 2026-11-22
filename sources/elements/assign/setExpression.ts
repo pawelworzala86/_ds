@@ -5,6 +5,7 @@ import {getClassPropertyAccess, getClassPropertyOffset} from '../clasElement.ts'
 import Invoke, {isInvoke} from '../invoke.ts'
 import FuncElement from '../funcElement.ts'
 import Call from '../call.ts'
+import {getPromiseValueTypeFromData} from '../promise.ts'
 import Timeout from '../timeout.ts'
 import type {Assign} from '../assign.ts'
 
@@ -14,6 +15,23 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
     const isStringArray = target.isArray && (target.type==='string'||target.type==='string[]')
     if(!initializer&&target.kind==='const'){
         throw new Error(`Cannot assign to constant "${target.name}"`)
+    }
+    const promiseAwait = expression.trim().match(/^await\s+([a-z_$][\w$]*)$/i)
+    if(promiseAwait){
+        const promise = assignment.parent?.getData(promiseAwait[1])
+        const valueType = promise?getPromiseValueTypeFromData(promise):null
+        if(!promise||!valueType){
+            throw new Error(`Await expects a Promise<number>, Promise<string>, or Promise<boolean> variable`)
+        }
+        if(target.type!==valueType||target.isArray){
+            throw new Error(`Awaited Promise value type "${valueType}" does not match "${target.type}"`)
+        }
+        assignment.target = target
+        assignment.promiseAwait = promise
+        if(valueType==='number'){
+            target.numericKind = promise.numericKind
+        }
+        return
     }
     if(target.type==='boolean'&&!target.isArray){
         const value = expression.trim()

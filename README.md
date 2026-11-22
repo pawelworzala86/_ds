@@ -19,7 +19,7 @@ Typ `boolean` obsługuje wartości `true` i `false`, przypisania, warunki, tabli
 
 ## Uproszczone Promise
 
-Obsługiwane są synchroniczne `Promise.resolve(value)`, `Promise.reject(value)`, executor wywołujący bezpośrednio `resolve(value)` lub `reject(value)`, oraz `.then(namedFunction)` i `.catch(namedFunction)`. Wartości mogą być typu `number`, `string` lub `boolean`, a funkcja zwrotna musi przyjmować jeden argument tego typu. Callback jest wywoływany od razu przy rejestracji, jeśli stan Promise pasuje do metody. Nie są obsługiwane mikrozadania, asynchroniczne resolve/reject, funkcje strzałkowe jako callbacki, domknięcia ani łańcuchy Promise.
+Obsługiwane są synchroniczne `Promise.resolve(value)`, `Promise.reject(value)`, executor wywołujący bezpośrednio `resolve(value)` lub `reject(value)`, `.then(namedFunction)` i `.catch(namedFunction)`, a także przypisanie wartości przez `const result: number = await promise`. `await` obsługuje Promise o typie `number`, `string` lub `boolean`; odrzucony lub jeszcze nierozstrzygnięty Promise kończy program kodem błędu. Callback jest wywoływany od razu przy rejestracji, jeśli stan Promise pasuje do metody. Nie są obsługiwane mikrozadania, asynchroniczne resolve/reject, funkcje strzałkowe jako callbacki, domknięcia ani łańcuchy Promise.
 
 ## Tablice typowane
 

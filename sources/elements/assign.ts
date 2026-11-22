@@ -10,6 +10,7 @@ import FuncElement from './funcElement.ts'
 import Call from './call.ts'
 import Timeout from './timeout.ts'
 import type Invoke from './invoke.ts'
+import {getPromiseValueTypeFromData} from './promise.ts'
 
 export class Assign extends Base{
     target:DataElement|null = null
@@ -27,6 +28,7 @@ export class Assign extends Base{
     functionCall:Call|null = null
     arrayCall:Call|null = null
     asyncCall:Call|null = null
+    promiseAwait:DataElement|null = null
     timeout:Timeout|null = null
     addressFunction:FuncElement|null = null
     constructor(parent:Base){
@@ -99,7 +101,11 @@ export class Assign extends Base{
         if(!match){
             throw new Error('Invalid assignment')
         }
-        const [,targetName,indexText,operator,expression] = match
+        const [,targetName,indexText,operator,matchedExpression] = match
+        const awaitIndex = tokens.indexOf('await')
+        const expression = awaitIndex!==-1&&awaitIndex===tokens.length-2
+            ? `await ${tokens[awaitIndex+1]}`
+            : matchedExpression
         const access = this.parent?getClassPropertyAccess(this.parent,targetName):null
         const target = this.parent?.getData(targetName)??(access
             ? new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')

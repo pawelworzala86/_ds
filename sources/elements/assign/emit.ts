@@ -4,6 +4,7 @@ import {stringLiteralData} from '../../stringLiteral.ts'
 import type {Assign} from '../assign.ts'
 
 let stringAssignId = 0
+let promiseAwaitId = 0
 
 export function emitAssign(assignment:Assign,ASM:Asm){
     if(!assignment.target){
@@ -33,6 +34,33 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         }
         assignment.asyncCall.asm(ASM,'handle')
         ASM.addCode(`mov [${target.getAccessName()}], rax`)
+        return
+    }
+    if(assignment.promiseAwait){
+        const promise = assignment.promiseAwait
+        if(!promise.name){
+            throw new Error('Awaited Promise is not initialized')
+        }
+        const id = ++promiseAwaitId
+        const failure = `__ds_promise_await_failure_${id}`
+        const done = `__ds_promise_await_done_${id}`
+        ASM.addImport('kernel32','ExitProcess')
+        ASM.addCode(`cmp qword [${promise.name}__state], 1`)
+        ASM.addCode(`jne ${failure}`)
+        ASM.addCode(`mov rax, [${promise.name}__value]`)
+        if(assignment.target.type==='number'&&assignment.target.numericKind==='float'){
+            ASM.addCode('movq xmm0, rax')
+            storeTarget('xmm0',true)
+        }else{
+            storeTarget('rax')
+        }
+        ASM.addCode(`jmp ${done}`)
+        ASM.addCode(`${failure}:`)
+        ASM.addCode('mov ecx, 1')
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode('call [ExitProcess]')
+        ASM.addCode('add rsp, 40')
+        ASM.addCode(`${done}:`)
         return
     }
     if(assignment.timeout){

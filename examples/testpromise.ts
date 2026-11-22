@@ -36,4 +36,22 @@ text.then(showText)
 const flag:Promise<boolean> = Promise.resolve(true)
 flag.then(showFlag)
 
+
+
+class MyClass {
+    value:number
+    constructor(value:number){
+        this.value = value
+    }
+}
+
+const executorRes:Promise<number> = new Promise((resolve,reject) => {
+    resolve(15)
+})
+let executorResValue:number = await executorRes
+console.log('executorResValue:',executorResValue)
+
+
+
+
 kernel.ExitProcess(0)
