@@ -47,6 +47,35 @@ export function emitConsoleLog(call:Call,ASM:Asm){
             }
 
             const data = value instanceof DataElement?value:null
+            const jsonValue = param.jsonValue!==undefined
+                ? param.jsonValue
+                : param.classProperty?.jsonValue!==undefined
+                    ? param.classProperty.jsonValue
+                    : data?.jsonValue
+            const isUntypedJSONArrayItem = param.jsonValue!==undefined
+                &&(param.classProperty?.type==='any'||data?.type==='any')
+            if(isUntypedJSONArrayItem&&typeof jsonValue==='string'){
+                const label = `__ds_console_log_string_${++consoleLogId}`
+                ASM.addData(`${label} ${stringData(JSON.stringify(jsonValue).slice(1,-1))}`)
+                emitPrintf(`${prefix}%s`,`addr ${label}`)
+                return
+            }
+            if(isUntypedJSONArrayItem&&typeof jsonValue==='number'){
+                if(Number.isInteger(jsonValue)){
+                    emitPrintf(`${prefix}%lld`,String(jsonValue))
+                }else{
+                    const label = `__ds_console_log_number_${++consoleLogId}`
+                    ASM.addData(`${label} dq ${jsonValue}`)
+                    emitPrintf(`${prefix}%f`,`[${label}]`,true)
+                }
+                return
+            }
+            if(jsonValue===null||typeof jsonValue==='boolean'){
+                const label = `__ds_console_log_string_${++consoleLogId}`
+                ASM.addData(`${label} ${stringData(String(jsonValue))}`)
+                emitPrintf(`${prefix}%s`,`addr ${label}`)
+                return
+            }
             const type = param.classProperty?.type??data?.type
             if(type==='string'){
                 const argument = param.getCode(true)

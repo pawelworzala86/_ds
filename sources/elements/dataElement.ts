@@ -1,4 +1,5 @@
 export type NumericKind = 'integer'|'float'
+export type JsonValue = string|number|boolean|null|JsonValue[]|{[key:string]:JsonValue}
 
 export function getNumericKind(value:string):NumericKind{
     if(/^[+-]?(?:0x[0-9a-f]+|[0-9a-f]+h)$/i.test(value)){
@@ -16,6 +17,7 @@ export class DataElement{
     classLayoutType:string|null = null
     classLayoutProps:DataElement[]|null = null
     arrayObjectValues:DataElement[][]|null = null
+    jsonValue:JsonValue|undefined
     classPropertyInstance:DataElement|null = null
     classPropertyPath:string|null = null
     numericKind:NumericKind = 'integer'

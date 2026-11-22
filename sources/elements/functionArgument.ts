@@ -1,7 +1,7 @@
 import Asm from '../asm.ts'
 import Base from './base.ts'
 import {emitExpression, parseExpression, type Expression} from '../maths.ts'
-import DataElement from './dataElement.ts'
+import DataElement, {type JsonValue} from './dataElement.ts'
 import FuncElement from './funcElement.ts'
 import Link from './link.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
@@ -28,6 +28,7 @@ export class FunctionArgument{
     arrayPropertyAccess:{array:DataElement,indexExpression:Expression,property:DataElement,offset:number}|null = null
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
     addressOf:DataElement|null = null
+    jsonValue:JsonValue|undefined
 
     constructor(active:Base,text:string){
         this.scope = active
@@ -95,6 +96,14 @@ export class FunctionArgument{
                     if(arrayIndex.numericKind!=='integer'){
                         throw new Error('Array index must be an integer')
                     }
+                    const staticIndex = arrayIndex.kind==='number'
+                        ? Number(arrayIndex.value)
+                        : arrayIndex.kind==='data'&&arrayIndex.value.isConstAlias
+                            ? Number(arrayIndex.value.value)
+                            : null
+                    if(Array.isArray(property.jsonValue)&&staticIndex!==null){
+                        this.jsonValue = property.jsonValue[staticIndex]
+                    }
                     this.expression = {
                         kind:'index',
                         value:propertyValue,
@@ -130,6 +139,14 @@ export class FunctionArgument{
                     const indexExpression = parseExpression(arrayElement[2],active)
                     if(indexExpression.numericKind!=='integer'){
                         throw new Error('Array index must be an integer')
+                    }
+                    const staticIndex = indexExpression.kind==='number'
+                        ? Number(indexExpression.value)
+                        : indexExpression.kind==='data'&&indexExpression.value.isConstAlias
+                            ? Number(indexExpression.value.value)
+                            : null
+                    if(Array.isArray(array.jsonValue)&&staticIndex!==null){
+                        this.jsonValue = array.jsonValue[staticIndex]
                     }
                     this.arrayElementAccess = {array,indexExpression}
                     const element = new DataElement('let',`${array.name}[${arrayElement[2]}]`,array.type??'',array.value??'')

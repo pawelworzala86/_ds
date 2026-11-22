@@ -1,16 +1,360 @@
 import Tokenizer from '../tokenizer.ts'
 import Base from './base.ts'
 import Asm from "./../asm.ts"
-import DataElement, {getNumericKind} from './dataElement.ts'
+import DataElement, {getNumericKind,type JsonValue} from './dataElement.ts'
 import Assign from './assign.ts'
 import ClassElement from './clasElement.ts'
 import Call from './call.ts'
-import {getStringLiteralContents,stringData,stringLiteralData} from '../stringLiteral.ts'
+import {decodeStringEscapes,getStringLiteralContents,stringData,stringLiteralData} from '../stringLiteral.ts'
 
 let structLayoutId = 0
 let objectStringLabelId = 0
 
-type ObjectLiteralProperty = {name:string,type:'number'|'string',value:string}
+type ObjectLiteralProperty = {
+    name:string
+    type:string
+    value:string
+    classType?:string
+    isArray?:boolean
+    dynamicArray?:boolean
+    arrayObjectValues?:DataElement[][]|null
+    jsonValue?:JsonValue
+}
+
+type JSONArrayLayout = {
+    type:string
+    values:string[]
+    classType:ClassElement|null
+    arrayObjectValues:DataElement[][]|null
+    dynamicArray:boolean
+}
+
+function createJSONDataElement(property:ObjectLiteralProperty){
+    const element = new DataElement('let',property.name,property.type,property.value)
+    element.classType = property.classType??null
+    element.isArray = property.isArray??false
+    element.dynamicArray = property.dynamicArray??false
+    element.arrayObjectValues = property.arrayObjectValues??null
+    element.jsonValue = property.jsonValue
+    return element
+}
+
+function getJSONCallArguments(tokens:string[],name:'JSON.parse'|'JSON.stringify'){
+    if(tokens[0]!==name){
+        return null
+    }
+    if(tokens[1]!=='('||tokens[tokens.length-1]!==')'){
+        throw new Error(`Invalid ${name} call`)
+    }
+    const callTokenizer = new Tokenizer(tokens.join(''))
+    callTokenizer.get()
+    callTokenizer.get()
+    const args = callTokenizer.getCallArguments()
+    if(callTokenizer.has()){
+        throw new Error(`Invalid ${name} call`)
+    }
+    return args
+}
+
+function getJSONParseText(tokens:string[],active:Base){
+    const args = getJSONCallArguments(tokens,'JSON.parse')
+    if(!args){
+        return null
+    }
+    if(args.length!==1){
+        throw new Error('JSON.parse expects exactly one argument')
+    }
+    const argument = args[0]
+    let jsonText:string
+    if(/^(['"])[\s\S]*\1$/.test(argument)){
+        jsonText = decodeStringEscapes(getStringLiteralContents(argument))
+    }else if(/^[a-z_$][\w$]*$/i.test(argument)){
+        const source = active.getData(argument)
+        if(!source||source.kind!=='const'||source.type!=='string'||source.isArray||source.value===null){
+            throw new Error('JSON.parse currently requires a string literal or const string')
+        }
+        jsonText = decodeStringEscapes(source.value)
+    }else{
+        throw new Error('JSON.parse currently requires a string literal or const string')
+    }
+
+    return jsonText
+}
+
+function isJSONObject(value:JsonValue):value is {[key:string]:JsonValue}{
+    return value!==null&&typeof value==='object'&&!Array.isArray(value)
+}
+
+function getJSONShape(value:JsonValue):string{
+    if(value===null){
+        return 'null'
+    }
+    if(Array.isArray(value)){
+        return `array:${value.map(getJSONShape).join(',')}`
+    }
+    if(typeof value==='object'){
+        return `object:${Object.keys(value).sort().map(key=>`${key}:${getJSONShape(value[key])}`).join(',')}`
+    }
+    return typeof value
+}
+
+function createJSONClass(value:{[key:string]:JsonValue},active:Base):ClassElement{
+    const type = `__ds_struct_${++structLayoutId}`
+    const properties = createJSONProperties(value,active).map(createJSONDataElement)
+    const classType = new ClassElement(type,properties,[])
+    active.addClass(classType)
+    return classType
+}
+
+function createJSONArrayLayout(values:JsonValue[],active:Base):JSONArrayLayout{
+    if(!values.length){
+        return {type:'any',values:[],classType:null,arrayObjectValues:null,dynamicArray:true}
+    }
+    const shape = getJSONShape(values[0])
+    if(values.some(value=>getJSONShape(value)!==shape)){
+        return {type:'any',values:values.map(()=>'0'),classType:null,arrayObjectValues:null,dynamicArray:false}
+    }
+    const first = values[0]
+    if(typeof first==='string'){
+        return {
+            type:'string',
+            values:values.map(value=>JSON.stringify(value)),
+            classType:null,
+            arrayObjectValues:null,
+            dynamicArray:false
+        }
+    }
+    if(typeof first==='number'){
+        if(values.some(value=>typeof value!=='number'||!Number.isFinite(value))){
+            throw new Error('JSON.parse arrays must contain finite numbers')
+        }
+        return {
+            type:'number',
+            values:values.map(String),
+            classType:null,
+            arrayObjectValues:null,
+            dynamicArray:false
+        }
+    }
+    if(typeof first==='boolean'){
+        return {
+            type:'boolean',
+            values:values.map(value=>value?'1':'0'),
+            classType:null,
+            arrayObjectValues:null,
+            dynamicArray:false
+        }
+    }
+    if(first===null){
+        return {
+            type:'null',
+            values:values.map(()=>'0'),
+            classType:null,
+            arrayObjectValues:null,
+            dynamicArray:false
+        }
+    }
+    if(isJSONObject(first)){
+        const classType = createJSONClass(first,active)
+        const arrayObjectValues = values.map(value=>
+            createJSONProperties(value as {[key:string]:JsonValue},active).map(createJSONDataElement)
+        )
+        return {
+            type:classType.name!,
+            values:values.map(()=>'0'),
+            classType,
+            arrayObjectValues,
+            dynamicArray:false
+        }
+    }
+    return {type:'any',values:values.map(()=>'0'),classType:null,arrayObjectValues:null,dynamicArray:false}
+}
+
+function createJSONProperty(name:string,value:JsonValue,active:Base):ObjectLiteralProperty{
+    if(!/^[a-z_$][\w$]*$/i.test(name)){
+        throw new Error(`JSON.parse property "${name}" is not a supported identifier`)
+    }
+    if(typeof value==='string'){
+        return {name,type:'string',value:JSON.stringify(value).slice(1,-1),jsonValue:value}
+    }
+    if(typeof value==='number'){
+        if(!Number.isFinite(value)){
+            throw new Error(`JSON.parse property "${name}" must be a finite number`)
+        }
+        return {name,type:'number',value:String(value),jsonValue:value}
+    }
+    if(typeof value==='boolean'){
+        return {name,type:'boolean',value:value?'1':'0',jsonValue:value}
+    }
+    if(value===null){
+        return {name,type:'null',value:'0',jsonValue:null}
+    }
+    if(Array.isArray(value)){
+        const layout = createJSONArrayLayout(value,active)
+        return {
+            name,
+            type:layout.type,
+            value:layout.values.join(', ')||'0',
+            classType:layout.classType?.name??undefined,
+            isArray:true,
+            dynamicArray:layout.dynamicArray,
+            arrayObjectValues:layout.arrayObjectValues,
+            jsonValue:value
+        }
+    }
+    const classType = createJSONClass(value,active)
+    return {name,type:classType.name!,value:'0',classType:classType.name!,jsonValue:value}
+}
+
+function createJSONProperties(value:{[key:string]:JsonValue},active:Base):ObjectLiteralProperty[]{
+    return Object.entries(value).map(([name,item])=>createJSONProperty(name,item,active))
+}
+
+function parseJSONParseInitializer(tokens:string[],active:Base):JsonValue|undefined{
+    const jsonText = getJSONParseText(tokens,active)
+    if(jsonText===null){
+        return undefined
+    }
+    let parsed:JsonValue
+    try{
+        parsed = JSON.parse(jsonText) as JsonValue
+    }catch(error){
+        const message = error instanceof Error?error.message:String(error)
+        throw new Error(`Invalid JSON passed to JSON.parse: ${message}`)
+    }
+    return parsed
+}
+
+function getJSONValueFromProperties(properties:DataElement[],active:Base):JsonValue|undefined{
+    const result:{[key:string]:JsonValue} = {}
+    for(const property of properties){
+        const value = getJSONValueFromData(property,active)
+        if(value===undefined){
+            return undefined
+        }
+        result[property.name??''] = value
+    }
+    return result
+}
+
+function getJSONValueFromData(data:DataElement,active:Base):JsonValue|undefined{
+    if(data.jsonValue!==undefined){
+        return data.jsonValue
+    }
+    if(data.isArray){
+        if(data.arrayObjectValues){
+            const objects = data.arrayObjectValues.map(properties=>getJSONValueFromProperties(properties,active))
+            return objects.every((value):value is JsonValue=>value!==undefined)?objects:undefined
+        }
+        const items = splitTopLevelArrayValues(data.value??'')
+        if(data.type==='string'){
+            return items.map(value=>decodeStringEscapes(getStringLiteralContents(value)))
+        }
+        if(data.type==='number'){
+            const values = items.map(Number)
+            return values.every(Number.isFinite)?values:undefined
+        }
+        if(data.type==='boolean'){
+            return items.map(value=>value!=='0')
+        }
+        if(data.type==='null'){
+            return items.map(()=>null)
+        }
+        return undefined
+    }
+    if(data.type==='string'&&!data.isArray&&data.value!==null){
+        return decodeStringEscapes(data.value)
+    }
+    if(data.type==='number'&&!data.isArray&&data.value!==null){
+        const value = Number(data.value)
+        return Number.isFinite(value)?value:undefined
+    }
+    if(data.type==='boolean'){
+        return data.value==='1'
+    }
+    if(data.type==='null'){
+        return null
+    }
+    if(data.classLayoutProps){
+        return getJSONValueFromProperties(data.classLayoutProps,active)
+    }
+    if(data.classType){
+        const classType = active.getClass(data.classType)
+        return classType?getJSONValueFromProperties(classType.props,active):undefined
+    }
+    return undefined
+}
+
+function getJSONValueFromExpression(expression:string,active:Base):JsonValue|undefined{
+    const root = expression.match(/^[a-z_$][\w$]*/i)?.[0]
+    const source = root?active.getData(root):null
+    if(!root||!source){
+        return undefined
+    }
+    let value = getJSONValueFromData(source,active)
+    if(value===undefined){
+        return undefined
+    }
+    let index = root.length
+    while(index<expression.length){
+        if(expression[index]==='.'){
+            const property = expression.slice(index+1).match(/^[a-z_$][\w$]*/i)?.[0]
+            if(!property||!isJSONObject(value)||!Object.prototype.hasOwnProperty.call(value,property)){
+                return undefined
+            }
+            value = value[property]
+            index += property.length+1
+            continue
+        }
+        if(expression[index]==='['){
+            const close = expression.indexOf(']',index+1)
+            const elementIndex = close===-1?-1:Number(expression.slice(index+1,close))
+            if(close===-1||!Number.isInteger(elementIndex)||elementIndex<0||!Array.isArray(value)||elementIndex>=value.length){
+                return undefined
+            }
+            value = value[elementIndex]
+            index = close+1
+            continue
+        }
+        return undefined
+    }
+    return value
+}
+
+function parseJSONStringifyInitializer(tokens:string[],active:Base):string|null{
+    const args = getJSONCallArguments(tokens,'JSON.stringify')
+    if(!args){
+        return null
+    }
+    if(args.length!==1){
+        throw new Error('JSON.stringify currently expects exactly one argument')
+    }
+    const argument = args[0]
+    let value:JsonValue|undefined
+    if(/^JSON\.parse\([\s\S]*\)$/.test(argument)){
+        const parsed = parseJSONParseInitializer(new Tokenizer(argument).tokens,active)
+        value = parsed
+    }else if(/^(['"])[\s\S]*\1$/.test(argument)){
+        value = decodeStringEscapes(getStringLiteralContents(argument))
+    }else if(argument==='true'||argument==='false'||argument==='null'){
+        value = argument==='null'?null:argument==='true'
+    }else if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(argument)){
+        const numeric = Number(argument.replace(/f$/i,''))
+        if(Number.isFinite(numeric)){
+            value = numeric
+        }
+    }else{
+        value = getJSONValueFromExpression(argument,active)
+    }
+    if(value===undefined){
+        throw new Error('JSON.stringify currently requires a compile-time JSON value')
+    }
+    const result = JSON.stringify(value)
+    if(result===undefined){
+        throw new Error('Unable to serialize JSON.stringify argument')
+    }
+    return result
+}
 
 function initializeStructStrings(ASM:Asm,instanceName:string,properties:DataElement[],getClass:(name:string)=>ClassElement|null,prefix=''){
     for(const property of properties){
@@ -19,6 +363,26 @@ function initializeStructStrings(ASM:Asm,instanceName:string,properties:DataElem
             if(nestedClass){
                 initializeStructStrings(ASM,instanceName,nestedClass.props,getClass,`${prefix}${property.name}_`)
             }
+            continue
+        }
+        if(property.isArray&&property.type==='string'){
+            splitTopLevelArrayValues(property.value??'').forEach((value,index)=>{
+                const label = `__ds_object_string_${++objectStringLabelId}`
+                ASM.addData(`${label} ${stringLiteralData(value)}`)
+                ASM.addCode(`lea rax, [${label}]`)
+                ASM.addCode(`mov [${instanceName}.${prefix}${property.name}+${index*8}], rax`)
+            })
+            continue
+        }
+        if(property.isArray&&property.arrayObjectValues){
+            property.arrayObjectValues.forEach((values,index)=>{
+                const label = `__ds_object_array_${++objectStringLabelId}`
+                const fields = getStructFields(values,getClass)
+                ASM.addData(`${label} dq ${fields.map(field=>field.type==='string'?'0':field.value||'0').join(', ')||'0'}`)
+                initializeStackStructStrings(ASM,label,fields)
+                ASM.addCode(`lea rax, [${label}]`)
+                ASM.addCode(`mov [${instanceName}.${prefix}${property.name}+${index*8}], rax`)
+            })
             continue
         }
         if(property.type!=='string'){
@@ -42,12 +406,37 @@ function getStructFields(properties:DataElement[],getClass:(name:string)=>ClassE
         if(property.isArray){
             const values = splitTopLevelArrayValues(property.value??'')
             return (values.length?values:['0']).map(value=>{
-                const field = new DataElement(property.kind??'let',property.name??'',property.type??'',value)
+                const fieldValue = property.type==='string'&&/^(['"])/.test(value)
+                    ? getStringLiteralContents(value)
+                    : value
+                const field = new DataElement(property.kind??'let',property.name??'',property.type??'',fieldValue)
                 field.numericKind = property.numericKind
+                field.jsonValue = property.jsonValue
                 return field
             })
         }
         return [property]
+    })
+}
+
+function getStructLayoutMembers(properties:DataElement[],getClass:(name:string)=>ClassElement|null,prefix=''):string[]{
+    return properties.flatMap(property=>{
+        if(property.classType&&!property.isArray){
+            const nestedClass = getClass(property.classType)
+            return nestedClass
+                ? getStructLayoutMembers(nestedClass.props,getClass,`${prefix}${property.name}_`)
+                : []
+        }
+        if(property.isArray){
+            const values = property.arrayObjectValues
+                ? property.arrayObjectValues.map(()=>'0')
+                : splitTopLevelArrayValues(property.value??'')
+            const initializers = (values.length?values:['0']).map(value=>
+                property.type==='string'?'0':value||'0'
+            )
+            return [`    ${prefix}${property.name} dq ${initializers.join(', ')}`]
+        }
+        return [`    ${prefix}${property.name} dq ${property.type==='string'?'0':property.value||'0'}`]
     })
 }
 
@@ -133,10 +522,15 @@ function createStructLayout(properties:ObjectLiteralProperty[],classType:ReturnT
         if(declaredProperty&&declaredProperty.type!==property.type){
             throw new Error(`Property "${property.name}" in struct "${classType!.name}" must be a ${declaredProperty.type}`)
         }
-        if(declaredProperty&&(declaredProperty.isArray||declaredProperty.classType)){
+        if(classType&&(declaredProperty?.isArray||declaredProperty?.classType)){
             throw new Error(`Struct initializer does not support array or nested property "${property.name}"`)
         }
         const element = new DataElement('let',property.name,property.type,property.value)
+        element.classType = property.classType??null
+        element.isArray = property.isArray??false
+        element.dynamicArray = property.dynamicArray??false
+        element.arrayObjectValues = property.arrayObjectValues??null
+        element.jsonValue = property.jsonValue
         return element
     })
     if(classType){
@@ -293,6 +687,18 @@ export class Data extends Base{
         const hasInitializer = initializerIndex!==-1
         const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
         const eq = hasInitializer?'=':undefined
+        const jsonParseValue = hasInitializer&&this.parent
+            ? parseJSONParseInitializer(initializerTokens,this.parent)
+            : undefined
+        const jsonStringifyValue = hasInitializer&&this.parent
+            ? parseJSONStringifyInitializer(initializerTokens,this.parent)
+            : null
+        if(jsonParseValue!==undefined&&type&&type!=='any'){
+            throw new Error(`JSON.parse result cannot be assigned to "${type}"`)
+        }
+        if(jsonStringifyValue!==null&&type&&type!=='string'){
+            throw new Error(`JSON.stringify result cannot be assigned to "${type}"`)
+        }
         let value = initializerTokens[0]
         if(!hasInitializer&&(type==='Function'||type==='function')){
             value='0'
@@ -318,11 +724,48 @@ export class Data extends Base{
         if(type==='Task'){
             value='0'
         }
+        let jsonParseClass:ClassElement|null = null
+        let jsonRootArray:JSONArrayLayout|null = null
+        if(jsonParseValue!==undefined&&this.parent){
+            if(isJSONObject(jsonParseValue)){
+                const properties = createJSONProperties(jsonParseValue,this.parent).map(createJSONDataElement)
+                const className = `__ds_struct_${++structLayoutId}`
+                jsonParseClass = new ClassElement(className,properties,[])
+                this.parent.addClass(jsonParseClass)
+                type = className
+            }else if(Array.isArray(jsonParseValue)){
+                jsonRootArray = createJSONArrayLayout(jsonParseValue,this.parent)
+                type = `${jsonRootArray.type}[]`
+            }else if(typeof jsonParseValue==='string'){
+                type = 'string'
+                value = JSON.stringify(jsonParseValue).slice(1,-1)
+            }else if(typeof jsonParseValue==='number'){
+                if(!Number.isFinite(jsonParseValue)){
+                    throw new Error('JSON.parse result must contain finite numbers')
+                }
+                type = 'number'
+                value = String(jsonParseValue)
+            }else if(typeof jsonParseValue==='boolean'){
+                type = 'boolean'
+                value = jsonParseValue?'1':'0'
+            }else{
+                type = 'null'
+                value = '0'
+            }
+        }else if(jsonStringifyValue!==null){
+            type = 'string'
+        }
         const arrayType = type?.match(/^([a-z_$][\w$]*)\[\]$/i)
         let arrayValues:string[] = []
         let arrayObjectValues:DataElement[][]|null = null
         let inferredArrayClass:ClassElement|null = null
-        if(arrayType){
+        if(jsonRootArray){
+            arrayValues = jsonRootArray.values
+            arrayObjectValues = jsonRootArray.arrayObjectValues
+            inferredArrayClass = jsonRootArray.classType
+            value = arrayValues.join(', ')
+        }
+        if(arrayType&&!jsonRootArray){
             const itemType = arrayType[1]
             const classType = this.parent?.getClass(itemType)
             const allowedItemTypes = ['number','string']
@@ -409,7 +852,7 @@ export class Data extends Base{
         }
         let numericExpression:string|null = null
         let runtimeInitializer = false
-        if(type==='number'&&eq==='='){
+        if(type==='number'&&eq==='='&&jsonParseValue===undefined&&jsonStringifyValue===null){
             numericExpression = initializerTokens.join('').replace(/;$/,'')
             runtimeInitializer = !/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(numericExpression)
             if(runtimeInitializer){
@@ -422,10 +865,12 @@ export class Data extends Base{
             }
         }
         const normalizedType = arrayType?inferredArrayClass?.name??arrayType[1]:type
-        let classType = inferredArrayClass??(normalizedType?this.parent?.getClass(normalizedType):null)
-        let classLayout:{type:string,props:DataElement[]}|null = null
+        let classType = inferredArrayClass??jsonParseClass??(normalizedType?this.parent?.getClass(normalizedType):null)
+        let classLayout:{type:string,props:DataElement[]}|null = jsonParseClass
+            ? {type:jsonParseClass.name!,props:jsonParseClass.props}
+            : null
         let classInitializerArgs:string[]|null = null
-        if(classType&&!arrayType&&eq==='='){
+        if(classType&&!arrayType&&eq==='='&&!jsonParseClass){
             if(initializerTokens[0]==='{'){
                 const properties = parseObjectLiteral(initializerTokens)
                 classLayout = createStructLayout(properties,classType,name)
@@ -448,9 +893,22 @@ export class Data extends Base{
         }
         let values = [value]
         if(type=='string'){
-            values = [hasInitializer?getStringLiteralContents(initializerTokens.join('')):'']
+            values = [jsonParseValue!==undefined
+                ? JSON.stringify(jsonParseValue).slice(1,-1)
+                : jsonStringifyValue!==null
+                    ? JSON.stringify(jsonStringifyValue).slice(1,-1)
+                    : hasInitializer?getStringLiteralContents(initializerTokens.join('')):'']
         }
         this.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
+        if(jsonParseValue!==undefined){
+            this.element.jsonValue = jsonParseValue
+        }else if(jsonStringifyValue!==null){
+            this.element.jsonValue = jsonStringifyValue
+        }else if(classLayout&&this.parent){
+            this.element.jsonValue = getJSONValueFromProperties(classLayout.props,this.parent)
+        }else if(this.parent){
+            this.element.jsonValue = getJSONValueFromData(this.element,this.parent)
+        }
         if(classLayout){
             this.element.classLayoutType = classLayout.type
             this.element.classLayoutProps = classLayout.props
@@ -579,9 +1037,7 @@ export class Data extends Base{
             if(!properties){
                 throw new Error(`Unknown class type "${this.element!.classType}" for local "${this.element!.name}"`)
             }
-            const fields = this.element!.classLayoutProps
-                ? properties
-                : getStructFields(properties,name=>this.parent!.getClass(name))
+            const fields = getStructFields(properties,name=>this.parent!.getClass(name))
             const heapAllocated = this.element!.isHeapAllocated
             if(heapAllocated){
                 ASM.addCode(`local ${this.element!.name} dq 0`)
@@ -727,8 +1183,9 @@ export class Data extends Base{
                 ASM.addData(`${this.element!.name} dq ${objects.map(()=>0).join(', ')}`)
                 objects.forEach((properties,index)=>{
                     const label = `${this.element!.name}_${index}`
-                    ASM.addData(`${label} dq ${properties.map(property=>property.type==='string'?'0':property.value||'0').join(', ')}`)
-                    initializeStackStructStrings(ASM,label,properties)
+                    const fields = getStructFields(properties,name=>this.parent!.getClass(name))
+                    ASM.addData(`${label} dq ${fields.map(property=>property.type==='string'?'0':property.value||'0').join(', ')||'0'}`)
+                    initializeStackStructStrings(ASM,label,fields)
                     ASM.addCode(`lea rax, [${label}]`)
                     ASM.addCode(`mov [${this.element!.name}+${index*8}], rax`)
                 })
@@ -777,12 +1234,11 @@ export class Data extends Base{
         }
         if(this.element!.classType){
             if(this.element!.classLayoutType&&this.element!.classLayoutProps){
-                const members = this.element!.classLayoutProps.map(prop=>{
-                    if(prop.type==='string'){
-                        return `    ${prop.name} dq 0`
-                    }
-                    return `    ${prop.name} dq ${prop.value}`
-                })
+                const getClass = (name:string)=>this.parent!.getClass(name)
+                const members = getStructLayoutMembers(this.element!.classLayoutProps,getClass)
+                if(!members.length){
+                    members.push('    __ds_empty dq 0')
+                }
                 ASM.addCode([`struct ${this.element!.classLayoutType}`,...members,'end struct'].join('\n'))
                 ASM.addData(`${this.element!.name} ${this.element!.classLayoutType}`)
                 initializeStructStrings(
