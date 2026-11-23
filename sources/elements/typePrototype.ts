@@ -10,6 +10,7 @@ export class TypePrototypeRegistry{
     static reset(){
         this.methods.clear()
         this.registerBuiltin('array','push')
+        this.registerBuiltin('array','forEach')
         this.registerBuiltin('array','toString')
         this.registerBuiltin('ArrayBuffer','toString')
         this.registerBuiltin('string','charCodeAt')
@@ -61,6 +62,7 @@ export class TypePrototypeRegistry{
 }
 
 TypePrototypeRegistry.registerBuiltin('array','push')
+TypePrototypeRegistry.registerBuiltin('array','forEach')
 TypePrototypeRegistry.registerBuiltin('array','toString')
 TypePrototypeRegistry.registerBuiltin('ArrayBuffer','toString')
 TypePrototypeRegistry.registerBuiltin('string','charCodeAt')

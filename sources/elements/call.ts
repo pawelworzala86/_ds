@@ -13,6 +13,7 @@ import {emitLocalMethodCall as emitLocalMethodCallImpl} from './call/localMethod
 import {emitAsyncCall as emitAsyncCallImpl,emitAsyncArgument as emitAsyncArgumentImpl,emitAsyncFailure as emitAsyncFailureImpl} from './call/asyncCall.ts'
 import {validateArrayPush as validateArrayPushImpl} from './call/arrayValidation.ts'
 import {emitArrayPush as emitArrayPushImpl} from './call/arrayPush.ts'
+import {emitArrayForEach as emitArrayForEachImpl} from './call/arrayForEach.ts'
 import {emitArrayToString as emitArrayToStringImpl} from './call/arrayToString.ts'
 import {emitArrayBufferToString as emitArrayBufferToStringImpl} from './call/arrayBufferToString.ts'
 import {emitStringCharCodeAt as emitStringCharCodeAtImpl} from './call/stringCharCodeAt.ts'
@@ -33,6 +34,7 @@ export class Call extends Base{
     arrayMethodArray:DataElement|null = null
     arrayMethodIndex:FunctionArgument|null = null
     builtinArray:DataElement|null = null
+    builtinArrayForEach:DataElement|null = null
     builtinArrayToString:DataElement|null = null
     builtinArrayBufferToString:DataElement|null = null
     builtinStringCharCodeAt:DataElement|null = null
@@ -130,6 +132,9 @@ export class Call extends Base{
     }
     emitArrayPush(ASM:Asm){
         emitArrayPushImpl(this,ASM)
+    }
+    emitArrayForEach(ASM:Asm){
+        emitArrayForEachImpl(this,ASM)
     }
     emitArrayToString(ASM:Asm){
         emitArrayToStringImpl(this,ASM)

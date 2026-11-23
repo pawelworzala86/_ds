@@ -2,6 +2,7 @@ import Tokenizer from '../../tokenizer.ts'
 import DataElement from '../dataElement.ts'
 import FunctionArgument from '../functionArgument.ts'
 import FuncElement from '../funcElement.ts'
+import {createInlineCallback} from '../func.ts'
 import {parseRegExpLiteral} from '../../regex.ts'
 import Call from '../call.ts'
 import {getPromiseValueTypeFromData} from '../promise.ts'
@@ -56,6 +57,9 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     instance.prototypeMethod = prototype?.method.kind==='function'
     instance.prototypeReceiver = instance.prototypeMethod&&Boolean(prototype&&!prototype.type.startsWith('class:'))
     instance.builtinArray = prototype?.method.kind==='builtin'&&prototype.method.name==='push'
+        ? prototype.instance
+        : null
+    instance.builtinArrayForEach = prototype?.method.kind==='builtin'&&prototype.method.name==='forEach'
         ? prototype.instance
         : null
     instance.builtinArrayToString = prototype?.method.kind==='builtin'
@@ -118,6 +122,23 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     }
     const argumentTexts = tokenizer.getCallArguments()
     instance.params = argumentTexts.map(token=>new FunctionArgument(instance,token))
+    if(instance.builtinPromiseMethod||instance.builtinArrayForEach){
+        const array = instance.builtinArrayForEach
+        const callbackType = instance.builtinPromiseMethod
+            ? getPromiseValueTypeFromData(instance.methodInstance!)
+            : array?.classType??array?.type??null
+        if(callbackType){
+            const callback = createInlineCallback(
+                instance.parent!,
+                argumentTexts[0]??'',
+                callbackType,
+                instance.builtinPromiseMethod?instance.methodInstance!.arrayLength:null
+            )
+            if(callback){
+                instance.params[0].value = callback
+            }
+        }
+    }
     instance.params.forEach((param,index)=>{
         const argument = argumentTexts[index]
         const arrayToString = argument.match(/^([a-z_$][\w$]*)\.toString\(\)$/i)
@@ -180,6 +201,23 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
         }
         if(callback.isAsync||callback.params.length!==1||callback.params[0].type!==promiseType){
             throw new Error(`Promise.${instance.builtinPromiseMethod} callback must accept one ${promiseType} argument`)
+        }
+    }
+    if(instance.builtinArrayForEach){
+        const array = instance.builtinArrayForEach
+        if(!array.isArray){
+            throw new Error('Array.forEach can only be called on an array')
+        }
+        if(instance.params.length!==1){
+            throw new Error('Array.forEach expects exactly one callback')
+        }
+        const callback = instance.params[0].value
+        const itemType = array.classType??array.type
+        if(!(callback instanceof FuncElement)){
+            throw new Error('Array.forEach only supports named or block-bodied arrow callbacks')
+        }
+        if(callback.isAsync||callback.params.length!==1||callback.params[0].type!==itemType){
+            throw new Error(`Array.forEach callback must accept one ${itemType} argument`)
         }
     }
     if(instance.builtinStringSplit){

@@ -10,6 +10,27 @@ import {isPromiseType} from './promise.ts'
 let returnId = 0
 let asyncWorkerId = 0
 let inferredStructId = 0
+let inlineCallbackId = 0
+
+export function createInlineCallback(active:Base,source:string,type:string,arrayLength:number|null=null){
+    const callback = source.match(/^\s*\(?([a-z_$][\w$]*)\)?\s*=>\s*\{([\s\S]*)\}\s*$/i)
+    if(!callback){
+        return null
+    }
+    const name = `__ds_inline_callback_${++inlineCallbackId}`
+    const func = new Func(active)
+    const tokenizer = new Tokenizer(`function ${name}(${callback[1]}:${type}){${callback[2]}}`)
+    func.set(tokenizer,new Asm())
+    if(tokenizer.has()||!func.element){
+        throw new Error('Unable to compile inline callback')
+    }
+    const parameter = func.getData(callback[1])
+    if(parameter&&arrayLength!==null){
+        parameter.arrayLength = arrayLength
+    }
+    active.children.push(func)
+    return func.element
+}
 
 export class Func extends Base{
     static predeclared = new WeakSet<FuncElement>()

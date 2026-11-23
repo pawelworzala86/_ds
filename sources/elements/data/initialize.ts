@@ -75,7 +75,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
     const eq = hasInitializer?'=':undefined
     const promiseInitializerExpression = initializerTokens.join('')
-    const hasPromiseInitializer = /^Promise\.(?:resolve|reject)\(/.test(promiseInitializerExpression)
+    const hasPromiseInitializer = /^Promise\.(?:resolve|reject|all)\(/.test(promiseInitializerExpression)
         ||promiseInitializerExpression.startsWith('newPromise(')
     const hasAwaitInitializer = initializerTokens[0]==='await'
     if(hasAwaitInitializer){

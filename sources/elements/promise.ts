@@ -7,14 +7,16 @@ import FunctionArgument from './functionArgument.ts'
 import New from './new.ts'
 import Tokenizer from '../tokenizer.ts'
 import Timeout from './timeout.ts'
+import {splitTopLevelArrayValues} from './data/arrays.ts'
 
 export class PromiseInitializer extends Base{
     target:DataElement
     status:1|2
-    value:FunctionArgument
+    value:FunctionArgument|null
     timeout:Timeout|null = null
+    allPromises:DataElement[]|null = null
 
-    constructor(parent:Base,target:DataElement,status:1|2,value:FunctionArgument){
+    constructor(parent:Base,target:DataElement,status:1|2,value:FunctionArgument|null){
         super(parent)
         this.target = target
         this.status = status
@@ -22,6 +24,10 @@ export class PromiseInitializer extends Base{
     }
 
     asm(ASM:Asm){
+        if(this.allPromises){
+            this.emitAll(ASM)
+            return
+        }
         if(this.timeout){
             const name = this.target.name
             if(!name){
@@ -39,6 +45,9 @@ export class PromiseInitializer extends Base{
         if(!name){
             throw new Error('Promise initializer target is not initialized')
         }
+        if(!this.value){
+            throw new Error('Promise initializer value is not initialized')
+        }
         const value = this.value.value
         if(this.value.expression){
             emitExpression(this.value.expression,ASM)
@@ -48,6 +57,10 @@ export class PromiseInitializer extends Base{
         }else if(value instanceof DataElement){
             if(value.isConstAlias){
                 ASM.addCode(`mov rax, ${value.name}`)
+            }else if(value.isArray){
+                ASM.addCode(value.isParameter||value.dynamicArray
+                    ? `mov rax, [${value.name}]`
+                    : `lea rax, [${value.name}]`)
             }else if(value.classType&&!value.isArray){
                 ASM.addCode(value.isParameter
                     ? `mov rax, ${value.name}`
@@ -76,6 +89,54 @@ export class PromiseInitializer extends Base{
         ASM.addCode(`mov qword [${name}__state], ${this.status}`)
     }
 
+    emitAll(ASM:Asm){
+        const name = this.target.name
+        if(!name){
+            throw new Error('Promise.all target is not initialized')
+        }
+        const values = `${name}__items`
+        ASM.addData(`${values} dq ${this.allPromises!.map(()=>0).join(', ')||'0'}`)
+        ASM.addImport('kernel32','Sleep')
+        const poll = `__ds_promise_all_poll_${name}`
+        const wait = `__ds_promise_all_wait_${name}`
+        const finish = `__ds_promise_all_finish_${name}`
+        ASM.addCode(`${poll}:`)
+        for(let index=0;index<this.allPromises!.length;index++){
+            const promise = this.allPromises![index]
+            if(!promise.name){
+                throw new Error('Promise.all contains an uninitialized promise')
+            }
+            const rejected = `__ds_promise_all_rejected_${name}_${index}`
+            ASM.addCode(`cmp qword [${promise.name}__state], 2`)
+            ASM.addCode(`je ${rejected}`)
+            ASM.addCode(`cmp qword [${promise.name}__state], 1`)
+            ASM.addCode(`jne ${wait}`)
+        }
+        this.allPromises!.forEach((promise,index)=>{
+            ASM.addCode(`mov rax, [${promise.name}__value]`)
+            ASM.addCode(`mov [${values}+${index*8}], rax`)
+        })
+        ASM.addCode(`lea rax, [${values}]`)
+        ASM.addCode(`mov [${name}__value], rax`)
+        ASM.addCode(`mov qword [${name}__state], 1`)
+        ASM.addCode(`jmp ${finish}`)
+        this.allPromises!.forEach((promise,index)=>{
+            const rejected = `__ds_promise_all_rejected_${name}_${index}`
+            ASM.addCode(`${rejected}:`)
+            ASM.addCode(`mov rax, [${promise.name}__value]`)
+            ASM.addCode(`mov [${name}__value], rax`)
+            ASM.addCode(`mov qword [${name}__state], 2`)
+            ASM.addCode(`jmp ${finish}`)
+        })
+        ASM.addCode(`${wait}:`)
+        ASM.addCode('mov ecx, 1')
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode('call [Sleep]')
+        ASM.addCode('add rsp, 40')
+        ASM.addCode(`jmp ${poll}`)
+        ASM.addCode(`${finish}:`)
+    }
+
     setTimeout(parent:Base,delay:string){
         this.timeout = new Timeout(parent)
         this.timeout.set(new Tokenizer(`setTimeout(()=>{},${delay})`))
@@ -97,7 +158,7 @@ class PromiseSettlement extends Base{
 }
 
 export function getPromiseValueType(type:string|undefined){
-    const valueType = type?.match(/^Promise(?:<\s*([a-z_$][\w$]*)\s*>)?$/i)?.[1]
+    const valueType = type?.match(/^Promise(?:<\s*([a-z_$][\w$]*(?:\[\])?)\s*>)?$/i)?.[1]
     if(!valueType){
         return null
     }
@@ -107,12 +168,15 @@ export function getPromiseValueType(type:string|undefined){
 }
 
 export function isPromiseType(type:string|undefined){
-    return Boolean(type?.match(/^Promise(?:<\s*[a-z_$][\w$]*\s*>)?$/i))
+    return Boolean(type?.match(/^Promise(?:<\s*[a-z_$][\w$]*(?:\[\])?\s*>)?$/i))
 }
 
 function getValueType(argument:FunctionArgument){
     const value = argument.value
     if(value instanceof DataElement){
+        if(value.isArray){
+            return `${value.classType??value.type}[]`
+        }
         if(value.type==='number'||value.type==='string'||value.type==='boolean'){
             return value.type
         }
@@ -158,6 +222,44 @@ export function parsePromiseInitializer(
     expression:string,
     declaredType:string|undefined
 ){
+    const all = expression.match(/^Promise\.all\(\[([\s\S]*)\]\)$/)
+    if(all){
+        const promises = splitTopLevelArrayValues(all[1]).map(name=>{
+            if(!/^[a-z_$][\w$]*$/i.test(name)){
+                throw new Error('Promise.all only supports an array of Promise<T> variables')
+            }
+            const promise = parent.getData(name)
+            if(!promise||!getPromiseValueTypeFromData(promise)){
+                throw new Error(`Promise.all expects Promise<T> values, received "${name}"`)
+            }
+            return promise
+        })
+        if(!promises.length){
+            throw new Error('Promise.all requires at least one typed promise')
+        }
+        const itemType = getPromiseValueTypeFromData(promises[0])!
+        if(promises.some(promise=>getPromiseValueTypeFromData(promise)!==itemType)){
+            throw new Error('Promise.all values must have the same type')
+        }
+        const valueType = `${itemType}[]`
+        const declaredValueType = getPromiseValueType(declaredType)
+        if(declaredType&&!declaredValueType){
+            throw new Error(`Promise.all cannot be assigned to "${declaredType}"`)
+        }
+        if(declaredValueType&&declaredValueType!==valueType){
+            throw new Error(`Promise.all value type "${valueType}" does not match "${declaredValueType}"`)
+        }
+        target.type = `Promise<${declaredValueType??valueType}>`
+        target.value = '0'
+        target.arrayLength = promises.length
+        const elementType = itemType.replace(/\[\]$/,'')
+        if(!['number','string','boolean'].includes(elementType)){
+            target.classType = elementType
+        }
+        const initializer = new PromiseInitializer(parent,target,1,null)
+        initializer.allPromises = promises
+        return initializer
+    }
     let status:1|2
     let valueExpression:string
     let timeoutDelay:string|null = null
@@ -215,6 +317,9 @@ export function parsePromiseInitializer(
         throw new Error(`Promise value type "${valueType}" does not match "${declaredValueType}"`)
     }
     target.type = `Promise<${declaredValueType??valueType}>`
+    if(argumentValue instanceof DataElement&&argumentValue.isArray){
+        target.arrayLength = argumentValue.arrayLength
+    }
     if(valueType==='number'){
         target.numericKind = argument.expression?.numericKind
             ??(argumentValue instanceof DataElement

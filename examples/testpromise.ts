@@ -61,4 +61,24 @@ console.log('executorResValue:',executorResValue.value)
 
 
 
+
+const promise1:Promise<MyClass> = new Promise((resolve,reject) => {
+    setTimeout(() => {
+        resolve(new MyClass(44))
+    }, 1000)
+})
+const promise2:Promise<MyClass> = new Promise((resolve,reject) => {
+    setTimeout(() => {
+        resolve(new MyClass(44))
+    }, 1000)
+})
+const allPromises:Promise<MyClass[]> = Promise.all([promise1,promise2])
+allPromises.then(values => {
+    values.forEach(value => {
+        console.log('allPromises value:', value.value)
+    })
+})
+
+
+
 kernel.ExitProcess(0)

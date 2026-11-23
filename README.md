@@ -19,7 +19,9 @@ Typ `boolean` obsługuje wartości `true` i `false`, przypisania, warunki, tabli
 
 ## Uproszczone Promise
 
-Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wywołujący `resolve(value)` lub `reject(value)` bezpośrednio albo w pojedynczym `setTimeout(() => { ... }, delay)`, `.then(namedFunction)` i `.catch(namedFunction)`. Promise może przechowywać wartości `number`, `string`, `boolean` oraz instancje klas, np. `Promise<MyClass>` z wartością `new MyClass(...)`; typ argumentu callbacka musi odpowiadać typowi Promise. `await` i callbacki `.then`/`.catch` czekają na rozstrzygnięcie Promise; odrzucenie kończy program kodem błędu. Dla klas `await` kopiuje pola instancji do zmiennej wynikowej. Nie są obsługiwane mikrozadania, inne asynchroniczne resolve/reject, funkcje strzałkowe jako callbacki `.then`/`.catch`, domknięcia ani łańcuchy Promise.
+Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wywołujący `resolve(value)` lub `reject(value)` bezpośrednio albo w pojedynczym `setTimeout(() => { ... }, delay)`, `.then(callback)` i `.catch(callback)`. Callbacki mogą być nazwanymi funkcjami albo funkcjami strzałkowymi z blokiem; muszą przyjmować jeden argument zgodny z typem Promise. Promise może przechowywać wartości `number`, `string`, `boolean` oraz instancje klas, np. `Promise<MyClass>` z wartością `new MyClass(...)`.
+
+`Promise.all([promise1, promise2])` przyjmuje niepustą tablicę zmiennych `Promise<T>` o tym samym typie `T` i zwraca `Promise<T[]>`. Promise wynikowy rozstrzyga się po rozstrzygnięciu wszystkich wejściowych; odrzuca się, gdy którykolwiek z nich zostanie odrzucony. Tablicę wyników można obsłużyć w callbacku `.then`, np. przez `values.forEach(value => { ... })`. `await` i callbacki `.then`/`.catch` czekają na rozstrzygnięcie Promise; odrzucenie kończy program kodem błędu. Dla klas `await` kopiuje pola instancji do zmiennej wynikowej. Nie są obsługiwane mikrozadania, inne asynchroniczne resolve/reject, domknięcia ani łańcuchy Promise. Przykład: `.\test.cmd testpromise`.
 
 ## Tablice typowane
 
