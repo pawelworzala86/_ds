@@ -210,6 +210,41 @@ export type TypedArrayInitializer = {
     bytes:number[]
 }
 
+function parseSliceIndex(active:Base,text:string):number{
+    const data = active.getData(text)
+    const value = data?.isConstAlias&&data.type==='number'&&!data.isArray
+        ? data.value??''
+        : text
+    const index = Number(value)
+    if(!/^[+-]?\d+$/.test(value)||!Number.isSafeInteger(index)){
+        throw new Error('Typed array slice indices must be safe integer literals or constants')
+    }
+    return index
+}
+
+export function sliceTypedArray(
+    active:Base,
+    kind:TypedArrayKind,
+    sourceName:string,
+    args:string[]
+):TypedArrayInitializer{
+    const source = active.getData(sourceName)
+    if(!source?.typedArrayKind||source.typedArrayKind!==kind||!source.typedArrayValues){
+        throw new Error(`Typed array slice source "${sourceName}" must be a ${kind}`)
+    }
+    if(args.length>2||args.some(argument=>!argument.trim())){
+        throw new Error(`${kind}.slice expects zero, one, or two integer arguments`)
+    }
+    const values = source.typedArrayValues
+    const normalizeIndex = (index:number)=>index<0
+        ? Math.max(values.length+index,0)
+        : Math.min(index,values.length)
+    const start = args[0]?normalizeIndex(parseSliceIndex(active,args[0].trim())):0
+    const end = args[1]?normalizeIndex(parseSliceIndex(active,args[1].trim())):values.length
+    const slicedValues = convertTypedArrayValues(kind,values.slice(start,Math.max(start,end)))
+    return {kind,values:slicedValues,bytes:encodeTypedArrayBytes(kind,slicedValues)}
+}
+
 export function initializeTypedArray(active:Base,kind:TypedArrayKind,args:string[]):TypedArrayInitializer{
     const info = typedArrayInfo[kind]
     if(args.length>3){

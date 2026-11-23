@@ -10,7 +10,7 @@ import {createStructLayout,parseObjectLiteral} from './struct.ts'
 import {nextCallResultId,nextStructLayoutId} from './ids.ts'
 import type {JSONArrayLayout} from './types.ts'
 import {initializeArray} from './arrayInitializer.ts'
-import {getTypedArrayKind,initializeTypedArray} from './typedArrays.ts'
+import {getTypedArrayKind,initializeTypedArray,sliceTypedArray} from './typedArrays.ts'
 import type Data from '../data.ts'
 import {getPromiseValueTypeFromData,parsePromiseInitializer} from '../promise.ts'
 
@@ -185,21 +185,31 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const typedArrayCall = hasInitializer
         ? initializerTokens.join('').match(/^new([A-Za-z0-9_$]+)\(([\s\S]*)\)$/)
         : null
-    const typedArrayKind = getTypedArrayKind(typedArrayCall?.[1]??type)
+    const typedArraySliceCall = hasInitializer
+        ? initializerTokens.join('').match(/^([a-z_$][\w$]*)\.slice\(([\s\S]*)\)$/i)
+        : null
+    const typedArraySliceSource = typedArraySliceCall
+        ? data.parent?.getData(typedArraySliceCall[1])
+        : null
+    const typedArrayKind = getTypedArrayKind(typedArrayCall?.[1]??type??typedArraySliceSource?.typedArrayKind)
     if(typedArrayKind){
-        if(!typedArrayCall){
+        if(!typedArrayCall&&!typedArraySliceCall){
             throw new Error(`Typed array "${name}" must be initialized with a ${typedArrayKind} constructor`)
         }
         if(type&&type!==typedArrayKind){
-            throw new Error(`Typed array "${name}" is declared as "${type}" but initialized as "${typedArrayCall[1]}"`)
+            throw new Error(`Typed array "${name}" is declared as "${type}" but initialized as "${typedArrayCall?.[1]??typedArraySliceSource?.typedArrayKind}"`)
         }
-        const callTokenizer = new Tokenizer(`(${typedArrayCall[2]})`)
+        const callTokenizer = new Tokenizer(`(${typedArrayCall?.[2]??typedArraySliceCall?.[2]??''})`)
         callTokenizer.get()
         const args = callTokenizer.getCallArguments()
         if(callTokenizer.has()){
-            throw new Error(`Invalid ${typedArrayKind} constructor`)
+            throw new Error(`Invalid ${typedArrayKind} ${typedArraySliceCall?'slice':'constructor'}`)
         }
-        typedArrayInitializer = initializeTypedArray(data.parent!,typedArrayKind,args)
+        if(typedArraySliceCall){
+            typedArrayInitializer = sliceTypedArray(data.parent!,typedArrayKind,typedArraySliceCall[1],args)
+        }else{
+            typedArrayInitializer = initializeTypedArray(data.parent!,typedArrayKind,args)
+        }
         type = typedArrayInitializer.kind.startsWith('Big')?'bigint':'number'
         value = typedArrayInitializer.values.join(', ')
     }
