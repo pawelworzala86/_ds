@@ -22,6 +22,7 @@ import {emitStringReplace as emitStringReplaceImpl} from './call/stringReplace.t
 import {emitStringSearch as emitStringSearchImpl} from './call/stringSearch.ts'
 import {emitStringRange as emitStringRangeImpl} from './call/stringRange.ts'
 import {emitStringConcat as emitStringConcatImpl} from './call/stringConcat.ts'
+import {emitStringTransform as emitStringTransformImpl} from './call/stringTransform.ts'
 import {emitPromiseMethod as emitPromiseMethodImpl} from './call/promise.ts'
 import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl} from './call/methodLookup.ts'
 
@@ -40,11 +41,14 @@ export class Call extends Base{
     builtinStringCharCodeAt:DataElement|null = null
     builtinStringSplit:DataElement|null = null
     builtinStringReplace:DataElement|null = null
+    builtinStringReplaceMethod:string|null = null
     builtinStringSearch:DataElement|null = null
     builtinStringSearchMethod:string|null = null
     builtinStringRange:DataElement|null = null
     builtinStringRangeMethod:string|null = null
     builtinStringConcat:DataElement|null = null
+    builtinStringTransform:DataElement|null = null
+    builtinStringTransformMethod:string|null = null
     builtinPromiseMethod:string|null = null
     builtinConsoleLog = false
     functionVariable:DataElement|null = null
@@ -126,6 +130,9 @@ export class Call extends Base{
     }
     emitStringConcat(ASM:Asm){
         emitStringConcatImpl(this,ASM)
+    }
+    emitStringTransform(ASM:Asm){
+        emitStringTransformImpl(this,ASM)
     }
     emitPromiseMethod(ASM:Asm){
         emitPromiseMethodImpl(this,ASM)

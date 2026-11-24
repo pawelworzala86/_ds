@@ -78,9 +78,11 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     instance.builtinStringSplit = prototype?.method.kind==='builtin'&&prototype.method.name==='split'
         ? prototype.instance
         : null
-    instance.builtinStringReplace = prototype?.method.kind==='builtin'&&prototype.method.name==='replace'
-        ? prototype.instance
+    instance.builtinStringReplaceMethod = prototype?.method.kind==='builtin'
+        &&['replace','replaceAll'].includes(prototype.method.name)
+        ? prototype.method.name
         : null
+    instance.builtinStringReplace = instance.builtinStringReplaceMethod?prototype!.instance:null
     const stringSearchMethods = ['indexOf','includes','startsWith','endsWith']
     instance.builtinStringSearchMethod = prototype?.method.kind==='builtin'
         &&stringSearchMethods.includes(prototype.method.name)
@@ -96,6 +98,21 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     instance.builtinStringConcat = prototype?.method.kind==='builtin'&&prototype.method.name==='concat'
         ? prototype.instance
         : null
+    const stringTransformMethods = [
+        'toUpperCase',
+        'toLowerCase',
+        'toLocaleUpperCase',
+        'toLocaleLowerCase',
+        'trim',
+        'trimStart',
+        'trimEnd',
+        'repeat'
+    ]
+    instance.builtinStringTransformMethod = prototype?.method.kind==='builtin'
+        &&stringTransformMethods.includes(prototype.method.name)
+        ? prototype.method.name
+        : null
+    instance.builtinStringTransform = instance.builtinStringTransformMethod?prototype!.instance:null
     instance.builtinPromiseMethod = prototype?.method.kind==='builtin'
         &&/^Promise(?:<.*>)?$/i.test(prototype.type)
         ? prototype.method.name
@@ -109,7 +126,7 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
         instance.func = split
     }
     if(instance.builtinStringReplace){
-        instance.func = new FuncElement('__ds_string_replace',[])
+        instance.func = new FuncElement(`__ds_string_${instance.builtinStringReplaceMethod}`,[])
     }
     if(instance.builtinStringSearch){
         instance.func = new FuncElement(`__ds_string_${instance.builtinStringSearchMethod}`,[])
@@ -119,6 +136,9 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     }
     if(instance.builtinStringConcat){
         instance.func = new FuncElement('__ds_string_concat',[])
+    }
+    if(instance.builtinStringTransform){
+        instance.func = new FuncElement('__ds_string_transform',[])
     }
     const argumentTexts = tokenizer.getCallArguments()
     instance.params = argumentTexts.map(token=>new FunctionArgument(instance,token))
@@ -246,8 +266,15 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             &&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(argument.value)
             ||argument.value instanceof DataElement&&argument.value.type==='string'&&!argument.value.isArray
             ||argument.classProperty?.type==='string'&&!argument.classProperty.isArray
-        const isRegExpLiteral = typeof search.value==='string'
-            &&Boolean(parseRegExpLiteral(search.value))
+        const regexp = typeof search.value==='string'
+            ? parseRegExpLiteral(search.value)
+            : null
+        const isRegExpLiteral = Boolean(regexp)
+        if(instance.builtinStringReplaceMethod==='replaceAll'
+            &&isRegExpLiteral
+            &&!regexp?.flags.includes('g')){
+            throw new Error('String.replaceAll regular expression must use the global flag')
+        }
         if(!isRegExpLiteral&&!isString(search)){
             throw new Error('String.replace search value must be a string or regular expression literal')
         }
@@ -290,6 +317,24 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             ||value.classProperty?.type==='string'&&!value.classProperty.isArray
         if(!isString){
             throw new Error('String.concat argument must be a string')
+        }
+    }
+    if(instance.builtinStringTransform){
+        const method = instance.builtinStringTransformMethod
+        if(method==='repeat'){
+            if(instance.params.length!==1){
+                throw new Error('String.repeat expects exactly one integer count')
+            }
+            const count = instance.params[0]
+            const isNumericValue = Boolean(count.expression
+                ||count.value instanceof DataElement&&count.value.type==='number')
+            const numericKind = count.expression?.numericKind
+                ??(count.value instanceof DataElement?count.value.numericKind:'integer')
+            if(!isNumericValue||numericKind!=='integer'){
+                throw new Error('String.repeat count must be an integer')
+            }
+        }else if(instance.params.length!==0){
+            throw new Error(`String.${method} expects no arguments`)
         }
     }
     if(instance.builtinStringSearch){

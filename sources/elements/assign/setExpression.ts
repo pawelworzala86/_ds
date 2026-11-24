@@ -98,6 +98,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
                 call.builtinStringReplace
                 ||call.builtinStringRange
                 ||call.builtinStringConcat
+                ||call.builtinStringTransform
             )){
                 assignment.stringCall = call
                 return

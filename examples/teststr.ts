@@ -86,4 +86,40 @@ let callbackReplace: string = 'placeholder'
 callbackReplace = replaceText.replace(/red/g, replaceRedWithBlue)
 msvcrt.printf('replace callback: %s\n', callbackReplace)
 
+let replaceAllText: string = 'red red'
+let replaceAllString: string = 'placeholder'
+let replaceAllRegExp: string = 'placeholder'
+let replaceAllEmpty: string = 'placeholder'
+replaceAllString = replaceAllText.replaceAll('red', 'blue')
+replaceAllRegExp = replaceAllText.replaceAll(/red/g, 'green')
+replaceAllEmpty = replaceAllText.replaceAll('', '-')
+msvcrt.printf('replaceAll string: %s, regex: %s, empty: %s\n', replaceAllString, replaceAllRegExp, replaceAllEmpty)
+
+let caseText: string = 'Hello, World! 123'
+let upperText: string = 'placeholder'
+let lowerText: string = 'placeholder'
+let localeUpperText: string = 'placeholder'
+let localeLowerText: string = 'placeholder'
+upperText = caseText.toUpperCase()
+lowerText = upperText.toLowerCase()
+localeUpperText = caseText.toLocaleUpperCase()
+localeLowerText = localeUpperText.toLocaleLowerCase()
+msvcrt.printf('case: %s, %s, locale: %s, %s, source: %s\n', upperText, lowerText, localeUpperText, localeLowerText, caseText)
+
+let whitespaceText: string = ' \t padded text \n'
+let trimmedText: string = 'placeholder'
+let leftTrimmedText: string = 'placeholder'
+let rightTrimmedText: string = 'placeholder'
+trimmedText = whitespaceText.trim()
+leftTrimmedText = whitespaceText.trimStart()
+rightTrimmedText = whitespaceText.trimEnd()
+msvcrt.printf('trim: "%s", start: "%s", end: "%s"\n', trimmedText, leftTrimmedText, rightTrimmedText)
+
+let repeatText: string = 'ab'
+let repeatedText: string = 'placeholder'
+let repeatedZero: string = 'placeholder'
+repeatedText = repeatText.repeat(3)
+repeatedZero = repeatText.repeat(0)
+msvcrt.printf('repeat: %s, zero: "%s"\n', repeatedText, repeatedZero)
+
 kernel.ExitProcess(0)

@@ -111,6 +111,10 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             call.emitStringConcat(ASM)
             return
         }
+        if(call.builtinStringTransform){
+            call.emitStringTransform(ASM)
+            return
+        }
         if(call.builtinPromiseMethod){
             call.emitPromiseMethod(ASM)
             return

@@ -25,7 +25,8 @@ export function emitStringReplace(call:Call,ASM:Asm){
             ? search.value
             : null
         const compiledRegExp = regexpLiteral?compileRegExpLiteral(regexpLiteral):null
-        const isGlobal = Boolean(regexpLiteral&&parseRegExpLiteral(regexpLiteral)?.flags.includes('g'))
+        const isGlobal = call.builtinStringReplaceMethod==='replaceAll'
+            ||Boolean(regexpLiteral&&parseRegExpLiteral(regexpLiteral)?.flags.includes('g'))
         const helperName = `__ds_string_replace_${id}`
         const source = `__ds_replace_${id}_source`
         const searchPointer = `__ds_replace_${id}_search`
@@ -66,6 +67,7 @@ export function emitStringReplace(call:Call,ASM:Asm){
         const segmentCapacityReady = `__ds_replace_${id}_segment_capacity_ready`
         const replacementCapacityReady = `__ds_replace_${id}_replacement_capacity_ready`
         const tailCapacityReady = `__ds_replace_${id}_tail_capacity_ready`
+        const nonEmptySearch = `__ds_replace_${id}_non_empty_search`
         const isCallback = replacement.value instanceof FuncElement
         const transitionTableSize = compiledRegExp?compiledRegExp.transitions.length*256:0
         const transitionInitializers = compiledRegExp?.transitions.flatMap((row,state)=>
@@ -123,6 +125,17 @@ export function emitStringReplace(call:Call,ASM:Asm){
             `mov [${matchEnd}], rax`,
             `jmp ${matched}`
         ]:[
+            ...(isGlobal?[
+                `cmp qword [${searchLength}], 0`,
+                `jne ${nonEmptySearch}`,
+                `mov rax, [${searchStart}]`,
+                `cmp rax, [${sourceLength}]`,
+                `ja ${noMatch}`,
+                `mov [${matchStart}], rax`,
+                `mov [${matchEnd}], rax`,
+                `jmp ${matched}`,
+                `${nonEmptySearch}:`
+            ]:[]),
             `mov rcx, [${source}]`,
             `add rcx, [${searchStart}]`,
             `mov rdx, [${searchPointer}]`,
@@ -349,7 +362,14 @@ export function emitStringReplace(call:Call,ASM:Asm){
             `mov rax, [${matchEnd}]`,
             `mov [${segmentStart}], rax`,
             `mov [${searchStart}], rax`,
-            ...(isGlobal?[`jmp ${mainLoop}`]:[`jmp ${copyTail}`]),
+            ...(isGlobal?[
+                ...(!compiledRegExp?[
+                    `cmp qword [${searchLength}], 0`,
+                    `jne ${mainLoop}`,
+                    `inc qword [${searchStart}]`
+                ]:[]),
+                `jmp ${mainLoop}`
+            ]:[`jmp ${copyTail}`]),
             `${noMatch}:`,
             `${copyTail}:`,
             `mov rax, [${sourceLength}]`,

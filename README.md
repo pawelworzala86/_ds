@@ -11,7 +11,7 @@ Silnik działa na znakach ASCII i bajtach. Kotwice, inne grupy przechwytujące, 
 
 ## Operacje na tekstach
 
-Obsługiwane metody `String` to również `indexOf`, `includes`, `startsWith` i `endsWith`; każda przyjmuje jeden argument tekstowy. `indexOf` zwraca `-1`, gdy tekst nie zostanie znaleziony, a pozostałe metody zwracają `1` lub `0`. `substring` i `slice` przyjmują indeks początkowy oraz opcjonalny końcowy; `substring` zamienia indeksy, gdy początek jest większy od końca, a `slice` obsługuje indeksy ujemne liczone od końca tekstu. `concat` dopisuje jeden argument tekstowy. Metody zwracające tekst można przypisać do zmiennej tekstowej. Porównania oraz indeksy działają na bajtach ASCII.
+Obsługiwane metody `String` to również `indexOf`, `includes`, `startsWith` i `endsWith`; każda przyjmuje jeden argument tekstowy. `indexOf` zwraca `-1`, gdy tekst nie zostanie znaleziony, a pozostałe metody zwracają `1` lub `0`. `substring` i `slice` przyjmują indeks początkowy oraz opcjonalny końcowy; `substring` zamienia indeksy, gdy początek jest większy od końca, a `slice` obsługuje indeksy ujemne liczone od końca tekstu. `concat` dopisuje jeden argument tekstowy. `toUpperCase`/`toLowerCase` (oraz warianty `toLocale...`) zmieniają wielkość liter ASCII; `trim`, `trimStart` i `trimEnd` usuwają białe znaki ASCII. `repeat` przyjmuje nieujemną liczbę całkowitą. `replaceAll` zastępuje wszystkie wystąpienia tekstu, a dla regexu wymaga flagi `g`. Metody zwracające tekst można przypisać do zmiennej tekstowej. Operacje na znakach i białych znakach działają na bajtach ASCII.
 
 ## Typ logiczny
 
