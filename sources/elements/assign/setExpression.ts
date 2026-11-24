@@ -13,7 +13,7 @@ let callbackId = 0
 
 export function setExpression(assignment:Assign,target:DataElement,expression:string,initializer=false,indexText?:string,append=false){
     const isStringArray = target.isArray && (target.type==='string'||target.type==='string[]')
-    if(!initializer&&target.kind==='const'){
+    if(!initializer&&target.kind==='const'&&!indexText){
         throw new Error(`Cannot assign to constant "${target.name}"`)
     }
     const promiseAwait = expression.trim().match(/^await\s+([a-z_$][\w$]*)$/i)

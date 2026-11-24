@@ -114,6 +114,10 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         data.setDestructure(tokens)
         return
     }
+    if(!classField&&tokens[1]?.startsWith('[')){
+        data.setArrayDestructure(tokens)
+        return
+    }
     let kind:string
     let name:string
     let type:string|undefined

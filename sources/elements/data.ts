@@ -66,6 +66,40 @@ export class Data extends Base{
             }
         }
     }
+    setArrayDestructure(tokens:string[]){
+        const equals = tokens.indexOf('=')
+        const destructuring = tokens.slice(1,equals).join('')
+        const sourceName = tokens.slice(equals+1).join('')
+        const match = destructuring.match(/^\[([a-z_$][\w$]*(?:,[a-z_$][\w$]*)*)\]$/i)
+        if(!match||! /^[a-z_$][\w$]*$/i.test(sourceName)){
+            throw new Error('Invalid array destructuring declaration')
+        }
+        const names = match[1].split(',')
+        if(new Set(names).size!==names.length){
+            throw new Error('Duplicate variable in array destructuring declaration')
+        }
+        const source = this.parent?.getData(sourceName)
+        if(!source?.isArray){
+            throw new Error(`Cannot destructure non-array value "${sourceName}"`)
+        }
+        if(source.type!=='number'){
+            throw new Error(`Array destructuring is not supported for "${source.type}[]"`)
+        }
+        if(source.arrayLength!==null&&names.length>source.arrayLength){
+            throw new Error(`Cannot destructure ${names.length} values from array "${sourceName}" with ${source.arrayLength} elements`)
+        }
+        for(const [index,name] of names.entries()){
+            const element = new DataElement(tokens[0],name,source.type,'0')
+            element.numericKind = source.numericKind
+            this.parent?.addData(element)
+            const declaration = new Data(this.parent!)
+            declaration.element = element
+            this.parent?.children.push(declaration)
+            const initializer = new Assign(this.parent!)
+            initializer.setExpression(element,`${sourceName}[${index}]`,true)
+            this.parent?.children.push(initializer)
+        }
+    }
     asm(ASM:Asm){
         emitDataAsm(this,ASM)
     }

@@ -222,6 +222,12 @@ export function emitDataAsm(data:Data,ASM:Asm){
                 ASM.addCode('test rax, rax')
                 ASM.addCode(`jz ${allocationError}`)
                 ASM.addCode(`mov [${data.element!.name}], rax`)
+                const undefinedValue = `__ds_array_undefined_${data.element!.name}`
+                ASM.addData(`${undefinedValue} dq 0x7ff8000000000001`)
+                ASM.addCode(`mov rdx, qword [${undefinedValue}]`)
+                for(let index=0;index<capacity;index++){
+                    ASM.addCode(`mov qword [rax+${index*8}], rdx`)
+                }
                 if(data.element!.classType){
                     values.forEach((item,index)=>{
                         const label = `${data.element!.name}_${index}`

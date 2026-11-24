@@ -6,6 +6,7 @@ import type {Assign} from '../assign.ts'
 
 let stringAssignId = 0
 let promiseAwaitId = 0
+let arrayLengthUpdateId = 0
 
 export function emitAssign(assignment:Assign,ASM:Asm){
     if(!assignment.target){
@@ -27,6 +28,27 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         ASM.addCode(asFloat
             ? `movsd qword [${targetName}], ${value}`
             : `mov [${targetName}], ${value}`)
+    }
+    const updateDynamicArrayLength = ()=>{
+        const target = assignment.target!
+        const index = assignment.targetIndex
+        if(!target.dynamicArray||!index||target.classPropertyInstance){
+            return
+        }
+        const done = `__ds_array_length_update_${++arrayLengthUpdateId}`
+        emitExpression(index,ASM)
+        ASM.addCode('inc rax')
+        if(target.isParameter){
+            ASM.addCode(`mov rdx, ${target.name}`)
+            ASM.addCode('cmp qword [rdx+8], rax')
+            ASM.addCode(`jnb ${done}`)
+            ASM.addCode('mov [rdx+8], rax')
+        }else{
+            ASM.addCode(`cmp qword [${target.name}__length], rax`)
+            ASM.addCode(`jnb ${done}`)
+            ASM.addCode(`mov [${target.name}__length], rax`)
+        }
+        ASM.addCode(`${done}:`)
     }
     if(assignment.asyncCall){
         const target = assignment.target
@@ -309,6 +331,7 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         if(assignment.targetIndex){
             ASM.addCode('pop rdx')
             ASM.addCode('mov [rdx], rax')
+            updateDynamicArrayLength()
             return
         }
         throw new Error('String array assignment is not initialized')
@@ -343,6 +366,7 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         }else{
             ASM.addCode('mov [rdx], rax')
         }
+        updateDynamicArrayLength()
         return
     }
     if(assignment.expression.numericKind==='float'){

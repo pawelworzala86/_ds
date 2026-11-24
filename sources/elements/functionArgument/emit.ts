@@ -123,7 +123,36 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
     if(argument.arrayElementAccess&&argument.tempName){
         const {array,indexExpression} = argument.arrayElementAccess
         const typedArrayInfo = getTypedArrayInfo(array.typedArrayKind)
-        emitExpression(indexExpression,ASM)
+        const trackUndefined = array.isArray
+        const indexName = `${argument.tempName}_index`
+        const undefinedValue = `${argument.tempName}_undefined_value`
+        const undefinedLabel = `${argument.tempName}_undefined`
+        if(trackUndefined){
+            ASM.addData(`${indexName} dq 0`)
+            ASM.addData(`${undefinedValue} dq 0x7ff8000000000001`)
+            emitExpression(indexExpression,ASM)
+            ASM.addCode(`mov [${indexName}], rax`)
+            ASM.addCode(`mov rax, qword [${undefinedValue}]`)
+            ASM.addCode(`mov [${argument.tempName}], rax`)
+            ASM.addCode(`mov rax, [${indexName}]`)
+            ASM.addCode('test rax, rax')
+            ASM.addCode(`js ${undefinedLabel}`)
+            if(array.dynamicArray){
+                if(array.isParameter){
+                    ASM.addCode(`mov rdx, ${array.name}`)
+                    ASM.addCode('mov rcx, [rdx+8]')
+                }else{
+                    ASM.addCode(`mov rcx, [${array.name}__length]`)
+                }
+                ASM.addCode('cmp rax, rcx')
+            }else{
+                ASM.addCode(`cmp rax, ${array.arrayLength??0}`)
+            }
+            ASM.addCode(`jnb ${undefinedLabel}`)
+            ASM.addCode(`mov rax, [${indexName}]`)
+        }else{
+            emitExpression(indexExpression,ASM)
+        }
         if(typedArrayInfo){
             if(typedArrayInfo.bytesPerElement>1){
                 ASM.addCode(`shl rax, ${Math.log2(typedArrayInfo.bytesPerElement)}`)
@@ -164,6 +193,11 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
         }else{
             ASM.addCode('mov rax, [rdx]')
             ASM.addCode(`mov [${argument.tempName}], rax`)
+        }
+        if(trackUndefined){
+            ASM.addCode(`jmp ${undefinedLabel}_done`)
+            ASM.addCode(`${undefinedLabel}:`)
+            ASM.addCode(`${undefinedLabel}_done:`)
         }
         return
     }

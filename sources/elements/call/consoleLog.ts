@@ -32,6 +32,20 @@ export function emitConsoleLog(call:Call,ASM:Asm){
         }
         call.params.forEach((param,index)=>{
             const prefix = index===0?'':' '
+            const arrayElementDone = param.arrayElementAccess&&param.tempName
+                ? `__ds_console_log_array_done_${++consoleLogId}`
+                : null
+            if(arrayElementDone&&param.tempName){
+                const defined = `${arrayElementDone}_defined`
+                const undefinedValue = `${param.tempName}_undefined_value`
+                ASM.addCode(`mov rax, [${param.tempName}]`)
+                ASM.addCode(`cmp rax, [${undefinedValue}]`)
+                ASM.addCode(`jne ${defined}`)
+                emitPrintf(`${prefix}undefined`)
+                ASM.addCode(`jmp ${arrayElementDone}`)
+                ASM.addCode(`${defined}:`)
+            }
+            try{
             const value = param.value
             if(typeof value==='string'&&/^(['"])[\s\S]*\1$/.test(value)){
                 const label = `__ds_console_log_string_${++consoleLogId}`
@@ -159,6 +173,11 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                 throw new Error('Unable to resolve console.log argument')
             }
             emitPrintf(`${prefix}%p`,argument)
+            }finally{
+                if(arrayElementDone){
+                    ASM.addCode(`${arrayElementDone}:`)
+                }
+            }
         })
         emitPrintf('\n')
     }
