@@ -15,6 +15,7 @@ import Prototype from "./elements/prototype.ts"
 import Iff from "./elements/iff.ts"
 import For from "./elements/for.ts"
 import While from "./elements/while.ts"
+import Switch from "./elements/switch.ts"
 import Break from "./elements/break.ts"
 import Return from "./elements/return.ts"
 import Await from "./elements/await.ts"
@@ -42,6 +43,7 @@ export class Make{
             }else if(Export.test(active,tokenizer)){
             }else if(Class.test(active,tokenizer,ASM)){
             }else if(Prototype.test(active,tokenizer,ASM)){
+            }else if(Switch.test(active,tokenizer)){
             }else if(Iff.test(active,tokenizer)){
             }else if(For.test(active,tokenizer)){
             }else if(While.test(active,tokenizer)){

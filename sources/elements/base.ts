@@ -12,6 +12,7 @@ function getID(){
 export class Base{
     parent:Base|null
     returnLabel:string|null = null
+    breakLabel:string|null = null
     isFunctionScope = false
     returnArrayType:string|null = null
     returnArrayNumericKind:'integer'|'float' = 'integer'

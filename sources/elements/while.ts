@@ -11,6 +11,11 @@ export class While extends Iff{
     bodyLabel = `__ds_while_body_${whileId}`
     endLabel = `__ds_while_end_${whileId}`
 
+    constructor(parent:Base){
+        super(parent)
+        this.breakLabel = this.endLabel
+    }
+
     set(tokenizer:Tokenizer){
         if(tokenizer.get()!=='while'||tokenizer.get()!=='('){
             throw new Error('Invalid while statement')

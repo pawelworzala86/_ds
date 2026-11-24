@@ -1,7 +1,6 @@
 import Tokenizer from '../tokenizer.ts'
 import Asm from '../asm.ts'
 import Base from './base.ts'
-import While from './while.ts'
 
 export class Break extends Base{
     target:string
@@ -21,14 +20,17 @@ export class Break extends Base{
             tokenizer.move(-1)
             return null
         }
+        if(token==='break'&&tokenizer.tokens[tokenizer.index]===';'){
+            tokenizer.index++
+        }
         let parent:Base|null = active
-        while(parent&&!(parent instanceof While)){
+        while(parent&&!parent.breakLabel){
             parent = parent.parent
         }
-        if(!(parent instanceof While)){
-            throw new Error('Break statement is only valid inside a while loop')
+        if(!parent?.breakLabel){
+            throw new Error('Break statement is only valid inside a loop or switch')
         }
-        const statement = new Break(active,parent.endLabel)
+        const statement = new Break(active,parent.breakLabel)
         active.children.push(statement)
         return statement
     }
