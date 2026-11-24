@@ -58,6 +58,7 @@ function assertString(actual:string, expected:string) {
 }
 
 function testFun(obj:any){
+    console.log(obj)
 
     const keys: string[] = Object.keys(obj)
 
@@ -77,6 +78,7 @@ objA.a = 10
 objA['b'] = 20
 objA.active = false
 objA.title = 'updated'
+console.log(objA)
 assertNumber(objA.a, 10)
 assertNumber(objA['b'], 20)
 assertString(objA.title, 'updated')
@@ -117,6 +119,7 @@ assertString(assignedKeys[3], 'b')
 
 const objectArray:any[] = [{ value: 11 }, { value: 22 }]
 objectArray[1].value = 23
+console.log(objectArray)
 assertNumber(objectArray[1].value, 23)
 
 msvcrt.printf('object tests passed\n')
