@@ -14,6 +14,7 @@ export class Data extends Base{
     initializerCall:Call|null = null
     initializerCalls:Call[] = []
     initializerTemps:DataElement[] = []
+    objectAssignSources:DataElement[] = []
     runtimeInitializer:Assign|null = null
     runtimeCallInitializer = false
     arrayInitializerCall:Call|null = null

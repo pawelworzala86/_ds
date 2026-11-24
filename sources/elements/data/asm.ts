@@ -6,7 +6,55 @@ import {getTypedArrayInfo} from './typedArrays.ts'
 import {getStructFields,getStructLayoutMembers,initializeStackStructStrings,initializeStructStrings} from './struct.ts'
 import {nextObjectStringLabelId} from './ids.ts'
 import {isPromiseType} from '../promise.ts'
+import {getClassPropertyOffset} from '../clasElement.ts'
 import type Data from '../data.ts'
+
+function emitObjectAssign(data:Data,ASM:Asm){
+    const target = data.element
+    if(!target?.classType||!target.classLayoutProps){
+        throw new Error('Object.assign target layout is not initialized')
+    }
+    const getClass = (name:string)=>data.parent!.getClass(name)
+    for(const source of data.objectAssignSources){
+        if(!source.classType){
+            throw new Error(`Object.assign source "${source.name}" has no struct type`)
+        }
+        const sourceClass = getClass(source.classType)
+        const sourceProperties = source.classLayoutProps??sourceClass?.props
+        if(!sourceClass||!sourceProperties){
+            throw new Error(`Object.assign source "${source.name}" has no struct layout`)
+        }
+        for(const property of sourceProperties){
+            const targetProperty = target.classLayoutProps.find(value=>value.name===property.name)
+            const sourceOffset = getClassPropertyOffset(sourceClass,property.name??'',getClass)
+            const targetClass = getClass(target.classType)
+            const targetOffset = targetClass
+                ? getClassPropertyOffset(targetClass,property.name??'',getClass)
+                : null
+            if(!targetProperty||sourceOffset===null||targetOffset===null){
+                throw new Error(`Unable to resolve Object.assign property "${property.name}"`)
+            }
+            ASM.addCode(source.isProcedureLocal
+                ? source.isHeapAllocated
+                    ? `mov rdx, [${source.name}]`
+                    : `lea rdx, [${source.name}]`
+                : `lea rdx, [${source.name}]`)
+            if(sourceOffset){
+                ASM.addCode(`add rdx, ${sourceOffset}`)
+            }
+            ASM.addCode('mov rax, [rdx]')
+            ASM.addCode(target.isProcedureLocal
+                ? target.isHeapAllocated
+                    ? `mov rdx, [${target.name}]`
+                    : `lea rdx, [${target.name}]`
+                : `lea rdx, [${target.name}]`)
+            if(targetOffset){
+                ASM.addCode(`add rdx, ${targetOffset}`)
+            }
+            ASM.addCode('mov [rdx], rax')
+        }
+    }
+}
 
 export function emitDataAsm(data:Data,ASM:Asm){
 
@@ -123,6 +171,9 @@ export function emitDataAsm(data:Data,ASM:Asm){
                 }
             })
             initializeStackStructStrings(ASM,data.element!.name!,fields,heapAllocated)
+            if(data.objectAssignSources.length){
+                emitObjectAssign(data,ASM)
+            }
             return
         }
         if(data.element!.isProcedureLocal&&!(data.element!.isArray&&data.element!.dynamicArray)){
@@ -287,6 +338,9 @@ export function emitDataAsm(data:Data,ASM:Asm){
                     data.element!.classLayoutProps,
                     name=>data.parent!.getClass(name)
                 )
+                if(data.objectAssignSources.length){
+                    emitObjectAssign(data,ASM)
+                }
             }else{
                 ASM.addData(`${data.element!.name} ${data.element!.classType}`)
                 const classType = data.parent?.getClass(data.element!.classType)

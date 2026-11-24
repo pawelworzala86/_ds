@@ -69,6 +69,10 @@ export class Assign extends Base{
             tokens.push(token)
         }
         let statement = tokens.join('').replace(/;$/,'')
+        const quotedProperty = statement.match(/^([a-z_$][\w$]*)\[['"]([a-z_$][\w$]*)['"]\](\*\*=|\+=|-=|\*=|\/=|%=|=)(.+?);?$/i)
+        if(quotedProperty){
+            statement = `${quotedProperty[1]}.${quotedProperty[2]}${quotedProperty[3]}${quotedProperty[4]}`
+        }
         const postfixUpdate = statement.match(/^([a-z_$][\w.$]*)(?:\[([^\]]+)\])?(\+\+|--)$/i)
         if(postfixUpdate){
             const [,targetName,indexText,operator] = postfixUpdate
@@ -165,8 +169,11 @@ export class Assign extends Base{
         const compactAssignment = first.match(/^([a-z_$][\w.$]*(?:\[[^\]]+\])?)(?:\*\*=|\+=|-=|\*=|\/=|%=|=)/i)
         const postfixUpdate = first.match(/^([a-z_$][\w.$]*(?:\[[^\]]+\])?)(?:\+\+|--)$/i)
         const propertyAssignment = first.match(/^([a-z_$][\w$]*\[[^\]]+\]\.[a-z_$][\w$]*)(?:\*\*=|\+=|-=|\*=|\/=|%=|=)/i)
+        const statementEnd = tokenizer.tokens.findIndex((token,index)=>index>=tokenizer.index&&(token==='\n'||token===';'))
+        const statement = tokenizer.tokens.slice(tokenizer.index,statementEnd===-1?undefined:statementEnd).join('')
+        const quotedPropertyAssignment = statement.match(/^([a-z_$][\w$]*)\[['"]([a-z_$][\w$]*)['"]\](?:\*\*=|\+=|-=|\*=|\/=|%=|=)/i)
         const isAssignmentOperator = second==='='||['+=','-=','*=','/=','%=','**='].includes(second)
-        const targetName = isAssignmentOperator?first:compactAssignment?.[1]??postfixUpdate?.[1]??propertyAssignment?.[1]
+        const targetName = isAssignmentOperator?first:compactAssignment?.[1]??postfixUpdate?.[1]??propertyAssignment?.[1]??quotedPropertyAssignment?.[1]
         const dataName = targetName?.match(/^([a-z_$][\w.$]*)/i)?.[1]
         if(dataName&&(active.getData(dataName)||getClassPropertyAccess(active,dataName))){
             const data = new Assign(active)

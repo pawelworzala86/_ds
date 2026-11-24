@@ -14,6 +14,63 @@ import {getTypedArrayKind,initializeTypedArray,sliceTypedArray} from './typedArr
 import type Data from '../data.ts'
 import {getPromiseValueTypeFromData,parsePromiseInitializer} from '../promise.ts'
 
+function initializeObjectAssign(active:Base,tokens:string[],name:string){
+    const text = tokens.join('')
+    if(!text.startsWith('Object.assign(')){
+        return null
+    }
+    const tokenizer = new Tokenizer(text)
+    if(tokenizer.get()!=='Object.assign'||tokenizer.get()!=='('){
+        throw new Error('Invalid Object.assign initializer')
+    }
+    const args = tokenizer.getCallArguments()
+    if(tokenizer.has()||args.length<2||args[0]!=='{}'){
+        throw new Error('Object.assign initializer must use an empty object target and at least one source')
+    }
+    const sources = args.slice(1).map(argument=>{
+        const sourceName = argument
+        if(!/^[a-z_$][\w$]*$/i.test(sourceName)){
+            throw new Error('Object.assign sources must be struct identifiers')
+        }
+        const source = active.getData(sourceName)
+        const classType = source?.classType?active.getClass(source.classType):null
+        const properties = source?.classLayoutProps??classType?.props
+        if(!source||source.isArray||!properties){
+            throw new Error(`Object.assign expects a struct source, received "${sourceName}"`)
+        }
+        if(properties.some(property=>property.isArray||property.classType
+            ||!['number','string','boolean'].includes(property.type??''))){
+            throw new Error(`Object.assign source "${sourceName}" contains an unsupported property`)
+        }
+        return {source,properties}
+    })
+    const mergedProperties:DataElement[] = []
+    for(const {properties} of sources){
+        for(const property of properties){
+            const existing = mergedProperties.findIndex(value=>value.name===property.name)
+            const copy = new DataElement('let',property.name??'',property.type??'',property.value??'0')
+            copy.numericKind = property.numericKind
+            if(existing===-1){
+                mergedProperties.push(copy)
+            }else{
+                mergedProperties[existing] = copy
+            }
+        }
+    }
+    if(!mergedProperties.length){
+        throw new Error(`Cannot infer struct type for Object.assign initializer "${name}"`)
+    }
+    const type = `__ds_struct_${nextStructLayoutId()}`
+    const classType = new ClassElement(type,mergedProperties,[])
+    active.addClass(classType)
+    return {
+        type,
+        classType,
+        properties:mergedProperties,
+        sources:sources.map(({source})=>source)
+    }
+}
+
 export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     let tokens:string[] = []
     let objectDepth = 0
@@ -219,6 +276,15 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     let arrayObjectValues = arrayInitialization.arrayObjectValues
     let inferredArrayClass = arrayInitialization.inferredArrayClass
     value = arrayInitialization.value
+    const objectAssign = !classField&&!arrayType&&hasInitializer&&data.parent
+        ? initializeObjectAssign(data.parent,initializerTokens,name)
+        : null
+    if(objectAssign){
+        if(type){
+            throw new Error('Object.assign initializer does not support an explicit type')
+        }
+        type = objectAssign.type
+    }
     let numericExpression:string|null = null
     let runtimeInitializer = false
     if(hasAwaitInitializer){
@@ -274,7 +340,11 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         ? {type:jsonParseClass.name!,props:jsonParseClass.props}
         : null
     let classInitializerArgs:string[]|null = null
-    if(classType&&!arrayType&&eq==='='&&!jsonParseClass&&!hasPromiseInitializer&&!hasAwaitInitializer){
+    if(objectAssign){
+        classType = objectAssign.classType
+        classLayout = {type:objectAssign.type,props:objectAssign.properties}
+        data.objectAssignSources = objectAssign.sources
+    }else if(classType&&!arrayType&&eq==='='&&!jsonParseClass&&!hasPromiseInitializer&&!hasAwaitInitializer){
         if(initializerTokens[0]==='{'){
             const properties = parseObjectLiteral(initializerTokens)
             classLayout = createStructLayout(properties,classType,name)
