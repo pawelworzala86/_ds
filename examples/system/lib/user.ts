@@ -6,9 +6,8 @@ export declare function EndPaint(...args:any[]):any//user32
 export declare function ShowWindow(...args:any[]):any//user32
 export declare function UpdateWindow(...args:any[]):any//user32
 export declare function GetMessageA(...args:any[]):any//user32
+export declare function PeekMessageA(...args:any[]):any//user32
 export declare function TranslateMessage(...args:any[]):any//user32
 export declare function DispatchMessageA(...args:any[]):any//user32
 export declare function DefWindowProcA(...args:any[]):any//user32
 export declare function PostQuitMessage(...args:any[]):any//user32
-export declare function GetWindowLongPtrA(...args:any[]):any//user32
-export declare function SetWindowLongPtrA(...args:any[]):any//user32

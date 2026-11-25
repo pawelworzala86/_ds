@@ -5,7 +5,7 @@ import * as glWindow from './system/gl/glWindow.ts'
 function init(){
 }
 
-function render(){
+function render(delay: number){
     let values: number[] = [1.0, 0.0, 0.0]
     gl.glViewport(0, 0, 640, 480)
     gl.glClear(0x4000)

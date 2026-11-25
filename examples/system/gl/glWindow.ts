@@ -3,6 +3,13 @@ import * as gdi from './../lib/gdi.ts'
 import * as user from './../lib/user.ts'
 import * as gl from './gl.ts'
 
+const WM_DESTROY:number = 0x0002
+const WM_SIZE:number = 0x0005
+const WM_PAINT:number = 0x000F
+const WM_QUIT:number = 0x0012
+const PM_REMOVE:number = 0x0001
+const FRAME_INTERVAL_MS:number = 17
+
 
 interface WNDCLASSEXA {
     sizeStyle: number
@@ -34,32 +41,16 @@ interface MSG {
     part5: number
 }
 
-let activeWindowDC: number = 0
-let activeGLContext: number = 0
-
-function renderWindowFrame(hwnd: number) {
-    if(activeWindowDC!=0 && activeGLContext!=0){
-        let renderCallback: number = user.GetWindowLongPtrA(hwnd, -21)
-        if(renderCallback!=0){
-            renderFrame(activeWindowDC, activeGLContext, renderCallback)
-        }
-    }
-}
-
 function WndProc(hwnd: number, message: number, wParam: number, lParam: number) {
-    if(message==15){
-        let paint: number[] = [0,0,0,0,0,0,0,0,0]
-        user.BeginPaint(hwnd, paint)
-        renderWindowFrame(hwnd)
-        user.EndPaint(hwnd, paint)
-        return 0
-    }
-    if(message==5){
-        renderWindowFrame(hwnd)
-    }
-    if(message==2){
-        user.PostQuitMessage(0)
-        return 0
+    switch(message){
+        case WM_PAINT:
+            let paint: number[] = [0,0,0,0,0,0,0,0,0]
+            user.BeginPaint(hwnd, paint)
+            user.EndPaint(hwnd, paint)
+            return 0
+        case WM_DESTROY:
+            user.PostQuitMessage(0)
+            return 0
     }
     user.DefWindowProcA(hwnd, message, wParam, lParam)
     return
@@ -67,13 +58,13 @@ function WndProc(hwnd: number, message: number, wParam: number, lParam: number) 
 
 
 
-function renderFrame(windowDC: number, glContext: number, render:Function){
+function renderFrame(windowDC: number, glContext: number, render:Function, deltaTimeMs:number){
     let contextSet: number = gl.wglMakeCurrent(windowDC, glContext)
     if(contextSet==0){
         kernel.ExitProcess(9)
     }
 
-    render()
+    render(deltaTimeMs)
 
     let buffersSwapped: number = gdi.SwapBuffers(windowDC)
     if(buffersSwapped==0){
@@ -124,7 +115,7 @@ function configurePixelFormat(windowDC: number) {
     }
 }
 
-function messageLoop() {
+function messageLoop(windowDC: number, glContext: number, render:Function) {
     let msg: MSG = {
         part0: 0,
         part1: 0,
@@ -134,17 +125,25 @@ function messageLoop() {
         part5: 0,
     }
 
-    let messageResult: number = 1
+    let previousFrameTime:number = kernel.GetTickCount64()
     while(true){
-        messageResult = user.GetMessageA(msg, 0, 0, 0)
-        if(messageResult==0){
-            break
+        let messageAvailable: number = user.PeekMessageA(msg, 0, 0, 0, PM_REMOVE)
+        while(messageAvailable!=0){
+            if(msg.part1==WM_QUIT){
+                return
+            }
+            user.TranslateMessage(msg)
+            user.DispatchMessageA(msg)
+            messageAvailable = user.PeekMessageA(msg, 0, 0, 0, PM_REMOVE)
         }
-        if(messageResult==0xFFFFFFFF){
-            kernel.ExitProcess(8)
+        let currentFrameTime:number = kernel.GetTickCount64()
+        let deltaTimeMs:number = currentFrameTime - previousFrameTime
+        if(deltaTimeMs>=FRAME_INTERVAL_MS){
+            renderFrame(windowDC, glContext, render, deltaTimeMs)
+            previousFrameTime = currentFrameTime
+        }else{
+            kernel.Sleep(FRAME_INTERVAL_MS - deltaTimeMs)
         }
-        user.TranslateMessage(msg)
-        user.DispatchMessageA(msg)
     }
 }
 
@@ -174,19 +173,13 @@ export function main(init:Function,render:Function,destroy:Function){
         kernel.ExitProcess(7)
     }
 
-    activeWindowDC = windowDC
-    activeGLContext = glContext
-    user.SetWindowLongPtrA(hWnd, -21, render)
-
     gl.initializeGL()
     init()
 
     user.ShowWindow(hWnd, 1)
     user.UpdateWindow(hWnd)
 
-    renderFrame(windowDC, glContext,render)
-
-    messageLoop()
+    messageLoop(windowDC, glContext, render)
 
     destroy()
     kernel.ExitProcess(0)

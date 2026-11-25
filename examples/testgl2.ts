@@ -80,7 +80,7 @@ function init(){
 	msvcrt.printf('OK6')
 }
 
-function render(){
+function render(delay: number){
     gl.viewport(0, 0, 640, 480)
 
     msvcrt.printf('render ')
