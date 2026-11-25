@@ -118,14 +118,36 @@ export class FunctionArgument{
             if(!this.tempName&&arrayMember){
                 const [,arrayName,indexText,propertyName] = arrayMember
                 const array = active.getData(arrayName)
-                const arrayClassType = array?.classType?active.getClass(array.classType):null
+                const indexExpression = parseExpression(indexText,active)
+                if(indexExpression.numericKind!=='integer'){
+                    throw new Error('Array index must be an integer')
+                }
+                const staticIndex = indexExpression.kind==='number'
+                    ? Number(indexExpression.value)
+                    : indexExpression.kind==='data'&&indexExpression.value.isConstAlias
+                        ? Number(indexExpression.value.value)
+                        : null
+                const elementType = staticIndex===null?null:array?.arrayElementTypes.get(staticIndex)
+                const className = elementType?.classType??array?.classType
+                const arrayClassType = className?active.getClass(className):null
                 const property = arrayClassType?.props.find(prop=>prop.name===propertyName)??null
                 if(array&&property&&arrayClassType){
                     const offset = getClassPropertyOffset(arrayClassType,propertyName,name=>active.getClass(name))
                     if(offset!==null){
+                        const propertyValue = new DataElement(
+                            'let',
+                            `${arrayName}[${indexText}].${propertyName}`,
+                            property.type??'',
+                            property.value??''
+                        )
+                        propertyValue.numericKind = property.numericKind
+                        propertyValue.classType = property.classType
+                        this.value = propertyValue
+                        this.classProperty = property
+                        this.classPropertyPath = propertyName
                         this.arrayPropertyAccess = {
                             array,
-                            indexExpression: parseExpression(indexText,active),
+                            indexExpression,
                             property,
                             offset
                         }
@@ -150,9 +172,15 @@ export class FunctionArgument{
                         this.jsonValue = array.jsonValue[staticIndex]
                     }
                     this.arrayElementAccess = {array,indexExpression}
-                    const element = new DataElement('let',`${array.name}[${arrayElement[2]}]`,array.type??'',array.value??'')
-                    element.classType = array.classType
-                    element.numericKind = array.numericKind
+                    const elementInfo = staticIndex===null?null:array.arrayElementTypes.get(staticIndex)
+                    const element = new DataElement(
+                        'let',
+                        `${array.name}[${arrayElement[2]}]`,
+                        elementInfo?.type??array.type??'',
+                        array.value??''
+                    )
+                    element.classType = elementInfo?.classType??array.classType
+                    element.numericKind = elementInfo?.numericKind??array.numericKind
                     element.typedArrayKind = array.typedArrayKind
                     this.value = element
                     this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`

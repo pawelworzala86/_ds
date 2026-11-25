@@ -3,6 +3,9 @@ import type FunctionArgument from '../functionArgument.ts'
 import type {Call} from '../call.ts'
 
 export function validateArrayPush(call:Call,array:DataElement,param:FunctionArgument){
+        if(array.type==='any'){
+            return
+        }
         const elementType = param.value instanceof DataElement
             ? param.value.type
             : param.arrayElementAccess?.array.type??param.arrayPropertyAccess?.property.type

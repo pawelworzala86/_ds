@@ -83,6 +83,109 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
         }
         throw new Error(`Array "${target.name}" must be assigned from a function returning "${target.type}[]"`)
     }
+    if(target.isArray&&indexText&&(target.classType||target.type==='any')){
+        const index = parseExpression(indexText,assignment.parent!)
+        if(index.numericKind!=='integer'){
+            throw new Error('Array index must be an integer')
+        }
+        const value = expression.trim()
+        const constructor = value.match(/^new\s*([a-z_$][\w$]*)\s*\(([\s\S]*)\)$/i)
+        if(constructor){
+            if(target.classType&&constructor[1]!==target.classType){
+                throw new Error(`Array "${target.name}" requires an instance of ${target.classType}`)
+            }
+            const classType = assignment.parent?.getClass(constructor[1])
+            if(!classType){
+                throw new Error(`Unknown class type "${constructor[1]}"`)
+            }
+            const argsTokenizer = new Tokenizer(`(${constructor[2]})`)
+            argsTokenizer.get()
+            const args = argsTokenizer.getCallArguments()
+            if(argsTokenizer.has()){
+                throw new Error(`Invalid constructor initializer for array "${target.name}"`)
+            }
+            const classConstructor = classType.getFunction('constructor')
+            if(args.length!==(classConstructor?.params.length??0)){
+                throw new Error(`Constructor for "${constructor[1]}" expects ${classConstructor?.params.length??0} arguments, received ${args.length}`)
+            }
+            if(args.length){
+                throw new Error('Array element constructors with arguments are not supported')
+            }
+            assignment.target = target
+            assignment.targetIndex = index
+            assignment.arrayClassType = constructor[1]
+            const staticIndex = index.kind==='number'
+                ? Number(index.value)
+                : index.kind==='data'&&index.value.isConstAlias
+                    ? Number(index.value.value)
+                    : null
+            if(target.type==='any'&&staticIndex!==null){
+                target.arrayElementTypes.set(staticIndex,{type:constructor[1],classType:constructor[1],numericKind:'integer'})
+            }
+            return
+        }
+        const source = assignment.parent?.getData(value)
+        if(source?.classType&&(!target.classType||source.classType===target.classType)&&!source.isArray){
+            assignment.target = target
+            assignment.targetIndex = index
+            assignment.arrayClassValue = source
+            assignment.arrayClassType = source.classType
+            const staticIndex = index.kind==='number'
+                ? Number(index.value)
+                : index.kind==='data'&&index.value.isConstAlias
+                    ? Number(index.value.value)
+                    : null
+            if(target.type==='any'&&staticIndex!==null){
+                target.arrayElementTypes.set(staticIndex,{type:source.classType,classType:source.classType,numericKind:'integer'})
+            }
+            return
+        }
+        if(target.classType){
+            throw new Error(`Array "${target.name}" requires an instance of ${target.classType}`)
+        }
+    }
+    if(target.isArray&&target.type==='any'&&indexText){
+        const index = parseExpression(indexText,assignment.parent!)
+        if(index.numericKind!=='integer'){
+            throw new Error('Array index must be an integer')
+        }
+        const staticIndex = index.kind==='number'
+            ? Number(index.value)
+            : index.kind==='data'&&index.value.isConstAlias
+                ? Number(index.value.value)
+                : null
+        const value = expression.trim()
+        const stringLiteral = value.match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
+        if(stringLiteral){
+            assignment.target = target
+            assignment.targetIndex = index
+            assignment.stringValue = value
+            if(staticIndex!==null){
+                target.arrayElementTypes.set(staticIndex,{type:'string',classType:null,numericKind:'integer'})
+            }
+            return
+        }
+        const source = assignment.parent?.getData(value)
+        if(source?.type==='string'&&!source.isArray){
+            assignment.target = target
+            assignment.targetIndex = index
+            assignment.stringSource = source
+            if(staticIndex!==null){
+                target.arrayElementTypes.set(staticIndex,{type:'string',classType:null,numericKind:'integer'})
+            }
+            return
+        }
+        const booleanSource = value==='true'||value==='false'
+            ? true
+            : source?.type==='boolean'&&!source.isArray
+        if(staticIndex!==null){
+            target.arrayElementTypes.set(staticIndex,{
+                type:booleanSource?'boolean':'number',
+                classType:null,
+                numericKind:'integer'
+            })
+        }
+    }
     if(target.type==='string'&&!target.isArray){
         if(indexText){
             throw new Error('String variables cannot be indexed')
@@ -200,7 +303,24 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
             throw new Error('Array index must be an integer')
         }
     }
-    target.numericKind = target.numericKind==='float'||assignment.expression.numericKind==='float'
-        ? 'float'
-        : 'integer'
+    if(!(target.isArray&&target.type==='any')){
+        target.numericKind = target.numericKind==='float'||assignment.expression.numericKind==='float'
+            ? 'float'
+            : 'integer'
+    }
+    if(target.isArray&&target.type==='any'&&indexText){
+        const index = assignment.targetIndex
+        const staticIndex = index?.kind==='number'
+            ? Number(index.value)
+            : index?.kind==='data'&&index.value.isConstAlias
+                ? Number(index.value.value)
+                : null
+        if(staticIndex!==null){
+            target.arrayElementTypes.set(staticIndex,{
+                type:expression.trim()==='true'||expression.trim()==='false'?'boolean':'number',
+                classType:null,
+                numericKind:assignment.expression.numericKind
+            })
+        }
+    }
 }

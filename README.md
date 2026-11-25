@@ -33,6 +33,8 @@ Tablice statyczne i typowane obsługują `.length` oraz `.toString()` zwracając
 
 Literały obiektów mogą zawierać pola typu `number`, `string` i `boolean`. Obsługiwany jest odczyt oraz zapis znanych pól przez notację kropkową lub indeks z literalnym kluczem tekstowym, przekazywanie obiektu do funkcji, destrukturyzacja pól liczbowych i `Object.keys(obj)` do inicjalizacji tablicy `string[]`. `console.log(obj)` wypisuje aktualne wartości pól, a `console.log(array)` elementy tablicy; wartości tekstowe są ujmowane w apostrofy. `Object.assign({}, source1, source2)` tworzy płytką kopię pól źródeł; późniejsze źródła nadpisują wartości, a przypisanie odbywa się w czasie działania programu. Źródła muszą być zmiennymi obiektowymi z polami skalarnymi `number`, `string` lub `boolean`; dynamiczne klucze, dodawanie/usuwanie pól, prototypy, zagnieżdżone obiekty i tablice w `Object.assign` nie są obsługiwane. Przykład testowy: `.\test.cmd testobj`.
 
+Dynamiczne tablice typów klasowych, np. `const items: MyClass[] = []`, obsługują przypisanie istniejącej instancji lub `new MyClass()` bez argumentów do indeksu, np. `items[0] = new MyClass()`. Pola `number` obiektów w tablicy można odczytywać i modyfikować przez `items[index].field`.
+
 ## JSON
 
 `JSON.parse` przyjmuje literał tekstowy albo stałą tekstową i podczas kompilacji wyznacza typ wyniku. Obsługuje wartości tekstowe, skończone liczby, wartości logiczne, `null`, obiekty zagnieżdżone i tablice. Klucze obiektów używane jako pola muszą być poprawnymi identyfikatorami języka. Mieszane i zagnieżdżone tablice można serializować, ale ich indeksowanie nie jest jeszcze ogólnie typowane.

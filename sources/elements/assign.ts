@@ -23,6 +23,8 @@ export class Assign extends Base{
     stringCall:Call|null = null
     stringSourceIndex:Expression|null = null
     arrayPropertyTarget:{array:DataElement,index:Expression,property:DataElement,offset:number}|null = null
+    arrayClassValue:DataElement|null = null
+    arrayClassType:string|null = null
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
     functionCall:Call|null = null
@@ -83,7 +85,18 @@ export class Assign extends Base{
         if(arrayProperty){
             const [,arrayName,indexText,propertyName,expression] = arrayProperty
             const array = this.parent?.getData(arrayName)
-            const classType = array?.classType?this.parent?.getClass(array.classType):null
+            const index = parseExpression(indexText,this.parent!)
+            if(index.numericKind!=='integer'){
+                throw new Error('Array index must be an integer')
+            }
+            const staticIndex = index.kind==='number'
+                ? Number(index.value)
+                : index.kind==='data'&&index.value.isConstAlias
+                    ? Number(index.value.value)
+                    : null
+            const elementType = staticIndex===null?null:array?.arrayElementTypes.get(staticIndex)
+            const className = elementType?.classType??array?.classType
+            const classType = className?this.parent?.getClass(className):null
             const property = classType?.props.find(prop=>prop.name===propertyName)??null
             const offset = classType?getClassPropertyOffset(classType,propertyName,name=>this.parent!.getClass(name)):null
             if(!array?.isArray||!classType||!property||offset===null){
@@ -91,10 +104,6 @@ export class Assign extends Base{
             }
             if(property.type!=='number'){
                 throw new Error('Only numeric object-array properties can be assigned')
-            }
-            const index = parseExpression(indexText,this.parent!)
-            if(index.numericKind!=='integer'){
-                throw new Error('Array index must be an integer')
             }
             this.target = array
             this.expression = parseExpression(expression,this.parent!)

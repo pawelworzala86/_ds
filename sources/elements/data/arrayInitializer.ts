@@ -86,26 +86,30 @@ if(arrayType&&!jsonRootArray){
             }
             value = arrayValues.join(', ')
         }else if(itemType==='any'){
-            const objectTokens = splitTokenArrayValues(initializerTokens)
-            if(!objectTokens.length||objectTokens.some(item=>item[0]!=='{')){
-                throw new Error(`Array "${name}" must contain object literals`)
+            if(!arrayValues.length){
+                value = ''
+            }else{
+                const objectTokens = arrayValues.map(item=>new Tokenizer(item).tokens)
+                if(objectTokens.some(item=>item[0]!=='{')){
+                    throw new Error(`Array "${name}" must contain object literals`)
+                }
+                const objectProperties = objectTokens.map(item=>parseObjectLiteral(item))
+                const shape = objectProperties[0]
+                if(objectProperties.some(properties=>
+                    properties.length!==shape.length
+                    ||shape.some(property=>!properties.some(value=>value.name===property.name&&value.type===property.type))
+                )){
+                    throw new Error(`Objects in array "${name}" must have the same properties and types`)
+                }
+                const layout = createStructLayout(shape,null,name)
+                inferredArrayClass = new ClassElement(layout.type,layout.props,[])
+                data.parent?.addClass(inferredArrayClass)
+                arrayObjectValues = objectProperties.map(properties=>shape.map(property=>{
+                    const value = properties.find(item=>item.name===property.name)!
+                    return new DataElement('let',value.name,value.type,value.value)
+                }))
+                value = arrayValues.join(', ')
             }
-            const objectProperties = objectTokens.map(item=>parseObjectLiteral(item))
-            const shape = objectProperties[0]
-            if(objectProperties.some(properties=>
-                properties.length!==shape.length
-                ||shape.some(property=>!properties.some(value=>value.name===property.name&&value.type===property.type))
-            )){
-                throw new Error(`Objects in array "${name}" must have the same properties and types`)
-            }
-            const layout = createStructLayout(shape,null,name)
-            inferredArrayClass = new ClassElement(layout.type,layout.props,[])
-            data.parent?.addClass(inferredArrayClass)
-            arrayObjectValues = objectProperties.map(properties=>shape.map(property=>{
-                const value = properties.find(item=>item.name===property.name)!
-                return new DataElement('let',value.name,value.type,value.value)
-            }))
-            value = arrayValues.join(', ')
         }
     }
 }

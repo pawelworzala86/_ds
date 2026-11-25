@@ -1,12 +1,13 @@
 import Asm from '../../asm.ts'
 import {emitExpression} from '../../maths.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
-import {getStructFields} from '../data/struct.ts'
+import {getStructFields,initializeStackStructStrings} from '../data/struct.ts'
 import type {Assign} from '../assign.ts'
 
 let stringAssignId = 0
 let promiseAwaitId = 0
 let arrayLengthUpdateId = 0
+let arrayClassInstanceId = 0
 
 export function emitAssign(assignment:Assign,ASM:Asm){
     if(!assignment.target){
@@ -287,7 +288,91 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         }
         return
     }
-    if(assignment.target.isArray && (assignment.target.type==='string'||assignment.target.type==='string[]')){
+    if(assignment.arrayClassType||assignment.arrayClassValue){
+        const target = assignment.target
+        const index = assignment.targetIndex
+        const classTypeName = assignment.arrayClassType??target.classType
+        if(!target.isArray||!classTypeName||!index){
+            throw new Error('Object-array assignment is not initialized')
+        }
+        emitExpression(index,ASM)
+        ASM.addCode('shl rax, 3')
+        ASM.addCode(target.dynamicArray
+            ? `mov rdx, [${target.name}]`
+            : `lea rdx, [${target.name}]`)
+        ASM.addCode('add rdx, rax')
+        ASM.addCode('push rdx')
+        if(assignment.arrayClassValue){
+            const source = assignment.arrayClassValue
+            ASM.addCode(source.isProcedureLocal&&source.isHeapAllocated
+                ? `mov rax, [${source.name}]`
+                : source.isParameter
+                    ? `mov rax, ${source.name}`
+                    : `lea rax, [${source.name}]`)
+        }else{
+            const classType = assignment.parent?.getClass(classTypeName)
+            if(!classType){
+                throw new Error(`Unknown class type "${classTypeName}"`)
+            }
+            const fields = getStructFields(classType.props,name=>assignment.parent!.getClass(name))
+            const id = ++arrayClassInstanceId
+            const instance = `__ds_array_class_instance_${id}`
+            const allocationError = `__ds_array_class_instance_error_${id}`
+            const allocationReady = `__ds_array_class_instance_ready_${id}`
+            ASM.addData(`${instance} dq 0`)
+            ASM.addImport('msvcrt','calloc')
+            ASM.addCode(`mov rcx, ${Math.max(1,fields.length)}`)
+            ASM.addCode('mov rdx, 8')
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call [calloc]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode('test rax, rax')
+            ASM.addCode(`jz ${allocationError}`)
+            ASM.addCode(`mov [${instance}], rax`)
+            fields.forEach((property,fieldIndex)=>{
+                if(!property.value||property.value==='0'||property.type==='string'){
+                    return
+                }
+                if(property.type==='number'&&property.numericKind==='float'){
+                    const literal = `__ds_array_class_literal_${id}_${fieldIndex}`
+                    ASM.addData(`${literal} dq ${property.value}`)
+                    ASM.addCode(`movsd xmm0, qword [${literal}]`)
+                    ASM.addCode(`mov rdx, [${instance}]`)
+                    ASM.addCode(`movsd qword [rdx+${fieldIndex*8}], xmm0`)
+                }else{
+                    ASM.addCode(`mov rax, ${property.value}`)
+                    ASM.addCode(`mov rdx, [${instance}]`)
+                    ASM.addCode(`mov [rdx+${fieldIndex*8}], rax`)
+                }
+            })
+            initializeStackStructStrings(ASM,instance,fields,true)
+            const constructor = classType.getFunction('constructor')
+            if(constructor){
+                ASM.addCode('sub rsp, 40')
+                ASM.addCode(`mov rcx, [${instance}]`)
+                ASM.addCode(`call ${classType.name}.constructor`)
+                ASM.addCode('add rsp, 40')
+            }
+            ASM.addCode(`mov rax, [${instance}]`)
+            ASM.addCode(`jmp ${allocationReady}`)
+            ASM.addCode(`${allocationError}:`)
+            ASM.addCode('mov ecx, 1')
+            ASM.addCode('sub rsp, 40')
+            ASM.addImport('kernel32','ExitProcess')
+            ASM.addCode('call [ExitProcess]')
+            ASM.addCode('add rsp, 40')
+            ASM.addCode(`${allocationReady}:`)
+        }
+        ASM.addCode('pop rdx')
+        ASM.addCode('mov [rdx], rax')
+        updateDynamicArrayLength()
+        return
+    }
+    if(assignment.target.isArray && (
+        assignment.target.type==='string'
+        ||assignment.target.type==='string[]'
+        ||assignment.target.type==='any'&&(assignment.stringValue!==null||assignment.stringSource!==null)
+    )){
         if(assignment.targetIndex){
             emitExpression(assignment.targetIndex,ASM)
             ASM.addCode('shl rax, 3')
@@ -358,7 +443,8 @@ export function emitAssign(assignment:Assign,ASM:Asm){
     emitExpression(assignment.expression,ASM)
     if(assignment.targetIndex){
         ASM.addCode('pop rdx')
-        if(assignment.expression.numericKind==='float'||assignment.target.numericKind==='float'){
+        const anyArray = assignment.target.isArray&&assignment.target.type==='any'
+        if(assignment.expression.numericKind==='float'||!anyArray&&assignment.target.numericKind==='float'){
             if(assignment.expression.numericKind==='integer'){
                 ASM.addCode('cvtsi2sd xmm0, rax')
             }

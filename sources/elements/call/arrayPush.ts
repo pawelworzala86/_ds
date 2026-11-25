@@ -18,12 +18,14 @@ export function emitArrayPush(call:Call,ASM:Asm){
 
         ASM.addData(`${valueName} dq 0`)
         ASM.addData(`${nextCapacityName} dq 0`)
-        if(array.type==='string'&&typeof param.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(param.value)){
+        if((array.type==='string'||array.type==='any')&&typeof param.value==='string'&&/^(['"])(?:\\.|(?!\1).)*\1$/s.test(param.value)){
             const stringLabel = `__ds_array_push_string_${id}`
             ASM.addData(`${stringLabel} ${stringLiteralData(param.value)}`)
             ASM.addCode(`lea rax, [${stringLabel}]`)
-        }else if(array.type==='boolean'&&typeof param.value==='string'&&(param.value==='true'||param.value==='false')){
+        }else if((array.type==='boolean'||array.type==='any')&&typeof param.value==='string'&&(param.value==='true'||param.value==='false')){
             ASM.addCode(`mov rax, ${param.value==='true'?'1':'0'}`)
+        }else if(array.type==='any'&&param.tempName){
+            ASM.addCode(`mov rax, [${param.tempName}]`)
         }else if(array.type==='number'&&array.numericKind==='float'&&(param.expression?.numericKind==='integer'||param.value instanceof DataElement&&param.value.numericKind==='integer')){
             if(param.tempName){
                 ASM.addCode(`mov rax, [${param.tempName}]`)
@@ -38,9 +40,13 @@ export function emitArrayPush(call:Call,ASM:Asm){
         }else if(param.arrayElementAccess||param.arrayPropertyAccess||param.tempName){
             ASM.addCode(`mov rax, [${param.tempName}]`)
         }else if(param.value instanceof DataElement){
-            if(array.type==='number'){
+            if(array.type==='number'||array.type==='any'&&param.value.type==='number'){
                 ASM.addCode(`mov rax, [${param.value.name}]`)
-            }else if(array.type==='boolean'){
+            }else if(array.type==='boolean'||array.type==='any'&&param.value.type==='boolean'){
+                ASM.addCode(param.value.isParameter
+                    ? `mov rax, ${param.value.name}`
+                    : `mov rax, [${param.value.name}]`)
+            }else if(array.type==='any'&&param.value.type==='string'){
                 ASM.addCode(param.value.isParameter
                     ? `mov rax, ${param.value.name}`
                     : `mov rax, [${param.value.name}]`)

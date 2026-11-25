@@ -18,3 +18,27 @@ for(let i = 0; i < 5; i++) {
     testArrayD[i] = i
 }
 console.log(testArrayD)
+
+
+
+class TestClass {
+    numA: number = 111
+}
+
+const arrayTest:TestClass[] = []
+arrayTest[0] = new TestClass()
+
+console.log(arrayTest[0].numA)
+
+
+const arrayAny:any[] = []
+arrayAny[0] = new TestClass()
+arrayAny[1] = 123
+
+console.log(arrayAny[0].numA, arrayAny[1])
+arrayAny[2] = 'text'
+arrayAny[3] = true
+arrayAny.push(456)
+arrayAny[4] = 1.5
+arrayAny[5] = 789
+console.log(arrayAny[0].numA, arrayAny[1], arrayAny[2], arrayAny[3], arrayAny[4], arrayAny[5])

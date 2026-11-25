@@ -19,6 +19,7 @@ export class DataElement{
     classLayoutType:string|null = null
     classLayoutProps:DataElement[]|null = null
     arrayObjectValues:DataElement[][]|null = null
+    arrayElementTypes = new Map<number,{type:string,classType:string|null,numericKind:NumericKind}>()
     arrayLength:number|null = null
     arrayHasMutation = false
     typedArrayKind:TypedArrayKind|null = null
