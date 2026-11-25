@@ -2,6 +2,7 @@ export declare function wglCreateContext(...args:any[]):any//opengl32
 export declare function wglMakeCurrent(...args:any[]):any//opengl32
 export declare function glViewport(...args:any[]):any//opengl32
 export declare function glClear(...args:any[]):any//opengl32
+export declare function glClearColor(...args:any[]):any//opengl32
 export declare function glBegin(...args:any[]):any//opengl32
 export declare function glColor3fv(...args:any[]):any//opengl32
 export declare function glVertex3fv(...args:any[]):any//opengl32
@@ -35,6 +36,10 @@ export function viewport(x:number,y:number,width:number,height:number){
 
 export function clear(mask:number){
     glClear(mask)
+}
+
+export function clearColor(red:number,green:number,blue:number,alpha:number){
+    glClearColor(red,green,blue,alpha)
 }
 
 export function begin(mode:number){

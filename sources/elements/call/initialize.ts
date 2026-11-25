@@ -13,6 +13,7 @@ let stringCharCodeAtId = 0
 
 export function initializeCall(instance:Call,tokenizer:Tokenizer){
     const name = tokenizer.get()
+    instance.callName = name
     instance.builtinConsoleLog = name==='console.log'
     if(tokenizer.get()!=='('){
         throw new Error(`Expected '(' after function "${name}"`)

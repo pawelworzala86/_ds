@@ -15,9 +15,19 @@ export function emitLocalMethodCall(call:Call,ASM:Asm){
         const stackBytes = 32+Math.max(0,totalArguments-4)*8
         const stackSize = stackBytes+(stackBytes%16===0?8:0)
         ASM.addCode(`sub rsp, ${stackSize}`)
-        ASM.addCode(instance.isHeapAllocated
-            ? `mov rcx, [${instance.name}]`
-            : `lea rcx, [${instance.name}]`)
+        if(instance.classPropertyInstance&&instance.classPropertyOffset!==null){
+            const root = instance.classPropertyInstance
+            if(root.isHeapAllocated||root.isReferenceAlias||root.isParameter){
+                ASM.addCode(`mov rax, ${root.isParameter?root.name:`[${root.name}]`}`)
+                ASM.addCode(`lea rcx, [rax+${instance.classPropertyOffset}]`)
+            }else{
+                ASM.addCode(`lea rcx, [${root.name}+${instance.classPropertyOffset}]`)
+            }
+        }else{
+            ASM.addCode(instance.isHeapAllocated
+                ? `mov rcx, [${instance.name}]`
+                : `lea rcx, [${instance.name}]`)
+        }
         call.params.forEach((param,index)=>{
             const expected = call.func!.params[index]
             const value = expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray

@@ -1,5 +1,6 @@
 import Base from '../base.ts'
 import DataElement from '../dataElement.ts'
+import {getClassPropertyAccess, getClassPropertyOffset} from '../clasElement.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from '../typePrototype.ts'
 import type FuncElement from '../funcElement.ts'
 
@@ -33,17 +34,49 @@ export function getMethod(active:Base,name:string) :{
             instance.isHeapAllocated = true
             return {func,instance,arrayMethod:{array,index}}
         }
-        const separator = name.indexOf('.')
+        const separator = name.lastIndexOf('.')
         if(separator<1||separator===name.length-1){
             return null
         }
         const instance = active.getData(name.slice(0,separator))
-        if(!instance?.classType){
+        if(instance?.classType){
+            const classType = active.getClass(instance.classType)
+            const func = classType?.getFunction(name.slice(separator+1))
+            if(func){
+                return {func,instance}
+            }
+        }
+        const receiverName = name.slice(0,separator)
+        const access = getClassPropertyAccess(active,receiverName)
+        if(!access?.property.classType){
             return null
         }
-        const classType = active.getClass(instance.classType)
-        const func = classType?.getFunction(name.slice(separator+1))
-        return func?{func,instance}:null
+        const receiverClass = active.getClass(access.property.classType)
+        const func = receiverClass?.getFunction(name.slice(separator+1))
+        const rootClass = access.instance.classType
+            ? active.getClass(access.instance.classType)
+            : null
+        const offset = rootClass
+            ? getClassPropertyOffset(
+                rootClass,
+                receiverName.split('.').slice(1).join('.'),
+                className=>active.getClass(className)
+            )
+            : null
+        if(!func||offset===null){
+            return null
+        }
+        const nestedInstance = new DataElement(
+            'let',
+            `${access.instance.name}+${offset}`,
+            access.property.classType,
+            '0'
+        )
+        nestedInstance.classType = access.property.classType
+        nestedInstance.isProcedureLocal = true
+        nestedInstance.classPropertyInstance = access.instance
+        nestedInstance.classPropertyOffset = offset
+        return {func,instance:nestedInstance}
     }
 
 export function getPrototypeMethod(active:Base,name:string) :{method:PrototypeMethod,instance:DataElement,type:string}|null{

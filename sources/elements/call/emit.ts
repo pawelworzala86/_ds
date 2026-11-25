@@ -202,7 +202,12 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             ASM.addCode(`invoke [${call.functionVariable.name}] ${params.join(', ')}`)
             return
         }
-        if(call.methodInstance?.isProcedureLocal||call.methodInstance?.isReferenceAlias){
+        if(!call.func){
+            throw new Error(`Unable to resolve function call "${call.callName??'unknown'}"`)
+        }
+        if(call.methodInstance?.classPropertyInstance
+            ||call.methodInstance?.isProcedureLocal
+            ||call.methodInstance?.isReferenceAlias){
             call.emitLocalMethodCall(ASM)
             return
         }

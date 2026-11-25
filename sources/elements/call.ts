@@ -30,6 +30,7 @@ import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl}
 let returnedClassId = 0
 
 export class Call extends Base{
+    callName:string|null = null
     func:FuncElement|null = null
     resultTarget:DataElement|null = null
     params:FunctionArgument[] = []

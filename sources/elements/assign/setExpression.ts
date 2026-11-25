@@ -210,6 +210,8 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
             assignment.target = target
             if(constructor){
                 const call = new Call(assignment.parent!)
+                call.func = constructor
+                call.methodInstance = target
                 call.set(new Tokenizer(`${target.name}.constructor(${args.join(',')})`))
                 assignment.classInitializerCall = call
             }

@@ -1,5 +1,6 @@
 import * as kernel from './system/lib/kernel.ts'
 import * as msvcrt from './system/lib/msvcrt.ts'
+import Font from './system/gl/font.ts'
 import * as gl from './system/gl/gl.ts'
 import * as glWindow from './system/gl/glWindow.ts'
 import * as shader from './system/gl/shader.ts'
@@ -12,43 +13,7 @@ import * as mesh from './system/gl/mesh.ts'
 
 
 
-let widthsFnt:number[] = [7.0,49.0,0.0,49.0,49.0,49.0,49.0,    
-        49.0,49.0,16.0,16.0,16.0,16.0,16.0,    
-        49.0,49.0,49.0,49.0,49.0,49.0,49.0,    
-        49.0,49.0,49.0,49.0,49.0,49.0,49.0,    
-        49.0,49.0,49.0,49.0,16.0,21.0,26.0,    
-        32.0,32.0,53.0,49.0,11.0,21.0,21.0,    
-        32.0,36.0,16.0,21.0,16.0,17.0,32.0,    
-        32.0,32.0,32.0,32.0,32.0,32.0,32.0,    //;1234567
-        32.0,32.0,17.0,17.0,36.0,36.0,36.0,    //;89
-        28.0,58.0,42.0,42.0,42.0,42.0,39.0,    //;  ABCDE
-        35.0,42.0,42.0, 21.0,24.0,42.0,39.0,    //;FGH IJKL
-        56.0,42.0,42.0,35.0,42.0,42.0,35.0,    //;MNOPQRS
-        39.0,42.0,42.0, 55.0,42.0,42.0,39.0,    //;TUV WXYZ
-        21.0,17.0,21.0,30.0,32.0,21.0,28.0,    //;      a
-        32.0,28.0,32.0,32.0,21.0,32.0,32.0,    //;bcdefgh
-        17.0,17.0,32.0,15.0,49.0,32.0,35.0,    //;ijklmno
-        32.0,32.0,21.0,24.0,17.0,32.0,32.0,    //;pqrstuv
-        46.0,32.0,32.0,28.0,30.0,12.0,30.0,    //;wxyz   
-        34.0,32.0,49.0,49.0,49.0,49.0,49.0,     
-        49.0,49.0,49.0,49.0,49.0,49.0,49.0,     
-        49.0,49.0,49.0,49.0,49.0,49.0,49.0,     
-        49.0,49.0,49.0,49.0,49.0,49.0,49.0,     
-        49.0,49.0,49.0,49.0,49.0,49.0,16.0,     
-        21.0,32.0,32.0,32.0,32.0,12.0,32.0,     
-        21.0,48.0,17.0,32.0,36.0,0.0,48.0,     
-        32.0,25.0,35.0,19.0,19.0,21.0,36.0,     
-        29.0,21.0,21.0,19.0,19.0,32.0,48.0,    
-        48.0,48.0,28.0,46.0,46.0,46.0,46.0,    //;   ÀÁÂÃ
-        46.0,46.0,56.0,42.0,39.0,39.0,39.0,    //;ÄÅÆÇÈÉÊ
-        39.0,21.0,21.0,21.0,21.0,46.0,46.0,    //;ËÌÍÎÏÐÑ
-        46.0,46.0,46.0,46.0,46.0,36.0,46.0,    //;ÒÓÔÕÖ  
-        46.0,46.0,46.0,46.0,46.0,35.0,32.0,     
-        28.0,28.0,28.0,28.0,28.0,28.0,42.0,     
-        28.0,28.0,28.0,28.0,28.0,17.0,17.0,     
-        17.0,17.0,32.0,32.0,32.0,32.0,32.0,     
-        32.0,32.0,35.0,32.0,32.0,32.0,32.0,     
-        32.0,32.0,32.0,32.0]
+
 
 
 
@@ -85,15 +50,17 @@ let model:number[] = mat4.create()
 let textureFileName:string = 'texture.jpg'
 let textureID:number = 0
 
-let fontFileName:string = 'font.png'
-let fontTextureID:number = 0
+
+
+let font: Font
+
+
 
 
 
 
 
 const defualtShader:shader.Shader = new shader.Shader()
-const fontShader:shader.Shader = new shader.Shader()
 
 
 let meshes:mesh.Mesh[] = []
@@ -101,20 +68,20 @@ let meshes:mesh.Mesh[] = []
 
 
 
-let fontMesh:mesh.Mesh
+
 
 function init(){
     msvcrt.printf('OK1 ')
 
 	defualtShader.load('defaultTex')
-	fontShader.load('font')
+
+	font = new Font()
 
 	msvcrt.printf('OK5')
 
 
 
 	let meshInstance:mesh.Mesh = new mesh.Mesh()
-	fontMesh = new mesh.Mesh()
 
 	meshes.push(meshInstance)
 
@@ -122,7 +89,6 @@ function init(){
 
 
 	textureID = texture.LoadTexture(textureFileName)
-	fontTextureID = texture.LoadTexture(fontFileName)
 	
 		
 	//gl.enable(gl.DEPTH_TEST)
@@ -140,7 +106,9 @@ function render(delay: number){
     gl.viewport(0, 0, 640, 480)
 
     msvcrt.printf('render ')
-    gl.clear(gl.COLOR_BUFFER_BIT)
+
+	gl.clearColor(0.0, 0.0, 0.0, 1.0)
+    gl.clear(gl.COLOR_BUFFER_BIT + gl.DEPTH_BUFFER_BIT)
 
 
     gl.useProgram(defualtShader.programID);
@@ -173,32 +141,8 @@ function render(delay: number){
 		mesh.render()
 	}
 
-
-	console.log(' fontTextureID=', fontTextureID,' ')
-	gl.useProgram(fontShader.programID)
-	uniformLocation = gl.getUniformLocation(fontShader.programID, 'diffuseTexture')
-	gl.uniform1i(uniformLocation, 0)
-	gl.bindTexture(gl.TEXTURE_2D, fontTextureID)
-	gl.enable(gl.BLEND)
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
-	let textToDisplay: string = 'Hello World'
-	let offsetX: number = 0.0
-
-	for(let index=0; index<textToDisplay.length; index++){
-		let letter: number = textToDisplay.charCodeAt(index)
-		//console.log('letter=', letter)
-		uniformLocation = gl.getUniformLocation(fontShader.programID, 'fontIndex')
-		gl.uniform1i(uniformLocation, letter)
-
-		let sizeX: number = (widthsFnt[letter] / 64.0)*0.2
-		uniformLocation = gl.getUniformLocation(fontShader.programID, 'offsetX')
-		gl.uniform1d(uniformLocation, offsetX)
-		console.log('letter=', letter, ' offsetX=', offsetX, ' uniformLocation=', uniformLocation, letter)
-		offsetX += sizeX
-
-		fontMesh.render()
-	}
+	font.render()
+	
 	gl.disable(gl.BLEND)
 }
 
