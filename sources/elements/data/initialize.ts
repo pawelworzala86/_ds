@@ -134,6 +134,9 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const initializerIndex = tokens.indexOf('=')
     const hasInitializer = initializerIndex!==-1
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
+    if(!type&&initializerTokens[0]==='new'&&initializerTokens[1]){
+        type = data.parent?.getClass(initializerTokens[1])?.name??undefined
+    }
     const eq = hasInitializer?'=':undefined
     const promiseInitializerExpression = initializerTokens.join('')
     const hasPromiseInitializer = /^Promise\.(?:resolve|reject|all)\(/.test(promiseInitializerExpression)

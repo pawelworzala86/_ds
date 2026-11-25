@@ -35,8 +35,28 @@ export class Return extends Base{
             tokens.push(token)
         }
         const expression = tokens.join('').replace(/;$/,'')
+        let functionScope = this.parent
+        while(functionScope&&!functionScope.isFunctionScope){
+            functionScope = functionScope.parent
+        }
+        if(functionScope){
+            functionScope.returnThis = (functionScope.returnThis??true)
+                &&expression==='this'
+                &&Boolean(this.classElement)
+        }
         if(expression){
-            if(Iff.isConditionExpression(expression)){
+            if(expression==='this'){
+                if(!this.classElement){
+                    throw new Error('Cannot return this outside a class method')
+                }
+                this.returnThis = true
+                if(functionScope){
+                    if(functionScope.returnClassType&&functionScope.returnClassType!==this.classElement.name){
+                        throw new Error('Function cannot return values of different classes')
+                    }
+                    functionScope.returnClassType = this.classElement.name
+                }
+            }else if(Iff.isConditionExpression(expression)){
                 this.condition = new Iff(this)
                 this.condition.condition = this.condition.parseCondition(expression)
             }else{
@@ -44,10 +64,6 @@ export class Return extends Base{
                 if(returnedData?.classType&&!returnedData.isArray
                     ||returnedData?.type==='ArrayBuffer'&&!returnedData.isArray){
                     this.classValue = returnedData
-                    let functionScope = this.parent
-                    while(functionScope&&!functionScope.isFunctionScope){
-                        functionScope = functionScope.parent
-                    }
                     if(functionScope){
                         let valueScope = this.parent
                         while(valueScope){
@@ -122,6 +138,8 @@ export class Return extends Base{
             ASM.addCode(`${falseLabel}:`)
             ASM.addCode('xor rax, rax')
             ASM.addCode(`${endLabel}:`)
+        }else if(this.returnThis){
+            ASM.addCode('mov rax, rsi')
         }else if(this.call){
             this.call.asm(ASM)
         }else if(this.arrayValue){

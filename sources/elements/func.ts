@@ -246,6 +246,7 @@ export class Func extends Base{
         element.returnArrayType = this.returnArrayType
         element.returnArrayNumericKind = this.returnArrayNumericKind
         element.returnClassType = this.returnClassType
+        element.returnThis = this.returnThis??false
         element.returnType = returnType
         if(predeclared){
             predeclared.params = element.params
@@ -254,6 +255,7 @@ export class Func extends Base{
             predeclared.returnArrayType = element.returnArrayType
             predeclared.returnArrayNumericKind = element.returnArrayNumericKind
             predeclared.returnClassType = element.returnClassType
+            predeclared.returnThis = element.returnThis
             predeclared.returnType = element.returnType
             this.element = predeclared
             Func.predeclared.delete(predeclared)
@@ -351,6 +353,11 @@ export class Func extends Base{
         const signature = `proc ${this.element!.name}${params?`, ${params}`:''}`
         for(const data of asm.getData()){
             ASM.addData(data.trimEnd())
+        }
+        for(const dll of Object.keys(asm.imp)){
+            for(const importedFunction of asm.imp[dll]){
+                ASM.addImport(dll,importedFunction)
+            }
         }
         return `${signature}${body?`\n${body}`:''}\nret\nendp`
     }

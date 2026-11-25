@@ -161,6 +161,25 @@ export class Call extends Base{
     }
     static test(active:Base,tokenizer:Tokenizer){
         const token = tokenizer.get()
+        const chainedMethod = token.match(/^\.(\w+)$/)
+        if(chainedMethod&&tokenizer.tokens[tokenizer.index]==='('){
+            const previous = active.children[active.children.length-1]
+            if(!(previous instanceof Call)||!previous.func?.returnThis||!previous.methodInstance){
+                throw new Error('Chained method call requires the previous method to return this')
+            }
+            tokenizer.get()
+            const args = tokenizer.getCallArguments()
+            const chained = new Call(active)
+            const chainedTokenizer = new Tokenizer(
+                `${previous.methodInstance.name}.${chainedMethod[1]}(${args.join(',')})`
+            )
+            chained.set(chainedTokenizer)
+            if(chainedTokenizer.has()){
+                throw new Error('Invalid chained method call')
+            }
+            active.children.push(chained)
+            return chained
+        }
         if(token==='console.log'||token==='super'||token.startsWith('super.')||active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
             tokenizer.move(-1)
             const data = new Call(active)
