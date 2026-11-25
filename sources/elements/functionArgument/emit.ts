@@ -1,12 +1,48 @@
 import Asm from '../../asm.ts'
 import {emitExpression} from '../../maths.ts'
 import DataElement from '../dataElement.ts'
+import {stringLiteralData} from '../../stringLiteral.ts'
 import {getClassPropertyOffset} from '../clasElement.ts'
 import {getTypedArrayInfo} from '../data/typedArrays.ts'
 import {nextFunctionArgumentId} from './ids.ts'
-import type {FunctionArgument} from '../functionArgument.ts'
+import {emitStringConcatOperands} from '../call/stringConcat.ts'
+import {FunctionArgument} from '../functionArgument.ts'
 
 export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
+    if(argument.stringConcatenation&&argument.tempName){
+        const parts = argument.stringConcatenation
+        const getSource = (part:DataElement|string,index:number)=>{
+            if(part instanceof DataElement){
+                return part
+            }
+            const label = `__ds_call_string_concat_literal_${argument.tempName}_${index}`
+            ASM.addData(`${label} ${stringLiteralData(part)}`)
+            const value = new DataElement('const',label,'string',label)
+            value.isConstAlias = true
+            return value
+        }
+        const sourcePart = parts[0]
+        if(!sourcePart){
+            throw new Error('String concatenation has no operands')
+        }
+        let source = getSource(sourcePart,0)
+        ASM.addData(`${argument.tempName} dq 0`)
+        for(let index=1;index<parts.length;index++){
+            const addition = parts[index]
+            if(!addition){
+                throw new Error('String concatenation operand is not initialized')
+            }
+            const value = addition instanceof DataElement
+                ? addition.name!
+                : addition
+            const sourceArgument = new FunctionArgument(argument.scope,value)
+            sourceArgument.tempName = null
+            emitStringConcatOperands(source,sourceArgument,ASM)
+            ASM.addCode(`mov [${argument.tempName}], rax`)
+            source = new DataElement('let',argument.tempName,'string','0')
+        }
+        return
+    }
     if(argument.addressOf&&argument.classPropertyInstance&&argument.classProperty){
         if(argument.classPropertyInstance.isHeapAllocated){
             const classType = argument.classPropertyInstance.classType

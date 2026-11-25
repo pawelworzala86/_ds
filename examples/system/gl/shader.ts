@@ -2,12 +2,14 @@ import * as msvcrt from './../lib/msvcrt.ts'
 import * as gl from './gl.ts'
 import * as fs from './../fs.ts'
 
+const SHADERS_DIR:string = 'shaders/'
+
 export class Shader{
     vertexShader:number = 0
     fragmentShader:number = 0
     programID:number = 0
-    load(vertFileName:string,fragFileName:string){
-        const vertexBufforTxt:string = fs.readFileSync(vertFileName).toString()
+    load(name:string){
+        const vertexBufforTxt:string = fs.readFileSync(SHADERS_DIR + name + '.vert').toString()
         
             msvcrt.printf(' OK2 ')
             
@@ -25,7 +27,7 @@ export class Shader{
                 
             msvcrt.printf('OKb')
             
-            const fragmentBufforTxt:string = fs.readFileSync(fragFileName).toString()
+            const fragmentBufforTxt:string = fs.readFileSync(SHADERS_DIR + name + '.frag').toString()
             const fragmentBufferLength:number = msvcrt.strlen(fragmentBufforTxt)
             
                 //msvcrt.printf('OK2')

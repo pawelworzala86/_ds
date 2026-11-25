@@ -11,6 +11,72 @@ import {parseRegExpLiteral} from '../regex.ts'
 
 let methodCallbackId = 0
 
+function splitStringConcatenation(text:string):string[]|null{
+    const parts:string[] = []
+    let start = 0
+    let depth = 0
+    let quote = ''
+    let escaped = false
+    for(let index=0;index<text.length;index++){
+        const char = text[index]
+        if(quote){
+            if(escaped){
+                escaped = false
+            }else if(char==='\\'){
+                escaped = true
+            }else if(char===quote){
+                quote = ''
+            }
+            continue
+        }
+        if(char==='"'||char==="'"){
+            quote = char
+        }else if(char==='('||char==='['){
+            depth++
+        }else if(char===')'||char===']'){
+            depth--
+        }else if(char==='+'&&depth===0){
+            parts.push(text.slice(start,index).trim())
+            start = index+1
+        }
+    }
+    if(!parts.length){
+        return null
+    }
+    parts.push(text.slice(start).trim())
+    return parts
+}
+
+function getStringConcatenationParts(active:Base,text:string):(DataElement|string)[]|null{
+    const parts = splitStringConcatenation(text)
+    if(!parts){
+        return null
+    }
+    const values:(DataElement|string)[] = []
+    let containsString = false
+    for(const part of parts){
+        if(/^(['"])(?:\\.|(?!\1).)*\1$/s.test(part)){
+            values.push(part)
+            containsString = true
+            continue
+        }
+        if(!/^[a-z_$][\w.$]*$/i.test(part)){
+            return null
+        }
+        const access = getClassPropertyAccess(active,part)
+        const value = active.getData(part)
+            ??(access
+                ? new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')
+                : null)
+        if(!value||value.isArray||value.type!=='string'){
+            return null
+        }
+        values.push(value)
+        containsString = true
+    }
+    return containsString?values:null
+}
+
 export class FunctionArgument{
     scope:Base
     value:ReturnType<typeof Link.data>
@@ -30,10 +96,17 @@ export class FunctionArgument{
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
     addressOf:DataElement|null = null
     jsonValue:JsonValue|undefined
+    stringConcatenation:(DataElement|string)[]|null = null
 
     constructor(active:Base,text:string){
         this.scope = active
         this.value = Link.data(active,text)
+        this.stringConcatenation = getStringConcatenationParts(active,text)
+        if(this.stringConcatenation){
+            this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
+            this.value = new DataElement('let',this.tempName,'string','0')
+            return
+        }
         const address = text.match(/^&([a-z_$][\w.$]*)$/i)
         if(address){
             this.addressOf = active.getData(address[1])
