@@ -85,7 +85,7 @@ let model:number[] = mat4.create()
 let textureFileName:string = 'texture.jpg'
 let textureID:number = 0
 
-let fontFileName:string = 'texture.jpg'
+let fontFileName:string = 'font.png'
 let fontTextureID:number = 0
 
 
@@ -163,8 +163,8 @@ function render(delay: number){
 
 
 	uniformLocation = gl.getUniformLocation(defualtShader.programID, 'diffuseTexture')
-	gl.bindTexture(gl.TEXTURE_2D, textureID)
 	gl.uniform1i(uniformLocation, 0)
+	gl.bindTexture(gl.TEXTURE_2D, textureID)
 	
 
 	msvcrt.printf('OK6 VAO=%i',meshes[0].VAO)
@@ -174,22 +174,32 @@ function render(delay: number){
 	}
 
 
+	console.log(' fontTextureID=', fontTextureID,' ')
 	gl.useProgram(fontShader.programID)
 	uniformLocation = gl.getUniformLocation(fontShader.programID, 'diffuseTexture')
-	gl.bindTexture(gl.TEXTURE_2D, fontTextureID)
 	gl.uniform1i(uniformLocation, 0)
+	gl.bindTexture(gl.TEXTURE_2D, fontTextureID)
+	gl.enable(gl.BLEND)
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
+	let textToDisplay: string = 'Hello World'
 	let offsetX: number = 0.0
-	let letter: number = 66
-	uniformLocation = gl.getUniformLocation(fontShader.programID, 'fontIndex')
-	gl.uniform1i(uniformLocation, letter)
 
-	let sizeX: number = (widthsFnt[letter] / 64.0)*0.2
-	uniformLocation = gl.getUniformLocation(fontShader.programID, 'offsetX')
-	gl.uniform1f(uniformLocation, offsetX)
-	offsetX += sizeX
+	for(let index=0; index<textToDisplay.length; index++){
+		let letter: number = textToDisplay.charCodeAt(index)
+		//console.log('letter=', letter)
+		uniformLocation = gl.getUniformLocation(fontShader.programID, 'fontIndex')
+		gl.uniform1i(uniformLocation, letter)
 
-	fontMesh.render()
+		let sizeX: number = (widthsFnt[letter] / 64.0)*0.2
+		uniformLocation = gl.getUniformLocation(fontShader.programID, 'offsetX')
+		gl.uniform1d(uniformLocation, offsetX)
+		console.log('letter=', letter, ' offsetX=', offsetX, ' uniformLocation=', uniformLocation, letter)
+		offsetX += sizeX
+
+		fontMesh.render()
+	}
+	gl.disable(gl.BLEND)
 }
 
 function destroy(){

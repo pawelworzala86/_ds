@@ -122,6 +122,11 @@ export class For extends While{
         this.children.push(declaration)
         this.initStatements.push(declaration)
 
+        const initializer = new Assign(this)
+        initializer.setExpression(variable,'0',true)
+        this.children.push(initializer)
+        this.initStatements.push(initializer)
+
         const update = new Assign(this)
         update.setExpression(variable,`${tokens[1]}+1`)
         this.children.push(update)
@@ -173,6 +178,11 @@ export class For extends While{
         indexDeclaration.element = index
         this.children.push(indexDeclaration)
         this.initStatements.push(indexDeclaration)
+
+        const indexInitializer = new Assign(this)
+        indexInitializer.setExpression(index,'0',true)
+        this.children.push(indexInitializer)
+        this.initStatements.push(indexInitializer)
 
         const value = new DataElement(tokens[0],tokens[1],array.classType??array.type??'','0')
         value.classType = array.classType
@@ -242,7 +252,7 @@ export class For extends While{
         if(element
             &&['let','var'].includes(element.kind??'')
             &&element.type==='number'
-            &&tokens.includes('=')
+            &&tokens.join('').includes('=')
             &&!headerStatements.some(child=>child instanceof Assign&&child.target===element)
         ){
             const initializer = new Assign(this)

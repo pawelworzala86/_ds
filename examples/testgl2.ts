@@ -105,7 +105,8 @@ function render(delay: number){
 
 	
 	uniformLocation = gl.getUniformLocation(defualtShader.programID, 'diffuseTexture')
-	gl.uniform1d(uniformLocation, textureID)
+	gl.uniform1i(uniformLocation, 0)
+	gl.bindTexture(gl.TEXTURE_2D, textureID)
 	
 
 	msvcrt.printf('OK6 VAO=%i',meshes[0].VAO)

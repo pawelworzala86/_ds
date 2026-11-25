@@ -154,8 +154,52 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
                     return value
                 }
                 return value.startsWith('[')&&value.endsWith(']')?value:`[${value}]`
-            }).join(', ')
-            ASM.addCode(`invoke [${call.functionVariable.name}] ${params}`)
+            })
+            const floatingParams = call.params.map(param=>
+                param.expression?.numericKind==='float'
+                ||param.value instanceof DataElement
+                    &&!param.value.isArray
+                    &&param.value.numericKind==='float'
+            )
+            if(floatingParams.some(Boolean)){
+                // Windows x64 passes double arguments in the positional XMM register.
+                const integerRegisters = ['rcx','rdx','r8','r9']
+                const stackBytes = 32+Math.max(0,params.length-integerRegisters.length)*8
+                const stackSize = stackBytes+(stackBytes%16===0?8:0)
+                ASM.addCode(`sub rsp, ${stackSize}`)
+                params.forEach((value,index)=>{
+                    const address = value.match(/^addr\s+(.+)$/i)
+                    if(index<integerRegisters.length){
+                        if(floatingParams[index]){
+                            ASM.addCode(`movsd xmm${index}, qword ${value}`)
+                        }else if(address){
+                            const target = address[1].trim()
+                            const operand = target.startsWith('[')&&target.endsWith(']')
+                                ? target
+                                : `[${target}]`
+                            ASM.addCode(`lea ${integerRegisters[index]}, ${operand}`)
+                        }else{
+                            ASM.addCode(`mov ${integerRegisters[index]}, ${value}`)
+                        }
+                    }else{
+                        const offset = 32+(index-integerRegisters.length)*8
+                        if(address){
+                            const target = address[1].trim()
+                            const operand = target.startsWith('[')&&target.endsWith(']')
+                                ? target
+                                : `[${target}]`
+                            ASM.addCode(`lea rax, ${operand}`)
+                        }else{
+                            ASM.addCode(`mov rax, ${floatingParams[index]?`qword ${value}`:value}`)
+                        }
+                        ASM.addCode(`mov qword [rsp+${offset}], rax`)
+                    }
+                })
+                ASM.addCode(`call [${call.functionVariable.name}]`)
+                ASM.addCode(`add rsp, ${stackSize}`)
+                return
+            }
+            ASM.addCode(`invoke [${call.functionVariable.name}] ${params.join(', ')}`)
             return
         }
         if(call.methodInstance?.isProcedureLocal||call.methodInstance?.isReferenceAlias){

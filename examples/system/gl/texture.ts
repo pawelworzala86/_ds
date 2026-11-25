@@ -45,10 +45,13 @@ export function LoadTexture(name:string){
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.BGRA_EXT, dwWidth, dwHeight, 0, gl.BGRA_EXT, gl.UNSIGNED_BYTE, lpBits)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, dwWidth, dwHeight, 0, gl.BGRA_EXT, gl.UNSIGNED_BYTE, lpBits)
 
+    freeimage.FreeImage_Unload(hDib32)
 
     msvcrt.printf(' %i ', textureID)
+
+    gl.bindTexture(gl.TEXTURE_2D, 0)
 
     return textureID
 }

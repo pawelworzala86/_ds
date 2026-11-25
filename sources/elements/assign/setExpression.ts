@@ -321,7 +321,10 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
         const call = new Call(assignment.parent!)
         const tokenizer = new Tokenizer(expression.trim())
         call.set(tokenizer)
-        if(!tokenizer.has()&&(call.func||call.functionVariable)&&!call.func?.isAsync&&!call.prototypeMethod){
+        if(!tokenizer.has()
+            &&(call.func||call.functionVariable||call.builtinStringCharCodeAt)
+            &&!call.func?.isAsync
+            &&!call.prototypeMethod){
             assignment.functionCall = call
             target.numericKind = 'integer'
             return

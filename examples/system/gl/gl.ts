@@ -11,6 +11,8 @@ export declare function glEnd(...args:any[]):any//opengl32
 export declare function glDrawArrays(...args:any[]):void//opengl32
 export declare function glDepthFunc(...args:any[]):void//opengl32
 export declare function glEnable(...args:any[]):void//opengl32
+export declare function glDisable(...args:any[]):void//opengl32
+export declare function glBlendFunc(...args:any[]):void//opengl32
 export declare function glGenTextures(...args:any[]):void//opengl32
 export declare function glBindTexture(...args:any[]):void//opengl32
 export declare function glTexParameteri(...args:any[]):void//opengl32
@@ -69,6 +71,14 @@ export function depthFunc(functionValue:number){
 
 export function enable(capability:number){
     glEnable(capability)
+}
+
+export function disable(capability:number){
+    glDisable(capability)
+}
+
+export function blendFunc(source:number,destination:number){
+    glBlendFunc(source,destination)
 }
 
 export function genTextures(count:number,textures:number){

@@ -32,8 +32,9 @@ void main()
 
     coord += vec2(X,1.0026-Y);
 
-	vec3 diffuse = vec3(texture(diffuseTexture, coord).rgb);
-	
-	color = vec4(diffuse,1.0);
+	vec3 diffuse = texture(diffuseTexture, coord).rgb;
+	float coverage = 1.0 - dot(diffuse, vec3(0.299, 0.587, 0.114));
+
+	color = vec4(vec3(0.0), coverage);
 
 }
