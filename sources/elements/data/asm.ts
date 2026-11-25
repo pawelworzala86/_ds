@@ -177,6 +177,14 @@ export function emitDataAsm(data:Data,ASM:Asm){
             return
         }
         if(data.element!.isProcedureLocal&&!(data.element!.isArray&&data.element!.dynamicArray)){
+            if(data.element!.type==='number'&&data.element!.numericKind==='float'){
+                const label = `__ds_local_literal_${data.element!.name}`
+                ASM.addCode(`local ${data.element!.name} dq 0`)
+                ASM.addData(`${label} dq ${data.element!.value}`)
+                ASM.addCode(`movsd xmm0, qword [${label}]`)
+                ASM.addCode(`movsd qword [${data.element!.name}], xmm0`)
+                return
+            }
             ASM.addCode(`local ${data.element!.name} dq ${data.element!.value}`)
             return
         }

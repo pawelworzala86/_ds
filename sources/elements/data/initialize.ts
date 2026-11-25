@@ -1,4 +1,5 @@
 import Tokenizer from '../../tokenizer.ts'
+import {parseRegExpLiteral} from '../../regex.ts'
 import type Base from '../base.ts'
 import DataElement, {getNumericKind} from '../dataElement.ts'
 import Assign from '../assign.ts'
@@ -74,13 +75,15 @@ function initializeObjectAssign(active:Base,tokens:string[],name:string){
 export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     let tokens:string[] = []
     let objectDepth = 0
+    let arrayDepth = 0
+    let quote:string|null = null
     let timeoutCallbackDepth = 0
     let timeoutCall = false
     let timeoutCallbackPending = false
     while(tokenizer.has()){
         const token = tokenizer.get()
         if(token==='\n'){
-            if(objectDepth===0){
+            if(objectDepth===0&&arrayDepth===0){
                 break
             }
             if(timeoutCallbackDepth===0){
@@ -91,6 +94,21 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
             break
         }
         tokens.push(token)
+        if(quote){
+            if(token===quote){
+                quote = null
+            }
+        }else if(token==="'"||token==='"'){
+            quote = token
+        }else if(!parseRegExpLiteral(token)){
+            for(const char of token){
+                if(char==='['){
+                    arrayDepth++
+                }else if(char===']'){
+                    arrayDepth--
+                }
+            }
+        }
         if(token==='{'){
             objectDepth++
             if(timeoutCallbackPending){
