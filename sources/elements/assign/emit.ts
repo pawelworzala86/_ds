@@ -138,6 +138,10 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         ASM.addCode(`mov [${target.getAccessName()}], rax`)
         return
     }
+    if(assignment.classInitializerCall){
+        assignment.classInitializerCall.asm(ASM)
+        return
+    }
     if(assignment.stringPropertyTarget){
         const valueLabel = `__ds_str_assign_${++stringAssignId}`
         ASM.addData(`${valueLabel} ${stringLiteralData(assignment.stringValue!)}`)

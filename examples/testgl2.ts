@@ -37,8 +37,6 @@ let textureID:number = 0
 
 
 
-let vertFileName:string = 'defaultTex.vert'
-let fragFileName:string = 'defaultTex.frag'
 
 let defualtShader:shader.Shader = new shader.Shader()
 
@@ -53,7 +51,7 @@ let meshes:mesh.Mesh[] = []
 function init(){
     msvcrt.printf('OK1 ')
 
-	defualtShader.load(vertFileName, fragFileName)
+	defualtShader.load('defaultTex')
 
 	msvcrt.printf('OK5')
 

@@ -49,6 +49,8 @@ export class Mesh {
         gl.bufferData(gl.ARRAY_BUFFER, 96, coordsBuffer, gl.STATIC_DRAW)
         gl.enableVertexAttribArray(1)
         gl.vertexAttribPointer(1,2,gl.DOUBLE,gl.FALSE, 16, 0)
+
+        f.close()
     }
     render(){
         gl.bindVertexArray(this.VAO)

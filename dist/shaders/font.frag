@@ -17,6 +17,6 @@ void main()
 
 	vec3 diffuse = vec3(texture(diffuseTexture, vCoord).rgb);
 	
-	color = vec4(diffuse, 1.0);
+	color = vec4(vec3(0.5), 1.0);
 
 }

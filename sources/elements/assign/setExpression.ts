@@ -186,6 +186,36 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
             })
         }
     }
+    if(target.classType&&!target.isArray&&!indexText){
+        const classInitializer = expression.trim().match(/^new([a-z_$][\w$]*)\(([\s\S]*)\)$/i)
+        if(classInitializer){
+            const [,className,argsText] = classInitializer
+            if(className!==target.classType){
+                throw new Error(`Class instance "${target.name}" requires new ${target.classType}()`)
+            }
+            const classType = assignment.parent?.getClass(className)
+            if(!classType){
+                throw new Error(`Unknown class type "${className}"`)
+            }
+            const argsTokenizer = new Tokenizer(`(${argsText})`)
+            argsTokenizer.get()
+            const args = argsTokenizer.getCallArguments()
+            if(argsTokenizer.has()){
+                throw new Error(`Invalid constructor initializer for class instance "${target.name}"`)
+            }
+            const constructor = classType.getFunction('constructor')
+            if(!constructor&&args.length){
+                throw new Error(`Class "${className}" has no constructor`)
+            }
+            assignment.target = target
+            if(constructor){
+                const call = new Call(assignment.parent!)
+                call.set(new Tokenizer(`${target.name}.constructor(${args.join(',')})`))
+                assignment.classInitializerCall = call
+            }
+            return
+        }
+    }
     if(target.type==='string'&&!target.isArray){
         if(indexText){
             throw new Error('String variables cannot be indexed')

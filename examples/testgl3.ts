@@ -47,7 +47,7 @@ let meshes:mesh.Mesh[] = []
 
 
 
-
+let fontMesh:mesh.Mesh
 
 function init(){
     msvcrt.printf('OK1 ')
@@ -60,6 +60,7 @@ function init(){
 
 
 	let meshInstance:mesh.Mesh = new mesh.Mesh()
+	fontMesh = new mesh.Mesh()
 
 	meshes.push(meshInstance)
 
@@ -115,6 +116,11 @@ function render(delay: number){
 	for(const mesh of meshes){
 		mesh.render()
 	}
+
+	gl.useProgram(fontShader.programID);
+	uniformLocation = gl.getUniformLocation(fontShader.programID, 'diffuseTexture')
+	gl.uniform1d(uniformLocation, textureID)
+	fontMesh.render()
 }
 
 function destroy(){
