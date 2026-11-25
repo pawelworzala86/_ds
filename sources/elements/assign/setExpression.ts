@@ -53,8 +53,8 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
             const tokenizer = new Tokenizer(value)
             call.set(tokenizer)
             if(!tokenizer.has()
-                &&call.builtinStringSearchMethod
-                &&call.builtinStringSearchMethod!=='indexOf'){
+                &&(call.builtinStringSearchMethod&&call.builtinStringSearchMethod!=='indexOf'
+                    ||call.func?.returnType==='boolean')){
                 assignment.target = target
                 assignment.functionCall = call
                 return
@@ -202,6 +202,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
                 ||call.builtinStringRange
                 ||call.builtinStringConcat
                 ||call.builtinStringTransform
+                ||call.func?.returnType==='string'
             )){
                 assignment.stringCall = call
                 return

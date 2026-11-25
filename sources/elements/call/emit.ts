@@ -208,7 +208,8 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
                     }
                 }else if(param.value instanceof DataElement&&param.value.classType
                     &&(expected?.type===param.value.classType||param.value.classLayoutProps&&hasSameStructLayout(param.value.classLayoutProps,expectedClass))){
-                    ASM.addCode(param.value.isProcedureLocal&&param.value.isHeapAllocated
+                    ASM.addCode((param.value.isProcedureLocal||param.value.isReferenceAlias)
+                        &&param.value.isHeapAllocated
                         ? `mov rax, [${param.value.name}]`
                         : `lea rax, [${param.value.name}]`)
                 }else{

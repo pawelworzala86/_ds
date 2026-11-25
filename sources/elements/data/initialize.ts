@@ -137,6 +137,17 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     if(!type&&initializerTokens[0]==='new'&&initializerTokens[1]){
         type = data.parent?.getClass(initializerTokens[1])?.name??undefined
     }
+    let returnedValueCall:Call|null = null
+    const initializerCallExpression = initializerTokens.join('')
+    if(data.parent&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(initializerCallExpression)){
+        const callTokenizer = new Tokenizer(initializerCallExpression)
+        const call = new Call(data.parent)
+        call.set(callTokenizer)
+        if(!callTokenizer.has()&&call.func&&!call.func.isAsync){
+            returnedValueCall = call
+            type ??= call.func.returnType??call.func.returnClassType??undefined
+        }
+    }
     const eq = hasInitializer?'=':undefined
     const promiseInitializerExpression = initializerTokens.join('')
     const hasPromiseInitializer = /^Promise\.(?:resolve|reject|all)\(/.test(promiseInitializerExpression)
@@ -315,7 +326,8 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
                     const call = new Call(data.parent!)
                     call.set(callTokenizer)
                     isBooleanCall = !callTokenizer.has()
-                        &&Boolean(call.builtinStringSearchMethod&&call.builtinStringSearchMethod!=='indexOf')
+                        &&Boolean(call.builtinStringSearchMethod&&call.builtinStringSearchMethod!=='indexOf'
+                            ||call.func?.returnType==='boolean')
                 }
                 if(source?.type==='boolean'&&!source.isArray
                     ||sourceAccess?.property.type==='boolean'&&!sourceAccess.property.isArray
@@ -347,6 +359,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         ? {type:jsonParseClass.name!,props:jsonParseClass.props}
         : null
     let classInitializerArgs:string[]|null = null
+    let classReturnCall:Call|null = null
     if(objectAssign){
         classType = objectAssign.classType
         classLayout = {type:objectAssign.type,props:objectAssign.properties}
@@ -355,6 +368,10 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         if(initializerTokens[0]==='{'){
             const properties = parseObjectLiteral(initializerTokens)
             classLayout = createStructLayout(properties,classType,name)
+        }else if(returnedValueCall
+            &&(returnedValueCall.func?.returnClassType===normalizedType
+                ||returnedValueCall.func?.returnType===normalizedType)){
+            classReturnCall = returnedValueCall
         }else if(initializerTokens[0]!=='new'||initializerTokens[1]!==normalizedType||initializerTokens[2]!=='('||initializerTokens[initializerTokens.length-1]!==')'){
             throw new Error(`Class instance "${name}" must be initialized with new ${normalizedType}()`)
         }else{
@@ -377,13 +394,25 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         if(chainedMethodCall||toStringInitializer){
             value = '0'
         }
-        values = hasAwaitInitializer||chainedMethodCall||toStringInitializer?['0']: [jsonParseValue!==undefined
+        values = hasAwaitInitializer||chainedMethodCall||toStringInitializer
+            ||returnedValueCall?.func?.returnType==='string'?['0']: [jsonParseValue!==undefined
             ? JSON.stringify(jsonParseValue).slice(1,-1)
             : jsonStringifyValue!==null
                 ? JSON.stringify(jsonStringifyValue).slice(1,-1)
                 : hasInitializer?getStringLiteralContents(initializerTokens.join('')):'']
     }
     data.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
+    if(classReturnCall){
+        data.element.isReferenceAlias = true
+        data.element.isHeapAllocated = true
+        classReturnCall.resultTarget = data.element
+        data.initializerCalls.push(classReturnCall)
+        data.runtimeCallInitializer = true
+    }else if(type==='string'&&returnedValueCall?.func?.returnType==='string'){
+        returnedValueCall.resultTarget = data.element
+        data.initializerCalls.push(returnedValueCall)
+        data.runtimeCallInitializer = true
+    }
     if(hasPromiseInitializer&&data.parent){
         data.promiseInitializer = parsePromiseInitializer(
             data.parent,

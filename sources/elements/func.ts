@@ -203,6 +203,7 @@ export class Func extends Base{
         const bodyEnd = tokens.lastIndexOf('}')
         const signatureEnd = tokens.indexOf(')')
         const returnType = tokens[signatureEnd+1]===':'?tokens[signatureEnd+2]??null:null
+        this.returnType = returnType
         tokens = tokens.slice(bodyStart + 1, bodyEnd)
 
         for(const param of params){
@@ -247,7 +248,7 @@ export class Func extends Base{
         element.returnArrayNumericKind = this.returnArrayNumericKind
         element.returnClassType = this.returnClassType
         element.returnThis = this.returnThis??false
-        element.returnType = returnType
+        element.returnType = this.returnType
         if(predeclared){
             predeclared.params = element.params
             predeclared.isAsync = element.isAsync

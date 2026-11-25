@@ -483,7 +483,7 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                 }else if(data.isParameter){
                     argument = data.name
                 }else if(data.classType||data.classLayoutProps){
-                    argument = data.isProcedureLocal&&data.isHeapAllocated
+                    argument = (data.isProcedureLocal||data.isReferenceAlias)&&data.isHeapAllocated
                         ? `[${data.name}]`
                         : `addr ${data.name}`
                 }

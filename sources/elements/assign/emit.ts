@@ -17,7 +17,7 @@ export function emitAssign(assignment:Assign,ASM:Asm){
     const storeTarget = (value:string,asFloat=false)=>{
         const instance = assignment.target?.classPropertyInstance
         const offset = assignment.target?.classPropertyOffset
-        if(instance?.isProcedureLocal&&offset!==null&&offset!==undefined){
+        if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null&&offset!==undefined){
             ASM.addCode(instance.isHeapAllocated
                 ? `mov rdx, [${instance.name}]`
                 : `lea rdx, [${instance.name}]`)
@@ -96,7 +96,7 @@ export function emitAssign(assignment:Assign,ASM:Asm){
             ASM.addCode('mov rdx, rax')
             const instance = assignment.target.classPropertyInstance
             const offset = assignment.target.classPropertyOffset
-            if(instance?.isProcedureLocal&&offset!==null&&offset!==undefined){
+            if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null&&offset!==undefined){
                 ASM.addCode(instance.isHeapAllocated
                     ? `mov rcx, [${instance.name}]`
                     : `lea rcx, [${instance.name}]`)

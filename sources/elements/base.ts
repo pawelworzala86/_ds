@@ -17,6 +17,7 @@ export class Base{
     returnArrayType:string|null = null
     returnArrayNumericKind:'integer'|'float' = 'integer'
     returnClassType:string|null = null
+    returnType:string|null = null
     returnThis:boolean|null = null
     children:Base[] = []
     DATA:DataElement[] = []

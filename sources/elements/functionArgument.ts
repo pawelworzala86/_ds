@@ -246,7 +246,7 @@ export class FunctionArgument{
             throw new Error('Struct property access is not initialized')
         }
         const path = this.classPropertyPath??property.name??''
-        if(instance.isProcedureLocal&&instance.classType){
+        if((instance.isProcedureLocal||instance.isReferenceAlias)&&instance.classType){
             const classType = this.scope.getClass(instance.classType)
             const offset = classType
                 ? getClassPropertyOffset(classType,this.classPropertyOffsetPath??property.name??'',name=>this.scope.getClass(name))

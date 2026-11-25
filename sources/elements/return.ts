@@ -6,8 +6,10 @@ import Iff from './iff.ts'
 import Call from './call.ts'
 import Invoke,{isInvoke} from './invoke.ts'
 import DataElement from './dataElement.ts'
+import {stringData} from '../stringLiteral.ts'
 
 let returnConditionId = 0
+let returnStringId = 0
 
 export class Return extends Base{
     expression:Expression|null = null
@@ -15,6 +17,8 @@ export class Return extends Base{
     call:Call|Invoke|null = null
     arrayValue:DataElement|null = null
     classValue:DataElement|null = null
+    stringValue:string|null = null
+    stringData:DataElement|null = null
 
     constructor(parent:Base){
         super(parent)
@@ -44,6 +48,11 @@ export class Return extends Base{
                 &&expression==='this'
                 &&Boolean(this.classElement)
         }
+        const inferReturnType = (type:string|null|undefined)=>{
+            if(functionScope&&!functionScope.returnType&&type){
+                functionScope.returnType = type
+            }
+        }
         if(expression){
             if(expression==='this'){
                 if(!this.classElement){
@@ -55,6 +64,7 @@ export class Return extends Base{
                         throw new Error('Function cannot return values of different classes')
                     }
                     functionScope.returnClassType = this.classElement.name
+                    inferReturnType(this.classElement.name)
                 }
             }else if(Iff.isConditionExpression(expression)){
                 this.condition = new Iff(this)
@@ -82,10 +92,29 @@ export class Return extends Base{
                             throw new Error('Function cannot return values of different classes')
                         }
                         functionScope.returnClassType = returnedData.classType
+                        const returnedClass = returnedData.classType
+                            ?functionScope.getClass(returnedData.classType)
+                            :null
+                        for(let scope=functionScope.parent;scope;scope=scope.parent){
+                            if(returnedClass&&!scope.CLASSES.some(item=>item.name===returnedClass.name)){
+                                scope.addClass(returnedClass)
+                            }
+                        }
                     }
+                    inferReturnType(returnedData.type==='ArrayBuffer'
+                        ?'ArrayBuffer'
+                        :returnedData.classType)
+                }else if(returnedData?.type==='string'&&!returnedData.isArray){
+                    this.stringData = returnedData
+                    inferReturnType('string')
                 }else{
+                    const stringLiteral = expression.match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
+                    if(stringLiteral){
+                        this.stringValue = stringLiteral[0]
+                        inferReturnType('string')
+                    }
                     const callSyntax = expression.match(/^([a-z_$][\w.$]*)\([\s\S]*\)$/i)
-                    if(callSyntax){
+                    if(!this.stringValue&&callSyntax){
                         const [,name] = callSyntax
                         const callTokenizer = new Tokenizer(expression)
                         const call = isInvoke(name)
@@ -96,7 +125,24 @@ export class Return extends Base{
                             this.call = call
                         }
                     }
-                    if(!this.call){
+                    if(this.call instanceof Call&&this.call.func&&functionScope){
+                        const returnClassType = this.call.func.returnClassType
+                            ??(this.call.func.returnType
+                                ?functionScope.getClass(this.call.func.returnType)?.name??null
+                                :null)
+                        if(returnClassType){
+                            if(functionScope.returnClassType&&functionScope.returnClassType!==returnClassType){
+                                throw new Error('Function cannot return values of different classes')
+                            }
+                            functionScope.returnClassType = returnClassType
+                        }
+                        if(this.call.func.returnArrayType){
+                            functionScope.returnArrayType = this.call.func.returnArrayType
+                            functionScope.returnArrayNumericKind = this.call.func.returnArrayNumericKind
+                        }
+                        inferReturnType(this.call.func.returnType??returnClassType??this.call.func.returnArrayType)
+                    }
+                    if(!this.call&&!this.stringValue){
                         const array = this.parent?.getData(expression)
                         if(array?.isArray){
                             if(!array.dynamicArray){
@@ -116,8 +162,14 @@ export class Return extends Base{
                                 functionScope.returnArrayType = returnArrayType
                                 functionScope.returnArrayNumericKind = array.numericKind
                             }
+                            inferReturnType(`${array.type}[]`)
                         }else{
                             this.expression = parseExpression(expression,this)
+                            const type = expression==='true'||expression==='false'
+                                ||returnedData?.type==='boolean'
+                                ?'boolean'
+                                :'number'
+                            inferReturnType(type)
                         }
                     }
                 }
@@ -154,6 +206,14 @@ export class Return extends Base{
                 : value.isParameter
                     ? `mov rax, ${value.name}`
                     : `lea rax, [${value.name}]`)
+        }else if(this.stringValue!==null){
+            const label = `__ds_return_string_${++returnStringId}`
+            ASM.addData(`${label} ${stringData(this.stringValue.slice(1,-1))}`)
+            ASM.addCode(`lea rax, [${label}]`)
+        }else if(this.stringData){
+            ASM.addCode(this.stringData.isParameter
+                ? `mov rax, ${this.stringData.name}`
+                : `mov rax, [${this.stringData.getAccessName()}]`)
         }else if(this.expression){
             emitExpression(this.expression,ASM)
         }

@@ -76,7 +76,8 @@ export class DataElement{
     }
     getAccessName(){
         return this.classPropertyInstance&&this.classPropertyPath
-            ? this.classPropertyInstance.isProcedureLocal&&this.classPropertyOffset!==null
+            ? (this.classPropertyInstance.isProcedureLocal||this.classPropertyInstance.isReferenceAlias)
+                &&this.classPropertyOffset!==null
                 ? `${this.classPropertyInstance.name}+${this.classPropertyOffset}`
                 : `${this.classPropertyInstance.name}.${this.classPropertyPath}`
             : this.name

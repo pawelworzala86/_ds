@@ -3,6 +3,7 @@ import Base from './base.ts'
 import Asm from "./../asm.ts"
 import FuncElement from './funcElement.ts'
 import DataElement, {getNumericKind} from './dataElement.ts'
+import Data from './data.ts'
 import FunctionArgument from './functionArgument.ts'
 import TypePrototypeRegistry, {type PrototypeMethod} from './typePrototype.ts'
 import {initializeCall} from './call/initialize.ts'
@@ -26,6 +27,7 @@ import {emitStringTransform as emitStringTransformImpl} from './call/stringTrans
 import {emitPromiseMethod as emitPromiseMethodImpl} from './call/promise.ts'
 import {getMethod as getMethodImpl,getPrototypeMethod as getPrototypeMethodImpl} from './call/methodLookup.ts'
 
+let returnedClassId = 0
 
 export class Call extends Base{
     func:FuncElement|null = null
@@ -164,14 +166,44 @@ export class Call extends Base{
         const chainedMethod = token.match(/^\.(\w+)$/)
         if(chainedMethod&&tokenizer.tokens[tokenizer.index]==='('){
             const previous = active.children[active.children.length-1]
-            if(!(previous instanceof Call)||!previous.func?.returnThis||!previous.methodInstance){
+            if(!(previous instanceof Call)){
                 throw new Error('Chained method call requires the previous method to return this')
+            }
+            let instanceName:string
+            if(previous.func?.returnThis&&previous.methodInstance){
+                instanceName = previous.methodInstance.name!
+            }else{
+                const className = previous.func?.returnClassType
+                    ??(previous.func?.returnType?active.getClass(previous.func.returnType)?.name:null)
+                const classType = className?active.getClass(className):null
+                if(!className||!classType?.getFunction(chainedMethod[1])){
+                    throw new Error('Chained method call requires the previous method to return this or a class instance')
+                }
+                let instanceId = ''
+                do{
+                    instanceId = `__ds_returned_class_${++returnedClassId}`
+                }while(active.getData(instanceId))
+                const instance = new DataElement('let',instanceId,className,'0')
+                instance.classType = className
+                instance.isHeapAllocated = true
+                instance.isReferenceAlias = true
+                let functionScope:Base|null = active
+                while(functionScope&&!functionScope.isFunctionScope){
+                    functionScope = functionScope.parent
+                }
+                instance.isProcedureLocal = Boolean(functionScope)
+                active.addData(instance)
+                const declaration = new Data(active)
+                declaration.element = instance
+                active.children.push(declaration)
+                previous.resultTarget = instance
+                instanceName = instanceId
             }
             tokenizer.get()
             const args = tokenizer.getCallArguments()
             const chained = new Call(active)
             const chainedTokenizer = new Tokenizer(
-                `${previous.methodInstance.name}.${chainedMethod[1]}(${args.join(',')})`
+                `${instanceName}.${chainedMethod[1]}(${args.join(',')})`
             )
             chained.set(chainedTokenizer)
             if(chainedTokenizer.has()){

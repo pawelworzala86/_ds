@@ -49,7 +49,11 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
         body.push('endp')
         ASM.addProc(body.join('\n'))
     }
-    if(argument.classPropertyInstance?.isProcedureLocal&&argument.classProperty&&!argument.classProperty.isArray&&argument.value instanceof DataElement){
+    if((argument.classPropertyInstance?.isProcedureLocal||argument.classPropertyInstance?.isReferenceAlias)
+        &&argument.classPropertyInstance
+        &&argument.classProperty
+        &&!argument.classProperty.isArray
+        &&argument.value instanceof DataElement){
         const classType = argument.classPropertyInstance.classType
             ? argument.scope.getClass(argument.classPropertyInstance.classType)
             : null

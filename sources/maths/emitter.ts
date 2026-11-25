@@ -183,7 +183,7 @@ export function emitExpression(expression:Expression,ASM:Asm){
         }
         const instance = expression.value.classPropertyInstance
         const offset = expression.value.classPropertyOffset
-        if(instance?.isProcedureLocal&&offset!==null){
+        if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null){
             ASM.addCode(instance.isHeapAllocated
                 ? `mov rdx, [${instance.name}]`
                 : `lea rdx, [${instance.name}]`)
@@ -213,7 +213,7 @@ export function emitExpression(expression:Expression,ASM:Asm){
         const instance = expression.value.classPropertyInstance
         const offset = expression.value.classPropertyOffset
         if(!expression.value.isArray){
-            if(instance?.isProcedureLocal&&offset!==null){
+            if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null){
                 ASM.addCode(instance.isHeapAllocated
                     ? `mov rdx, [${instance.name}]`
                     : `lea rdx, [${instance.name}]`)

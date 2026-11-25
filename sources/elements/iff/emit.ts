@@ -46,7 +46,7 @@ export function emitOperand(statement:Iff,value:Expression|StringOperand,ASM:Asm
             ASM.addCode('mov rax, [rdx]')
         }else if(data.isParameter&&!instance){
             ASM.addCode(`mov rax, ${data.name}`)
-        }else if(instance?.isProcedureLocal&&offset!==null){
+        }else if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null){
             ASM.addCode(instance.isHeapAllocated
                 ? `mov rdx, [${instance.name}]`
                 : `lea rdx, [${instance.name}]`)
