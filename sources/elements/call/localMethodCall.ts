@@ -32,8 +32,8 @@ export function emitLocalMethodCall(call:Call,ASM:Asm){
         }
         call.params.forEach((param,index)=>{
             const expected = call.func!.params[index]
-            const value = expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray
-                ? param.value.isParameter?param.value.name:`addr ${param.value.name}`
+            const value = param.value instanceof DataElement&&param.value.isArray
+                ? param.getArrayArgumentCode(Boolean(expected?.dynamicArray))
                 : param.getCode(true)
             if(value===null){
                 throw new Error(`Unable to resolve local method argument ${index+1}`)

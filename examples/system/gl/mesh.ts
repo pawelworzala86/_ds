@@ -1,11 +1,16 @@
 import * as gl from './../gl/gl.ts'
 import * as msvcrt from './../lib/msvcrt.ts'
 import * as file from './../file.ts'
+import * as shader from './shader.ts'
 
 export class Mesh {
     VAO:number = 0
     bufferID:number = 0
-    constructor(){
+    shader: shader.Shader
+    constructor(shader: shader.Shader){
+        console.log('Mesh instance is being created')
+        this.shader = shader
+        console.log('fontShader setted')
         gl.genVertexArrays(1, &this.VAO)
         msvcrt.printf('VAO %i', this.VAO)
         gl.bindVertexArray(this.VAO)
@@ -52,7 +57,33 @@ export class Mesh {
 
         f.close()
     }
-    render(){
+    render(perspective:number[], camera:number[], model:number[], textureID:number){
+        msvcrt.printf('useProgram=%i ', this.shader.programID)
+        gl.useProgram(this.shader.programID);
+
+
+        let uniformLocation:number = 0
+
+        console.log('this.shader.programID ', this.shader.programID)
+
+        uniformLocation = gl.getUniformLocation(this.shader.programID, 'dprojection')
+        msvcrt.printf('procADDR=%i ', uniformLocation)
+        msvcrt.printf('uniformLocation=%i ', uniformLocation)
+        gl.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
+
+        uniformLocation = gl.getUniformLocation(this.shader.programID, 'dcamera')
+        gl.uniformMatrix4dv(uniformLocation, 1, 0, camera)
+
+        uniformLocation = gl.getUniformLocation(this.shader.programID, 'dmodel')
+        gl.uniformMatrix4dv(uniformLocation, 1, 0, model)
+
+        uniformLocation = gl.getUniformLocation(this.shader.programID, 'diffuseTexture')
+        gl.uniform1i(uniformLocation, 0)
+        gl.bindTexture(gl.TEXTURE_2D, textureID)
+        
+
+        msvcrt.printf('OK6 VAO=%i',this.VAO)
+        
         gl.bindVertexArray(this.VAO)
         gl.drawArrays(gl.TRIANGLES, 0, 6)
     }

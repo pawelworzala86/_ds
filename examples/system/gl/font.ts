@@ -48,10 +48,13 @@ export class Font {
     fontMesh:mesh.Mesh
     constructor(){
         this.fontShader.load('font')
-        this.fontMesh = new mesh.Mesh()
+        console.log('fontShader instance created')
+        this.fontMesh = new mesh.Mesh(this.fontShader)
+        console.log('fontShader loaded')
         this.fontTextureID = texture.LoadTexture(this.fontFileName)
+        console.log('fontTextureID loaded')
     }
-    render(){
+    render(perspective:number[], camera:number[], model:number[], textureID:number){
         console.log(' fontTextureID=', this.fontTextureID,' ')
         gl.useProgram(this.fontShader.programID)
             let uniformLocation:number = gl.getUniformLocation(this.fontShader.programID, 'diffuseTexture')
@@ -75,7 +78,7 @@ export class Font {
             console.log('letter=', letter, ' offsetX=', offsetX, ' uniformLocation=', uniformLocation, letter)
             offsetX += sizeX
 
-            this.fontMesh.render()
+            this.fontMesh.render(perspective, camera, model, this.fontTextureID)
         }
     }
 }

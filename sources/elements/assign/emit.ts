@@ -142,6 +142,40 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         assignment.classInitializerCall.asm(ASM)
         return
     }
+    if(assignment.classInitializerNoop){
+        return
+    }
+    if(assignment.classValue){
+        const source = assignment.classValue
+        const classType = assignment.target.classType
+            ? assignment.parent?.getClass(assignment.target.classType)
+            : null
+        const instance = assignment.target.classPropertyInstance
+        const offset = assignment.target.classPropertyOffset
+        if(!classType||!instance||offset===null){
+            throw new Error('Class property assignment is not initialized')
+        }
+        const fields = getStructFields(classType.props,name=>assignment.parent!.getClass(name))
+        if(source.isParameter){
+            ASM.addCode(`mov rdx, ${source.name}`)
+        }else if(source.isHeapAllocated||source.isReferenceAlias){
+            ASM.addCode(`mov rdx, [${source.name}]`)
+        }else{
+            ASM.addCode(`lea rdx, [${source.name}]`)
+        }
+        if(instance.isHeapAllocated||instance.isReferenceAlias||instance.isParameter){
+            ASM.addCode(`mov r8, ${instance.isParameter?instance.name:`[${instance.name}]`}`)
+            ASM.addCode(`lea r8, [r8+${offset}]`)
+        }else{
+            ASM.addCode(`lea r8, [${instance.name}+${offset}]`)
+        }
+        fields.forEach((_,index)=>{
+            const fieldOffset = index*8
+            ASM.addCode(`mov rax, [rdx+${fieldOffset}]`)
+            ASM.addCode(`mov [r8+${fieldOffset}], rax`)
+        })
+        return
+    }
     if(assignment.stringPropertyTarget){
         const valueLabel = `__ds_str_assign_${++stringAssignId}`
         ASM.addData(`${valueLabel} ${stringLiteralData(assignment.stringValue!)}`)

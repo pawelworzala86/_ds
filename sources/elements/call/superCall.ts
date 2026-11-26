@@ -20,8 +20,8 @@ export function emitSuperCall(call:Call,ASM:Asm){
         ASM.addCode('mov rcx, rsi')
         call.params.forEach((param,index)=>{
             const expected = call.func!.params[index]
-            const value = expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray
-                ? param.value.isParameter?param.value.name:`addr ${param.value.name}`
+            const value = param.value instanceof DataElement&&param.value.isArray
+                ? param.getArrayArgumentCode(Boolean(expected?.dynamicArray))
                 : param.getCode(true)
             if(value===null){
                 throw new Error(`Unable to resolve parent method argument ${index+1}`)

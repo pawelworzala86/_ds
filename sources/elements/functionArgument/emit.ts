@@ -106,7 +106,10 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
         if(offset){
             ASM.addCode(`add rdx, ${offset}`)
         }
-        if(argument.classProperty.type==='number'&&argument.classProperty.numericKind==='float'){
+        if(argument.classProperty.classType){
+            ASM.addData(`${argument.tempName} dq 0`)
+            ASM.addCode(`mov [${argument.tempName}], rdx`)
+        }else if(argument.classProperty.type==='number'&&argument.classProperty.numericKind==='float'){
             ASM.addCode('movsd xmm0, qword [rdx]')
             ASM.addData(`${argument.tempName} dq 0`)
             ASM.addCode(`movsd qword [${argument.tempName}], xmm0`)

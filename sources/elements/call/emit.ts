@@ -142,14 +142,13 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
                     return `[${param.value.name}]`
                 }else if(param.value instanceof DataElement&&param.value.type==='string'&&!param.value.isArray){
                     return param.value.isParameter?`[${value}]`:value
+                }else if(param.arrayPointerName){
+                    return `[${param.arrayPointerName}]`
                 }else if(param.value instanceof DataElement&&param.value.isArray){
                     if(param.value.dynamicArray){
                         return `[${param.value.name}]`
                     }
                     return `addr ${param.value.name}`
-                }
-                if(param.arrayPointerName){
-                    return `[${param.arrayPointerName}]`
                 }
                 if(param.tempName){
                     return `[${param.tempName}]`
@@ -284,8 +283,8 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             return
         }
         const params = call.params.map((param,index)=>{
-            if(call.func?.params[index]?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
-                return param.value.isParameter?param.value.name:`addr ${param.value.name}`
+            if(param.value instanceof DataElement&&param.value.isArray){
+                return param.getArrayArgumentCode(Boolean(call.func?.params[index]?.dynamicArray))
             }
             return param.getCode(call.methodInstance!==null)
         }).join(', ')

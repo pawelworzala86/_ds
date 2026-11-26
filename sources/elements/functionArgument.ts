@@ -187,9 +187,9 @@ export class FunctionArgument{
                     this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
                 }
             }
-            const arrayMember = text.match(/^([a-z_$][\w.$]*)\[([^\]]+)\]\.(\w+)$/i)
+            const arrayMember = text.match(/^([a-z_$][\w.$]*)\[([^\]]+)\]\.([a-z_$][\w$]*(?:\.[a-z_$][\w$]*)*)$/i)
             if(!this.tempName&&arrayMember){
-                const [,arrayName,indexText,propertyName] = arrayMember
+                const [,arrayName,indexText,propertyPath] = arrayMember
                 const array = active.getData(arrayName)
                 const indexExpression = parseExpression(indexText,active)
                 if(indexExpression.numericKind!=='integer'){
@@ -203,13 +203,23 @@ export class FunctionArgument{
                 const elementType = staticIndex===null?null:array?.arrayElementTypes.get(staticIndex)
                 const className = elementType?.classType??array?.classType
                 const arrayClassType = className?active.getClass(className):null
-                const property = arrayClassType?.props.find(prop=>prop.name===propertyName)??null
+                const propertyNames = propertyPath.split('.')
+                let propertyClass = arrayClassType
+                let property:DataElement|null = null
+                for(let index=0;propertyClass&&index<propertyNames.length;index++){
+                    property = propertyClass.props.find(prop=>prop.name===propertyNames[index])??null
+                    if(index<propertyNames.length-1){
+                        propertyClass = property?.classType&&!property.isArray
+                            ? active.getClass(property.classType)
+                            : null
+                    }
+                }
                 if(array&&property&&arrayClassType){
-                    const offset = getClassPropertyOffset(arrayClassType,propertyName,name=>active.getClass(name))
+                    const offset = getClassPropertyOffset(arrayClassType,propertyPath,name=>active.getClass(name))
                     if(offset!==null){
                         const propertyValue = new DataElement(
                             'let',
-                            `${arrayName}[${indexText}].${propertyName}`,
+                            `${arrayName}[${indexText}].${propertyPath}`,
                             property.type??'',
                             property.value??''
                         )
@@ -217,7 +227,7 @@ export class FunctionArgument{
                         propertyValue.classType = property.classType
                         this.value = propertyValue
                         this.classProperty = property
-                        this.classPropertyPath = propertyName
+                        this.classPropertyPath = propertyPath
                         this.arrayPropertyAccess = {
                             array,
                             indexExpression,
@@ -310,6 +320,30 @@ export class FunctionArgument{
             return `addr ${this.value.getCode()}`
         }
         return this.value
+    }
+
+    getArrayArgumentCode(dynamicArray=false){
+        const value = this.value
+        if(!(value instanceof DataElement)||!value.isArray){
+            throw new Error('Function argument is not an array')
+        }
+        if(!value.name){
+            throw new Error('Array function argument has no name')
+        }
+        if(dynamicArray){
+            return value.isParameter
+                ? value.name
+                : `addr ${value.name}`
+        }
+        if(this.arrayPointerName){
+            return `[${this.arrayPointerName}]`
+        }
+        if(value.dynamicArray){
+            return `[${value.name}]`
+        }
+        return value.isParameter
+            ? value.name
+            : `addr ${value.name}`
     }
 
     getClassPropertyAccessName(){

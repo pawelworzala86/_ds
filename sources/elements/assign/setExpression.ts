@@ -214,9 +214,20 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
                 call.methodInstance = target
                 call.set(new Tokenizer(`${target.name}.constructor(${args.join(',')})`))
                 assignment.classInitializerCall = call
+            }else{
+                assignment.classInitializerNoop = true
             }
             return
         }
+    }
+    if(target.classType&&!target.isArray&&!indexText&&target.classPropertyInstance){
+        const source = assignment.parent?.getData(expression.trim())
+        if(source?.classType===target.classType&&!source.isArray){
+            assignment.target = target
+            assignment.classValue = source
+            return
+        }
+        throw new Error(`Class property "${target.name}" requires an instance of ${target.classType}`)
     }
     if(target.type==='string'&&!target.isArray){
         if(indexText){

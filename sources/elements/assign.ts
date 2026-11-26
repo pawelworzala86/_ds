@@ -26,6 +26,8 @@ export class Assign extends Base{
     arrayClassValue:DataElement|null = null
     arrayClassType:string|null = null
     classInitializerCall:Call|null = null
+    classInitializerNoop = false
+    classValue:DataElement|null = null
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
     functionCall:Call|null = null
