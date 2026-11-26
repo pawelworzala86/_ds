@@ -14,6 +14,7 @@ import {initializeArray} from './arrayInitializer.ts'
 import {getTypedArrayKind,initializeTypedArray,sliceTypedArray} from './typedArrays.ts'
 import type Data from '../data.ts'
 import {getPromiseValueTypeFromData,parsePromiseInitializer} from '../promise.ts'
+import TypePrototypeRegistry from '../typePrototype.ts'
 
 function initializeObjectAssign(active:Base,tokens:string[],name:string){
     const text = tokens.join('')
@@ -149,6 +150,13 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         type = tokens[2]===':'?tokens[3]:undefined
     }
     type = type?.replace(/;$/,'')
+    const declaredType = type&&TypePrototypeRegistry.hasType(type.replace(/\[\]$/,''))
+        ? type.replace(/\[\]$/,'')
+        : null
+    const resolvedType = type?TypePrototypeRegistry.resolveType(type):null
+    if(resolvedType){
+        type = resolvedType.isArray?`${resolvedType.type}[]`:resolvedType.type
+    }
     const initializerIndex = tokens.indexOf('=')
     const hasInitializer = initializerIndex!==-1
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
@@ -420,6 +428,10 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
                 : hasInitializer?getStringLiteralContents(initializerTokens.join('')):'']
     }
     data.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
+    data.element.declaredType = declaredType
+    if(resolvedType?.numericKind){
+        data.element.numericKind = resolvedType.numericKind
+    }
     if(classReturnCall){
         data.element.isReferenceAlias = true
         data.element.isHeapAllocated = true

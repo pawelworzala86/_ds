@@ -15,14 +15,20 @@ export class Prototype extends Base{
     set(tokenizer:Tokenizer,ASM:Asm){
         const tokens = tokenizer.getBlock()
         const declaredType = tokens[1]??''
+        const resolvedType = TypePrototypeRegistry.resolveType(declaredType)
+        const isAlias = TypePrototypeRegistry.hasType(declaredType)
         const normalizedType = declaredType.toLowerCase()
-        const classType = ['number','string','array'].includes(normalizedType)
-            ? null
-            : this.parent?.getClass(declaredType)??null
-        if(!['number','string','array'].includes(normalizedType)&&!classType){
+        const classType = !isAlias&&!resolvedType.isArray&&!['number','float','string','array','boolean','any','arraybuffer'].includes(normalizedType)
+            ? this.parent?.getClass(declaredType)??null
+            : null
+        if(!isAlias&&!classType&&!resolvedType.isArray&&!['number','float','string','array','boolean','any','arraybuffer'].includes(normalizedType)){
             throw new Error(`Unknown prototype type "${tokens[1]}"`)
         }
-        const type = classType?`class:${classType.name}`:normalizedType
+        const type = classType
+            ? `class:${classType.name}`
+            : isAlias
+                ? declaredType
+                : resolvedType.isArray?'array':resolvedType.type.toLowerCase()
         this.type = type
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
@@ -37,12 +43,15 @@ export class Prototype extends Base{
                 throw new Error(`Only functions can be declared in prototype "${type}"`)
             }
             if(!classType){
-                const receiverType = child.element.params[0]?.type
-                const validReceiver = type==='array'
-                    ? /^[a-z_$][\w$]*\[\]$/i.test(receiverType??'')
-                    : receiverType?.toLowerCase()===type
+                const receiver = child.element.params[0]
+                const receiverType = receiver?.type
+                const validReceiver = isAlias
+                    ? receiver?.declaredType?.toLowerCase()===declaredType.toLowerCase()
+                    : resolvedType.isArray||type==='array'
+                        ? /\[\]$/.test(receiverType??'')
+                        : receiverType?.toLowerCase()===resolvedType.type.toLowerCase()
                 if(!validReceiver){
-                    throw new Error(`Prototype method "${child.element.name}" must declare its first parameter as ${type==='array'?'an array type':`"${type}"`}`)
+                    throw new Error(`Prototype method "${child.element.name}" must declare its first parameter as ${isAlias?`"${declaredType}"`:resolvedType.isArray||type==='array'?'an array type':`"${resolvedType.type}"`}`)
                 }
             }
             const functionName = child.element.name

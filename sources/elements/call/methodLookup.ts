@@ -84,15 +84,32 @@ export function getPrototypeMethod(active:Base,name:string) :{method:PrototypeMe
         if(separator<1||separator===name.length-1){
             return null
         }
-        const instance = active.getData(name.slice(0,separator))
+        const receiverName = name.slice(0,separator)
+        let instance = active.getData(receiverName)
+        if(!instance){
+            const access = getClassPropertyAccess(active,receiverName)
+            if(access){
+                instance = new DataElement(
+                    'let',
+                    `${access.instance.name}.${access.path}`,
+                    access.property.type??'',
+                    access.property.value??'0'
+                )
+                instance.declaredType = access.property.declaredType
+                instance.isArray = access.property.isArray
+                instance.classType = access.property.classType
+                instance.numericKind = access.property.numericKind
+            }
+        }
         if(!instance){
             return null
         }
-        const type = instance.isArray
-            ? 'array'
-            : instance.classType
+        const type = instance.declaredType
+            ??(instance.isArray
+                ? 'array'
+                : instance.classType
                 ? `class:${instance.classType}`
-                : instance.type??''
+                : instance.type??'')
         const method = TypePrototypeRegistry.resolve(type,name.slice(separator+1))
         return method?{method,instance,type}:null
     }

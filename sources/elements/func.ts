@@ -6,6 +6,7 @@ import FuncElement from './funcElement.ts'
 import DataElement from './dataElement.ts'
 import ClassElement from './clasElement.ts'
 import {isPromiseType} from './promise.ts'
+import TypePrototypeRegistry from './typePrototype.ts'
 
 let returnId = 0
 let asyncWorkerId = 0
@@ -192,17 +193,31 @@ export class Func extends Base{
         //console.log('tokens',tokens)
 
         const predeclared = this.parent!.FUNCTIONS.find(func=>func.name===name&&Func.predeclared.has(func))
-        const params = Tokenizer.getFunctionParams(tokens).map((param,index)=>({
-            ...param,
-            type:param.type==='any'
-                ? predeclared?.params[index]?.type||param.type
-                : param.type||predeclared?.params[index]?.type||''
-        }))
+        const params = Tokenizer.getFunctionParams(tokens).map((param,index)=>{
+            const rawType = param.type==='any'
+                ? predeclared?.params[index]?.declaredType??predeclared?.params[index]?.type??param.type
+                : param.type||predeclared?.params[index]?.declaredType||predeclared?.params[index]?.type||''
+            const resolvedType = TypePrototypeRegistry.resolveType(rawType)
+            return {
+                ...param,
+                type:resolvedType.isArray?`${resolvedType.type}[]`:resolvedType.type,
+                declaredType:resolvedType.declaredType
+                    ??predeclared?.params[index]?.declaredType
+                    ??null,
+                numericKind:resolvedType.numericKind??undefined
+            }
+        })
 
         const bodyStart = tokens.indexOf('{')
         const bodyEnd = tokens.lastIndexOf('}')
         const signatureEnd = tokens.indexOf(')')
-        const returnType = tokens[signatureEnd+1]===':'?tokens[signatureEnd+2]??null:null
+        const declaredReturnType = tokens[signatureEnd+1]===':'?tokens[signatureEnd+2]??null:null
+        const resolvedReturnType = declaredReturnType
+            ? TypePrototypeRegistry.resolveType(declaredReturnType)
+            : null
+        const returnType = resolvedReturnType
+            ? resolvedReturnType.isArray?`${resolvedReturnType.type}[]`:resolvedReturnType.type
+            : null
         this.returnType = returnType
         tokens = tokens.slice(bodyStart + 1, bodyEnd)
 
@@ -210,7 +225,8 @@ export class Func extends Base{
             const arrayType = param.type.match(/^([a-z_$][\w$]*)\[\]$/i)
             const type = arrayType?arrayType[1]:param.type
             const element = new DataElement('let',param.name,type==='float'?'number':type,'0')
-            if(type==='float'){
+            element.declaredType = param.declaredType??null
+            if(type==='float'||param.numericKind==='float'){
                 element.numericKind = 'float'
             }
             element.classType = this.parent?.getClass(type)?.name??null

@@ -14,6 +14,7 @@ export class DataElement{
     kind:string|null = null
     name:string|null = null
     type:string|null = null
+    declaredType:string|null = null
     value:string|null = null
     classType:string|null = null
     classLayoutType:string|null = null

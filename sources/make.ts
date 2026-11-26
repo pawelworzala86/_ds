@@ -22,14 +22,20 @@ import Await from "./elements/await.ts"
 import Timeout from "./elements/timeout.ts"
 import ClearTimeout from "./elements/clearTimeout.ts"
 import New from "./elements/new.ts"
+import TypeDeclaration from "./elements/typeDeclaration.ts"
+import TypePrototypeRegistry from "./elements/typePrototype.ts"
 
 export class Make{
     constructor(){
     }
     static compile(ASM:Asm,active:Base,tokenizer:Tokenizer,filePath:string|null=null){
+        if(!active.parent){
+            TypePrototypeRegistry.predeclareTypes(tokenizer.tokens)
+        }
         Func.predeclare(active,tokenizer)
         while(tokenizer.has()){
-            if(Data.test(active,tokenizer,active instanceof Class)){
+            if(TypeDeclaration.test(active,tokenizer)){
+            }else if(Data.test(active,tokenizer,active instanceof Class)){
             }else if(Assign.test(active,tokenizer)){
             }else if(Declare.test(active,tokenizer)){
             }else if(Timeout.test(active,tokenizer)){

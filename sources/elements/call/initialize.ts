@@ -144,11 +144,15 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
         instance.func = new FuncElement('__ds_string_transform',[])
     }
     const argumentTexts = tokenizer.getCallArguments()
-    if(instance.func&&argumentTexts.length>instance.func.params.length){
-        throw new Error(`Function "${instance.func.name}" expects at most ${instance.func.params.length} arguments, received ${argumentTexts.length}`)
+    const prototypeReceiverOffset = instance.prototypeReceiver?1:0
+    const argumentLimit = instance.func
+        ? instance.func.params.length-prototypeReceiverOffset
+        : 0
+    if(instance.func&&argumentTexts.length>argumentLimit){
+        throw new Error(`Function "${instance.func.name}" expects at most ${argumentLimit} arguments, received ${argumentTexts.length}`)
     }
     if(instance.func){
-        for(let index=argumentTexts.length;index<instance.func.params.length;index++){
+        for(let index=argumentTexts.length+prototypeReceiverOffset;index<instance.func.params.length;index++){
             const parameter = instance.func.params[index]
             if(parameter.defaultValue===undefined){
                 throw new Error(`Function "${instance.func.name}" requires argument "${parameter.name}"`)
