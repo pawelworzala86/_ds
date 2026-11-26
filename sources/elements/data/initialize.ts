@@ -160,12 +160,15 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const initializerIndex = tokens.indexOf('=')
     const hasInitializer = initializerIndex!==-1
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
+    const promiseInitializerExpression = initializerTokens.join('')
+    const hasPromiseInitializer = /^Promise\.(?:resolve|reject|all)\(/.test(promiseInitializerExpression)
+        ||promiseInitializerExpression.startsWith('newPromise(')
     if(!type&&initializerTokens[0]==='new'&&initializerTokens[1]){
         type = data.parent?.getClass(initializerTokens[1])?.name??undefined
     }
     let returnedValueCall:Call|null = null
     const initializerCallExpression = initializerTokens.join('')
-    if(data.parent&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(initializerCallExpression)){
+    if(data.parent&&!hasPromiseInitializer&&initializerTokens[0]!=='setTimeout'&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(initializerCallExpression)){
         const callTokenizer = new Tokenizer(initializerCallExpression)
         const call = new Call(data.parent)
         call.set(callTokenizer)
@@ -175,9 +178,6 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         }
     }
     const eq = hasInitializer?'=':undefined
-    const promiseInitializerExpression = initializerTokens.join('')
-    const hasPromiseInitializer = /^Promise\.(?:resolve|reject|all)\(/.test(promiseInitializerExpression)
-        ||promiseInitializerExpression.startsWith('newPromise(')
     const hasAwaitInitializer = initializerTokens[0]==='await'
     if(hasAwaitInitializer){
         if(initializerTokens.length!==2){
