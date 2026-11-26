@@ -149,7 +149,7 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
         ? instance.func.params.length-(hasVariadicParameter?1:0)
         : 0
     const argumentLimit = parameterLimit-prototypeReceiverOffset
-    if(instance.func&&!hasVariadicParameter&&argumentTexts.length>argumentLimit){
+    if(instance.func&&prototype?.method.kind!=='builtin'&&!hasVariadicParameter&&argumentTexts.length>argumentLimit){
         throw new Error(`Function "${instance.func.name}" expects at most ${argumentLimit} arguments, received ${argumentTexts.length}`)
     }
     if(instance.func){
