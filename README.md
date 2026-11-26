@@ -73,8 +73,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testfor.ts` | Pętla `for` z licznikiem i iteracja `for...in` po tablicach. |
 | `testfs.ts` | Odczyt i zapis pliku za pomocą modułu `system/fs.ts`. Wymaga pliku `test.txt` w katalogu roboczym. |
 | `testgl1.ts` | Podstawowe rysowanie trójkąta z użyciem OpenGL. |
-| `testgl2.ts` | Okno OpenGL, shader, macierze, tekstura i siatka. |
-| `testgl3.ts` | Rozszerzenie sceny OpenGL o renderowanie fontu. Przykłady graficzne wymagają odpowiednich zasobów i środowiska Windows z obsługą OpenGL. |
+| `testgl2.ts` | Rozszerzenie sceny OpenGL o renderowanie fontu. Przykłady graficzne wymagają odpowiednich zasobów i środowiska Windows z obsługą OpenGL. |
 | `testiff.ts` | Warunki `if`/`else if`/`else` z różnymi typami wyrażeń. |
 | `testjson.ts` | Parsowanie i serializacja JSON, w tym obiektów, tablic, wartości prostych i pustych struktur. |
 | `testlog.ts` | `console.log` dla argumentów prostych, tablic, obiektów i danych JSON. |

@@ -1,11 +1,27 @@
 import * as kernel from './system/lib/kernel.ts'
 import * as msvcrt from './system/lib/msvcrt.ts'
+import Font from './system/gl/font.ts'
 import * as gl from './system/gl/gl.ts'
 import * as glWindow from './system/gl/glWindow.ts'
 import * as shader from './system/gl/shader.ts'
 import * as mat4 from './system/gl/mat4.ts'
 import * as texture from './system/gl/texture.ts'
 import * as mesh from './system/gl/mesh.ts'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -27,8 +43,7 @@ let model:number[] = mat4.create()
 
 
 
-//let VAO:number = 0
-//let bufferID:number = 0
+
 
 
 
@@ -37,8 +52,15 @@ let textureID:number = 0
 
 
 
+let font: Font
 
-let defualtShader:shader.Shader = new shader.Shader()
+
+
+
+
+
+
+const defualtShader:shader.Shader = new shader.Shader()
 
 
 let meshes:mesh.Mesh[] = []
@@ -53,11 +75,15 @@ function init(){
 
 	defualtShader.load('defaultTex')
 
+	msvcrt.printf( 'OK4.5 ')
+
+	font = new Font()
+
 	msvcrt.printf('OK5')
 
 
 
-	let meshInstance:mesh.Mesh = new mesh.Mesh()
+	let meshInstance:mesh.Mesh = new mesh.Mesh(defualtShader)
 
 	meshes.push(meshInstance)
 
@@ -82,38 +108,36 @@ function render(delay: number){
     gl.viewport(0, 0, 640, 480)
 
     msvcrt.printf('render ')
-    gl.clear(gl.COLOR_BUFFER_BIT)
 
-
-    gl.useProgram(defualtShader.programID);
-    msvcrt.printf('useProgram=%i ', defualtShader.programID)
-
-
-    let uniformLocation:number = 0
-
-	msvcrt.printf('procADDR=%i ', gl.getUniformLocation)
-
-	uniformLocation = gl.getUniformLocation(defualtShader.programID, 'dprojection')
-    msvcrt.printf('uniformLocation=%i ', uniformLocation)
-	gl.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
-
-	uniformLocation = gl.getUniformLocation(defualtShader.programID, 'dcamera')
-	gl.uniformMatrix4dv(uniformLocation, 1, 0, camera)
-
-	uniformLocation = gl.getUniformLocation(defualtShader.programID, 'dmodel')
-	gl.uniformMatrix4dv(uniformLocation, 1, 0, model)
-
-	
-	uniformLocation = gl.getUniformLocation(defualtShader.programID, 'diffuseTexture')
-	gl.uniform1i(uniformLocation, 0)
-	gl.bindTexture(gl.TEXTURE_2D, textureID)
-	
-
-	msvcrt.printf('OK6 VAO=%i',meshes[0].VAO)
+	gl.clearColor(0.3, 0.3, 0.3, 1.0)
+    gl.clear(gl.COLOR_BUFFER_BIT + gl.DEPTH_BUFFER_BIT)
 
 	for(const mesh of meshes){
-		mesh.render()
+		//msvcrt.printf('useProgram=%i ', mesh.shader.programID)
+        //gl.useProgram(mesh.shader.programID);
+
+        
+		/*let uniformLocation:number = 0
+				
+		uniformLocation = gl.getUniformLocation(mesh.shader.programID, 'dprojection')
+		msvcrt.printf('procADDR=%i ', uniformLocation)
+		msvcrt.printf('uniformLocation=%i ', uniformLocation)
+		gl.uniformMatrix4dv(uniformLocation, 1, 0, perspective)
+
+		uniformLocation = gl.getUniformLocation(mesh.shader.programID, 'dcamera')
+		gl.uniformMatrix4dv(uniformLocation, 1, 0, camera)
+
+		uniformLocation = gl.getUniformLocation(mesh.shader.programID, 'dmodel')
+		gl.uniformMatrix4dv(uniformLocation, 1, 0, model)*/
+
+        
+
+		mesh.render(perspective, camera, model, textureID)
 	}
+
+	font.render(perspective, camera, model, textureID)
+	
+	gl.disable(gl.BLEND)
 }
 
 function destroy(){

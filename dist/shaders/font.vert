@@ -5,13 +5,12 @@ layout(location = 1) in vec2 coord;
 
 uniform double offsetX;
 uniform double offsetY;
-uniform double scale;
 
 out vec2 vCoord;
 
 void main(){
 
-    vec3 pos = position*float(scale);
+    vec3 pos = position;
 
     pos.x = pos.x + float(offsetX);
     pos.y = pos.y + float(offsetY);
