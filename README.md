@@ -44,3 +44,47 @@ Dynamiczne tablice typów klasowych, np. `const items: MyClass[] = []`, obsługu
 ## Parametry domyślne i interpolacja
 
 Funkcje i metody mogą deklarować domyślne wartości parametrów; kompilator dostarcza brakujące argumenty podczas kompilacji, także dla domyślnych instancji klas, np. `function greet(name: string = 'world', item: Item = new Item())`. `console.log` obsługuje interpolację prostych wartości w literałach szablonowych, np. ``console.log(`name: ${name}`)``. Instancję klasy można sprawdzić w warunku, np. `if (item)`.
+
+## Pozostałe możliwości języka
+
+Przykłady pokazują również podstawowe konstrukcje sterujące i sposób pracy z funkcjami oraz klasami:
+
+- Instrukcje warunkowe `if`/`else if`/`else` obsługują porównania liczb i tekstu, a także wyniki wywołań funkcji. Pętle `for` z licznikiem, `for...in` po tablicach (iteracja po indeksach) oraz `while` pozwalają sterować wykonaniem; dostępna jest instrukcja `break`.
+- `switch` działa dla wartości liczbowych i tekstowych, z gałęziami `case` oraz `default`.
+- Funkcje mogą zwracać wartości, w tym instancje klas. Klasy obsługują konstruktory, metody, dziedziczenie, `super` oraz łańcuchowe wywołania metod zwracających `this`.
+- Aliasy `type` mogą wskazywać typy proste, tablice i klasy. Deklaracje `interface` oraz literały obiektowe służą do opisywania i przekazywania struktur danych.
+- Tablice zwykłe obsługują inicjalizację, dostęp przez indeks, destrukturyzację, `push` i tablice dynamiczne. Przykłady pokazują też tablice `any[]` i tablice instancji klas.
+- `prototype` umożliwia definiowanie metod dla typów prostych i tablic.
+- Dostępne przykłady demonstrują sprawdzanie typów przez `typeof` i `instanceof`, a także wartości logiczne w zmiennych, warunkach, polach obiektów, tablicach i parametrach funkcji.
+- Obsługiwane importy pozwalają korzystać z modułów projektu, w tym opakowań funkcji systemowych Windows.
+
+## Katalog przykładów
+
+Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np. `.\test.cmd testfor`. Skrypt kompiluje `examples/<nazwa>.ts` do pliku wykonywalnego w `dist`, a następnie go uruchamia.
+
+| Plik | Zakres demonstracji |
+| --- | --- |
+| `test1.ts` | Klasy, tworzenie instancji, wywołania metod, zwracanie instancji i parametry domyślne. |
+| `test2.ts` | Aliasy typów prostych, tablic i klas oraz metody `prototype` dla aliasów. |
+| `testarray.ts` | Tablice statyczne i dynamiczne, destrukturyzacja, `push`, `any[]` i tablice klas. |
+| `testasync.ts` | Funkcja `async`, `setTimeout` i wywołania funkcji systemowych `printf`. |
+| `testbuffer.ts` | Tablice typowane, konwersje wartości, widoki `ArrayBuffer` oraz `slice`. |
+| `testchain.ts` | Sekwencyjne wywołania metod zwracających `this`. |
+| `testfor.ts` | Pętla `for` z licznikiem i iteracja `for...in` po tablicach. |
+| `testfs.ts` | Odczyt i zapis pliku za pomocą modułu `system/fs.ts`. Wymaga pliku `test.txt` w katalogu roboczym. |
+| `testgl1.ts` | Podstawowe rysowanie trójkąta z użyciem OpenGL. |
+| `testgl2.ts` | Okno OpenGL, shader, macierze, tekstura i siatka. |
+| `testgl3.ts` | Rozszerzenie sceny OpenGL o renderowanie fontu. Przykłady graficzne wymagają odpowiednich zasobów i środowiska Windows z obsługą OpenGL. |
+| `testiff.ts` | Warunki `if`/`else if`/`else` z różnymi typami wyrażeń. |
+| `testjson.ts` | Parsowanie i serializacja JSON, w tym obiektów, tablic, wartości prostych i pustych struktur. |
+| `testlog.ts` | `console.log` dla argumentów prostych, tablic, obiektów i danych JSON. |
+| `testmat4.ts` | Tworzenie, drukowanie, translacja i macierz perspektywy z modułu `system/gl/mat4.ts`. |
+| `testobj.ts` | Klasy i dziedziczenie oraz operacje na obiektach, `Object.keys`, `Object.assign` i tablice obiektów. |
+| `testpromise.ts` | Promise, callbacki `then`/`catch`, `await` oraz `Promise.all`. |
+| `testprototype.ts` | Metody `prototype` dla liczb, tekstu i tablic oraz `push`. |
+| `testregexpr.ts` | Dzielenie tekstu z użyciem wyrażeń regularnych i zastępowanie dopasowań. |
+| `teststr.ts` | Długość, kod znaków, metody wyszukiwania, zakresy, konwersja wielkości liter, przycinanie, powtarzanie i zamiana tekstu. |
+| `teststruct.ts` | Typ `interface`, literały obiektowe, odczyt pól, destrukturyzacja i przekazywanie obiektu do funkcji. |
+| `testswitch.ts` | Instrukcja `switch` dla liczb i tekstu. |
+| `testtype.ts` | `instanceof`, `typeof` i użycie typu `boolean`. |
+| `testwhile.ts` | Pętle `while`, warunek logiczny i `break`. |
