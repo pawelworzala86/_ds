@@ -7,7 +7,7 @@ import * as shader from './system/gl/shader.ts'
 import * as mat4 from './system/gl/mat4.ts'
 import * as texture from './system/gl/texture.ts'
 import * as mesh from './system/gl/mesh.ts'
-
+import BoxElement from './system/gl/gui/box.ts'
 
 
 
@@ -54,6 +54,8 @@ let textureID:number = 0
 
 let font: Font
 
+let box: BoxElement
+
 
 
 
@@ -78,6 +80,9 @@ function init(){
 	msvcrt.printf( 'OK4.5 ')
 
 	font = new Font()
+
+	box = new BoxElement()
+
 
 	msvcrt.printf('OK5')
 
@@ -136,6 +141,8 @@ function render(delay: number){
 	}
 
 	font.render(perspective, camera, model, textureID)
+
+	box.render(perspective, camera, model, textureID)
 	
 	gl.disable(gl.BLEND)
 }

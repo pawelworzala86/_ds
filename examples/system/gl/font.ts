@@ -95,7 +95,7 @@ export class Font {
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-        let textToDisplay: string = 'Hello World'
+        let textToDisplay: string = 'jHello Worldj'
 
         let scaleX: number = scale
         let scaleY: number = scale
