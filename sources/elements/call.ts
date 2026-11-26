@@ -34,6 +34,8 @@ export class Call extends Base{
     func:FuncElement|null = null
     resultTarget:DataElement|null = null
     params:FunctionArgument[] = []
+    consoleTemplateParts:{text:string,argument:FunctionArgument|null}[]|null = null
+    defaultInitializers:{declaration:Data,call:Call|null}[] = []
     methodInstance:DataElement|null = null
     arrayMethodArray:DataElement|null = null
     arrayMethodIndex:FunctionArgument|null = null

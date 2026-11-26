@@ -6,10 +6,12 @@ import {createInlineCallback} from '../func.ts'
 import {parseRegExpLiteral} from '../../regex.ts'
 import Call from '../call.ts'
 import {getPromiseValueTypeFromData} from '../promise.ts'
+import Data from '../data.ts'
 
 let arrayPushId = 0
 let arrayToStringArgumentId = 0
 let stringCharCodeAtId = 0
+let defaultClassArgumentId = 0
 
 export function initializeCall(instance:Call,tokenizer:Tokenizer){
     const name = tokenizer.get()
@@ -142,7 +144,88 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
         instance.func = new FuncElement('__ds_string_transform',[])
     }
     const argumentTexts = tokenizer.getCallArguments()
-    instance.params = argumentTexts.map(token=>new FunctionArgument(instance,token))
+    if(instance.func&&argumentTexts.length>instance.func.params.length){
+        throw new Error(`Function "${instance.func.name}" expects at most ${instance.func.params.length} arguments, received ${argumentTexts.length}`)
+    }
+    if(instance.func){
+        for(let index=argumentTexts.length;index<instance.func.params.length;index++){
+            const parameter = instance.func.params[index]
+            if(parameter.defaultValue===undefined){
+                throw new Error(`Function "${instance.func.name}" requires argument "${parameter.name}"`)
+            }
+            const classDefault = parameter.defaultValue.match(/^new\s*([a-z_$][\w$]*)\s*\(([\s\S]*)\)$/i)
+            if(!classDefault){
+                argumentTexts.push(parameter.defaultValue)
+                continue
+            }
+            const className = classDefault[1]
+            if(parameter.type!==className){
+                throw new Error(`Default value for "${parameter.name}" must be an instance of ${parameter.type}`)
+            }
+            const classType = instance.getClass(className)
+            if(!classType){
+                throw new Error(`Unknown class "${className}" in default value for "${parameter.name}"`)
+            }
+            const constructorArguments = new Tokenizer(`(${classDefault[2]})`)
+            constructorArguments.get()
+            const args = constructorArguments.getCallArguments()
+            const constructor = classType.getFunction('constructor')
+            if(args.length&& !constructor){
+                throw new Error(`Class "${className}" has no constructor`)
+            }
+            if(constructor&&args.length>constructor.params.length){
+                throw new Error(`Constructor for "${className}" expects at most ${constructor.params.length} arguments, received ${args.length}`)
+            }
+            const name = `__ds_default_class_argument_${++defaultClassArgumentId}`
+            const element = new DataElement('let',name,className,'0')
+            element.classType = className
+            let functionScope = instance.parent
+            while(functionScope&&!functionScope.isFunctionScope){
+                functionScope = functionScope.parent
+            }
+            element.isProcedureLocal = Boolean(functionScope)
+            instance.addData(element)
+            const declaration = new Data(instance)
+            declaration.element = element
+            let call:Call|null = null
+            if(constructor){
+                call = new Call(instance)
+                call.set(new Tokenizer(`${name}.constructor(${args.join(',')})`))
+            }
+            instance.defaultInitializers.push({declaration,call})
+            argumentTexts.push(name)
+        }
+    }
+    const template = instance.builtinConsoleLog&&argumentTexts.length===1
+        ? argumentTexts[0].match(/^`([\s\S]*)`$/)
+        : null
+    if(template){
+        const content = template[1]
+        const pattern = /\$\{([^{}]+)\}/g
+        let lastIndex = 0
+        let match:RegExpExecArray|null
+        instance.consoleTemplateParts = []
+        while((match=pattern.exec(content))){
+            if(match.index>lastIndex){
+                instance.consoleTemplateParts.push({
+                    text:content.slice(lastIndex,match.index).replace(/\\`/g,'`').replace(/\\\\/g,'\\'),
+                    argument:null
+                })
+            }
+            const argument = new FunctionArgument(instance,match[1].trim())
+            instance.params.push(argument)
+            instance.consoleTemplateParts.push({text:'',argument})
+            lastIndex = pattern.lastIndex
+        }
+        if(lastIndex<content.length){
+            instance.consoleTemplateParts.push({
+                text:content.slice(lastIndex).replace(/\\`/g,'`').replace(/\\\\/g,'\\'),
+                argument:null
+            })
+        }
+    }else{
+        instance.params = argumentTexts.map(token=>new FunctionArgument(instance,token))
+    }
     if(instance.builtinPromiseMethod||instance.builtinArrayForEach){
         const array = instance.builtinArrayForEach
         const callbackType = instance.builtinPromiseMethod
@@ -160,7 +243,7 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             }
         }
     }
-    instance.params.forEach((param,index)=>{
+    if(!template)instance.params.forEach((param,index)=>{
         const argument = argumentTexts[index]
         const arrayToString = argument.match(/^([a-z_$][\w$]*)\.toString\(\)$/i)
         const toStringReceiver = arrayToString?instance.getData(arrayToString[1].split('.')[0]):null

@@ -176,6 +176,24 @@ export function emitExpression(expression:Expression,ASM:Asm){
         }
         return
     }
+    if(expression.kind==='reference'){
+        const value = expression.value
+        if(value.isParameter){
+            ASM.addCode(`mov rax, ${value.name}`)
+        }else if(value.isReferenceAlias){
+            ASM.addCode(`mov rdx, [${value.name}]`)
+            ASM.addCode('mov rax, [rdx]')
+        }else if(value.isProcedureLocal&&value.classType){
+            if(value.isHeapAllocated){
+                ASM.addCode(`mov rax, [${value.name}]`)
+            }else{
+                ASM.addCode(`lea rax, [${value.name}]`)
+            }
+        }else{
+            ASM.addCode(`lea rax, [${value.name}]`)
+        }
+        return
+    }
     if(expression.kind==='data'){
         if(expression.value.isConstAlias){
             ASM.addCode(`mov rax, ${expression.value.name}`)

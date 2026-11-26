@@ -20,6 +20,24 @@ export class Tokenizer{
         }
         for(let index=0;index<text.length;index++){
             const char = text[index]
+            if(char==='`'){
+                pushToken()
+                let literal = char
+                let escaped = false
+                while(++index<text.length){
+                    const current = text[index]
+                    literal += current
+                    if(escaped){
+                        escaped = false
+                    }else if(current==='\\'){
+                        escaped = true
+                    }else if(current==='`'){
+                        break
+                    }
+                }
+                tokens.push(literal)
+                continue
+            }
             if(char==='/'&&text[index+1]!=='/'&&text[index+1]!=='*'&&Tokenizer.isRegexStart(text,index)){
                 const regexp = readRegExpLiteralAt(text,index)
                 if(regexp){
@@ -41,7 +59,7 @@ export class Tokenizer{
                 }
                 continue
             }
-            if(char==='"'||char==="'"){
+            if(char==='"'||char==="'"||char==='`'){
                 pushToken()
                 tokens.push(char)
                 quote = char
@@ -102,7 +120,7 @@ export class Tokenizer{
                     continue
                 }
             }
-            if(char==='"'||char==="'"){
+            if(char==='"'||char==="'"||char==='`'){
                 quote = char
                 result += char
             }else if(char==='/'&&next==='*'){
@@ -216,6 +234,11 @@ export class Tokenizer{
                 lastQuotedWord = false
                 continue
             }
+            if(token.startsWith('`')&&token.endsWith('`')){
+                current += token
+                lastQuotedWord = false
+                continue
+            }
             if(token=='('){
                 nested++
                 current += token
@@ -295,19 +318,60 @@ export class Tokenizer{
             }
         }
     }
-    static getFunctionParams(tokens:string[]):{name:string,type:string}[]{
+    static getFunctionParams(tokens:string[]):{name:string,type:string,defaultValue?:string}[]{
         const open = tokens.indexOf('(')
-        const close = tokens.indexOf(')',open+1)
-        if(open===-1||close===-1){
+        if(open===-1){
             return []
         }
-        const signature = tokens.slice(open+1,close).join('')
-        if(!signature){
-            return []
+        const parameters:string[][] = []
+        let current:string[] = []
+        let depth = 0
+        let quote:string|null = null
+        for(let index=open+1;index<tokens.length;index++){
+            const token = tokens[index]
+            if(quote){
+                current.push(token)
+                if(token===quote){
+                    quote = null
+                }
+                continue
+            }
+            if(token==="'"||token==='"'){
+                quote = token
+                current.push(token)
+            }else if(token==='('||token==='['||token==='{'){
+                depth++
+                current.push(token)
+            }else if(token===')'){
+                if(depth===0){
+                    if(current.length){
+                        parameters.push(current)
+                    }
+                    break
+                }
+                depth--
+                current.push(token)
+            }else if(token===']'||token==='}'){
+                depth--
+                current.push(token)
+            }else if(token===','&&depth===0){
+                parameters.push(current)
+                current = []
+            }else{
+                current.push(token)
+            }
         }
-        return signature.split(',').map((param:string)=>{
-            const [name,...type] = param.split(':')
-            return {name,type:type.join(':')}
+        return parameters.map(param=>{
+            const signature = param.join('')
+            const colon = signature.indexOf(':')
+            const equals = signature.indexOf('=',colon+1)
+            const name = (colon===-1?signature:signature.slice(0,colon)).replace(/\?$/,'')
+            const type = colon===-1?'any':signature.slice(colon+1,equals===-1?undefined:equals)
+            return {
+                name,
+                type,
+                ...(equals===-1?{}:{defaultValue:signature.slice(equals+1)})
+            }
         })
     }
 }

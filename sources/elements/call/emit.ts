@@ -22,6 +22,10 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
         if(call.noOp){
             return
         }
+        for(const initializer of call.defaultInitializers){
+            initializer.declaration.asm(ASM)
+            initializer.call?.asm(ASM)
+        }
         if(call.arrayMethodArray&&call.arrayMethodIndex&&call.methodInstance?.name){
             const array = call.arrayMethodArray
             call.arrayMethodIndex.asm(ASM)
@@ -207,7 +211,8 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
         }
         if(call.methodInstance?.classPropertyInstance
             ||call.methodInstance?.isProcedureLocal
-            ||call.methodInstance?.isReferenceAlias){
+            ||call.methodInstance?.isReferenceAlias
+            ||call.methodInstance?.isParameter){
             call.emitLocalMethodCall(ASM)
             return
         }

@@ -221,6 +221,9 @@ export class Iff extends Base{
         if(data?.type==='string'&&!data.isArray){
             return {value:{kind:'data',value:data},calls:[]}
         }
+        if(data?.classType&&!data.isArray){
+            return {value:{kind:'reference',value:data,numericKind:'integer'},calls:[]}
+        }
         const calls:ConditionCall[] = []
         const expression = this.replaceCalls(text,calls)
         return {value:parseExpression(expression,this),calls}

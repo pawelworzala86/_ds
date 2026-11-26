@@ -342,6 +342,35 @@ export function emitConsoleLog(call:Call,ASM:Asm){
             return false
         }
 
+        if(call.consoleTemplateParts){
+            for(const part of call.consoleTemplateParts){
+                if(!part.argument){
+                    if(part.text){
+                        emitText(part.text)
+                    }
+                    continue
+                }
+                const argument = part.argument
+                const value = argument.value instanceof DataElement?argument.value:null
+                const type = argument.classProperty?.type??value?.type
+                const code = argument.getCode(true)
+                if(!code){
+                    throw new Error('Unable to resolve console.log template expression')
+                }
+                if(type==='string'){
+                    emitPrintf('%s',code)
+                }else if(type==='boolean'&&value){
+                    emitBoolean(code)
+                }else if(type==='number'||argument.expression){
+                    const numericKind = argument.expression?.numericKind??value?.numericKind??'integer'
+                    emitPrintf(numericKind==='float'?'%f':'%lld',code,numericKind==='float')
+                }else{
+                    throw new Error(`Unsupported console.log template expression "${argument.value}"`)
+                }
+            }
+            emitPrintf('\n')
+            return
+        }
         if(!call.params.length){
             emitPrintf('\n')
             return

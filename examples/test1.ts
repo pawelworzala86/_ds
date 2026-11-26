@@ -13,3 +13,11 @@ function testFunction(){
     return instance;
 }
 testFunction().sayHello()
+
+function funcA(a:number,b:number=10,c:string='test',klasa:cKlasa=new cKlasa()){
+    console.log(`a: ${a}, b: ${b}, c: ${c}`);
+    if(klasa){
+        klasa.sayHello();
+    }
+}
+funcA(5)

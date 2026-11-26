@@ -31,7 +31,8 @@ export class New{
             if(args.length){
                 throw new Error(`Class "${className}" has no constructor`)
             }
-        }else if(args.length!==constructor.params.length){
+        }else if(args.length>constructor.params.length
+            ||args.length<constructor.params.filter(param=>param.defaultValue===undefined).length){
             throw new Error(`Constructor for "${className}" expects ${constructor.params.length} arguments, received ${args.length}`)
         }
 

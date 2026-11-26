@@ -40,3 +40,7 @@ Dynamiczne tablice typów klasowych, np. `const items: MyClass[] = []`, obsługu
 `JSON.parse` przyjmuje literał tekstowy albo stałą tekstową i podczas kompilacji wyznacza typ wyniku. Obsługuje wartości tekstowe, skończone liczby, wartości logiczne, `null`, obiekty zagnieżdżone i tablice. Klucze obiektów używane jako pola muszą być poprawnymi identyfikatorami języka. Mieszane i zagnieżdżone tablice można serializować, ale ich indeksowanie nie jest jeszcze ogólnie typowane.
 
 `JSON.stringify` przyjmuje znaną kompilatorowi wartość JSON i tworzy tekst JSON podczas kompilacji, np. `const text: string = JSON.stringify(data, null, 4)`. Opcjonalny `replacer` może być `null`, `undefined` albo tablicą literałów tekstowych i liczbowych, a `space` — literałem tekstowym lub liczbowym. Nie serializuje zmian wprowadzonych do obiektu już po kompilacji.
+
+## Parametry domyślne i interpolacja
+
+Funkcje i metody mogą deklarować domyślne wartości parametrów; kompilator dostarcza brakujące argumenty podczas kompilacji, także dla domyślnych instancji klas, np. `function greet(name: string = 'world', item: Item = new Item())`. `console.log` obsługuje interpolację prostych wartości w literałach szablonowych, np. ``console.log(`name: ${name}`)``. Instancję klasy można sprawdzić w warunku, np. `if (item)`.

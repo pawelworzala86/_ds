@@ -24,9 +24,11 @@ export function emitLocalMethodCall(call:Call,ASM:Asm){
                 ASM.addCode(`lea rcx, [${root.name}+${instance.classPropertyOffset}]`)
             }
         }else{
-            ASM.addCode(instance.isHeapAllocated
-                ? `mov rcx, [${instance.name}]`
-                : `lea rcx, [${instance.name}]`)
+            ASM.addCode(instance.isParameter
+                ? `mov rcx, ${instance.name}`
+                : instance.isHeapAllocated
+                    ? `mov rcx, [${instance.name}]`
+                    : `lea rcx, [${instance.name}]`)
         }
         call.params.forEach((param,index)=>{
             const expected = call.func!.params[index]

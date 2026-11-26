@@ -6,6 +6,7 @@ export type MathFunctionName = 'sin'|'cos'|'tan'|'asin'|'acos'|'atan'|'atan2'|'s
 export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
     | {kind:'data',value:DataElement,numericKind:NumericKind}
+    | {kind:'reference',value:DataElement,numericKind:'integer'}
     | {kind:'stringLength',value:DataElement,numericKind:'integer'}
     | {kind:'arrayLength',value:DataElement,numericKind:'integer'}
     | {kind:'index',value:DataElement,index:Expression,numericKind:NumericKind}
