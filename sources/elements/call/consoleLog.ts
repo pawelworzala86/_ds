@@ -393,7 +393,8 @@ export function emitConsoleLog(call:Call,ASM:Asm){
             try{
             const value = param.value
             const data = value instanceof DataElement?value:null
-            if(data&&emitAggregate(param,data,prefix)){
+            const isArrayElement = param.expression?.kind==='index'
+            if(data&&!isArrayElement&&emitAggregate(param,data,prefix)){
                 return
             }
             if(typeof value==='string'&&/^(['"])[\s\S]*\1$/.test(value)){
@@ -410,7 +411,7 @@ export function emitConsoleLog(call:Call,ASM:Asm){
             }
 
             const type = param.classProperty?.type??data?.type
-            if(type==='boolean'&&data&&!data.isArray){
+            if(type==='boolean'&&data&&(!data.isArray||isArrayElement)){
                 const id = ++consoleLogId
                 const trueLabel = `__ds_console_log_true_${id}`
                 const falseLabel = `__ds_console_log_false_${id}`

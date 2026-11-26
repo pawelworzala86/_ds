@@ -1,8 +1,8 @@
 import * as msvcrt from './../lib/msvcrt.ts'
 import * as Math from './../math.ts'
 
-export function create() {
-  let out:number[] = []
+export function create():float[] {
+  let out:float[] = []
   for (let i = 0; i < 16; i++) {
     out.push(0.0)
   }
@@ -13,7 +13,7 @@ export function create() {
   return out;
 }
 
-export function createOld(out:number[]) {
+export function createOld(out:float[]) {
     out.push(1.0)
     out.push(0.0)
     out.push(0.0)
@@ -32,7 +32,7 @@ export function createOld(out:number[]) {
     out.push(1.0)
 }
 
-export function print(mat:number[]) {
+export function print(mat:float[]) {
     for (let i = 0; i < 4; i++) {
         for (let j = 0; j < 4; j++) {
             msvcrt.printf('%f ', mat[i * 4 + j])
@@ -41,7 +41,7 @@ export function print(mat:number[]) {
     }
 }
 
-export function perspective(out:number[], fovy:float, aspect:float, near:float, far:float) {
+export function perspective(out:float[], fovy:float, aspect:float, near:float, far:float) {
   const f:number = 1.0 / Math.tan(fovy / 2.0);
   out[0] = f / aspect;
   out[1] = 0.0

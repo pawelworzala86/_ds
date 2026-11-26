@@ -319,18 +319,15 @@ export class Func extends Base{
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
         for(const data of this.DATA){
-            if(!data.isParameter&&(
-                data.isArray&&data.dynamicArray&&data.isReturnedArray
-                ||!data.isReturnedArray&&(
-                    data.type==='number'&&!data.isArray
-                    ||data.type==='number'&&data.isArray&&!data.dynamicArray
-                    ||data.type==='boolean'&&!data.isArray
-                    ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
-                    ||data.type==='ArrayBuffer'&&!data.isArray
-                    ||data.type==='Task'
-                    ||isPromiseType(data.type??undefined)&&data.type!=='Promise'
-                    ||Boolean(data.classType)&&!data.isArray
-                )
+            if(!data.isParameter&&!data.isReturnedArray&&(
+                data.type==='number'&&!data.isArray
+                ||data.type==='number'&&data.isArray&&!data.dynamicArray
+                ||data.type==='boolean'&&!data.isArray
+                ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
+                ||data.type==='ArrayBuffer'&&!data.isArray
+                ||data.type==='Task'
+                ||isPromiseType(data.type??undefined)&&data.type!=='Promise'
+                ||Boolean(data.classType)&&!data.isArray
             )){
                 data.isProcedureLocal = true
             }

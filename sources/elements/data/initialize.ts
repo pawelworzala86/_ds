@@ -168,7 +168,8 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }
     let returnedValueCall:Call|null = null
     const initializerCallExpression = initializerTokens.join('')
-    if(data.parent&&type!=='boolean'&&!hasPromiseInitializer&&initializerTokens[0]!=='setTimeout'&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(initializerCallExpression)){
+    const isJSONInitializer = /^JSON\.(?:parse|stringify)\(/.test(initializerCallExpression)
+    if(data.parent&&type!=='boolean'&&!hasPromiseInitializer&&!isJSONInitializer&&initializerTokens[0]!=='setTimeout'&&!(initializerTokens[0]==='new'&&getTypedArrayKind(initializerTokens[1]))&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(initializerCallExpression)){
         const callTokenizer = new Tokenizer(initializerCallExpression)
         const call = new Call(data.parent)
         call.set(callTokenizer)
@@ -337,7 +338,9 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         value = '0'
     }
     if(type==='boolean'&&!hasAwaitInitializer){
-        if(!hasInitializer){
+        if(typeof jsonParseValue==='boolean'){
+            value = jsonParseValue?'1':'0'
+        }else if(!hasInitializer){
             value = '0'
         }else{
             const expression = initializerTokens.join('')

@@ -223,6 +223,10 @@ export function emitDataAsm(data:Data,ASM:Asm){
                 addArrayStorage(data.element!.name!, '0')
                 addArrayStorage(lengthName, `${values.length}`)
                 addArrayStorage(capacityName, `${capacity}`)
+                if(data.element!.isReturnedArray){
+                    ASM.addCode(`mov qword [${lengthName}], ${values.length}`)
+                    ASM.addCode(`mov qword [${capacityName}], ${capacity}`)
+                }
                 ASM.addImport('msvcrt','malloc')
                 ASM.addCode(`mov rcx, ${capacity*8}`)
                 ASM.addCode('sub rsp, 40')
