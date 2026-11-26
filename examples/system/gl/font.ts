@@ -64,13 +64,21 @@ export class Font {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
         let textToDisplay: string = 'Hello World'
-        let offsetX: number = 0.0
+        let offsetX: number = -1.0 + 0.1
+        let offsetY: number = 1.0 - 0.3
+        let scale: number = 0.1
 
         for(let index=0; index<textToDisplay.length; index++){
             let letter: number = textToDisplay.charCodeAt(index)
             //console.log('letter=', letter)
             uniformLocation = gl.getUniformLocation(this.fontShader.programID, 'fontIndex')
             gl.uniform1i(uniformLocation, letter)
+
+            uniformLocation = gl.getUniformLocation(this.fontShader.programID, 'scale')
+            gl.uniform1d(uniformLocation, scale)
+
+            uniformLocation = gl.getUniformLocation(this.fontShader.programID, 'offsetY')
+            gl.uniform1d(uniformLocation, offsetY)
 
             let sizeX: number = (widthsFnt[letter] / 64.0)*0.2
             uniformLocation = gl.getUniformLocation(this.fontShader.programID, 'offsetX')
