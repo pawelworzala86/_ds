@@ -20,6 +20,7 @@ export declare function glTexParameteri(...args:any[]):void//opengl32
 export declare function glTexImage2D(...args:any[]):void//opengl32
 
 
+type float32 = float
 
 
 export function createContext(deviceContext:number){
@@ -38,7 +39,7 @@ export function clear(mask:number){
     glClear(mask)
 }
 
-export function clearColor(red:number,green:number,blue:number,alpha:number){
+export function clearColor(red:float32,green:float32,blue:float32,alpha:float32){
     glClearColor(red,green,blue,alpha)
 }
 

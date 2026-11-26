@@ -3,6 +3,7 @@ import Base from './base.ts'
 import Asm from "./../asm.ts"
 import FunctionArgument from './functionArgument.ts'
 import Call from './call.ts'
+import DataElement from './dataElement.ts'
 import {stringLiteralData} from '../stringLiteral.ts'
 
 let stringCharCodeAtId = 0
@@ -57,6 +58,60 @@ export class Invoke extends Base{
             }else{
                 param.asm(ASM)
             }
+        }
+        const float32Params = this.params.map(param=>
+            param.value instanceof DataElement
+                &&param.value.declaredType?.toLowerCase()==='float32'
+        )
+        if(float32Params.some(Boolean)){
+            const registers = ['rcx','rdx','r8','r9']
+            const stackBytes = 32+Math.max(0,this.params.length-registers.length)*8
+            const stackSize = stackBytes+(stackBytes%16===0?8:0)
+            ASM.addCode(`sub rsp, ${stackSize}`)
+            this.params.forEach((param,index)=>{
+                const value = param.getCode(true)
+                if(value===null){
+                    throw new Error('Unable to resolve float32 native argument')
+                }
+                if(index<registers.length){
+                    if(float32Params[index]){
+                        ASM.addCode(`cvtsd2ss xmm${index}, qword ${value}`)
+                    }else{
+                        const address = value.match(/^addr\s+(.+)$/i)
+                        if(address){
+                            const target = address[1].trim()
+                            const operand = target.startsWith('[')&&target.endsWith(']')
+                                ? target
+                                : `[${target}]`
+                            ASM.addCode(`lea ${registers[index]}, ${operand}`)
+                        }else{
+                            ASM.addCode(`mov ${registers[index]}, ${value}`)
+                        }
+                    }
+                }else{
+                    const offset = 32+(index-registers.length)*8
+                    if(float32Params[index]){
+                        ASM.addCode(`cvtsd2ss xmm0, qword ${value}`)
+                        ASM.addCode('movd eax, xmm0')
+                        ASM.addCode(`mov qword [rsp+${offset}], rax`)
+                    }else{
+                        const address = value.match(/^addr\s+(.+)$/i)
+                        if(address){
+                            const target = address[1].trim()
+                            const operand = target.startsWith('[')&&target.endsWith(']')
+                                ? target
+                                : `[${target}]`
+                            ASM.addCode(`lea rax, ${operand}`)
+                        }else{
+                            ASM.addCode(`mov rax, ${value}`)
+                        }
+                        ASM.addCode(`mov qword [rsp+${offset}], rax`)
+                    }
+                }
+            })
+            ASM.addCode(`call [${this.name}]`)
+            ASM.addCode(`add rsp, ${stackSize}`)
+            return
         }
         const params = this.params.map(param=>{
             const value = param.getCode(true)
