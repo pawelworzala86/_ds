@@ -53,11 +53,8 @@ export class TypePrototypeRegistry{
         let depth = 0
         for(let index=0;index<tokens.length;index++){
             const token = tokens[index]
-            if(depth===0&&token==='type'){
+            if(depth===0&&token==='type'&&/^[a-z_$][\w$]*$/i.test(tokens[index+1]??'')&&tokens[index+2]==='='){
                 const name = tokens[index+1]
-                if(!/^[a-z_$][\w$]*$/i.test(name??'')||tokens[index+2]!=='='){
-                    throw new Error('Invalid type declaration')
-                }
                 let end = index+3
                 while(end<tokens.length&&tokens[end]!=='\n'&&tokens[end]!==';'){
                     end++

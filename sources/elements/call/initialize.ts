@@ -145,14 +145,16 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
     }
     const argumentTexts = tokenizer.getCallArguments()
     const prototypeReceiverOffset = instance.prototypeReceiver?1:0
-    const argumentLimit = instance.func
-        ? instance.func.params.length-prototypeReceiverOffset
+    const hasVariadicParameter = instance.func?.params[instance.func.params.length-1]?.variadic===true
+    const parameterLimit = instance.func
+        ? instance.func.params.length-(hasVariadicParameter?1:0)
         : 0
-    if(instance.func&&argumentTexts.length>argumentLimit){
+    const argumentLimit = parameterLimit-prototypeReceiverOffset
+    if(instance.func&&!hasVariadicParameter&&argumentTexts.length>argumentLimit){
         throw new Error(`Function "${instance.func.name}" expects at most ${argumentLimit} arguments, received ${argumentTexts.length}`)
     }
     if(instance.func){
-        for(let index=argumentTexts.length+prototypeReceiverOffset;index<instance.func.params.length;index++){
+        for(let index=argumentTexts.length+prototypeReceiverOffset;index<parameterLimit;index++){
             const parameter = instance.func.params[index]
             if(parameter.defaultValue===undefined){
                 throw new Error(`Function "${instance.func.name}" requires argument "${parameter.name}"`)

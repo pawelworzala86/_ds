@@ -318,7 +318,7 @@ export class Tokenizer{
             }
         }
     }
-    static getFunctionParams(tokens:string[]):{name:string,type:string,defaultValue?:string}[]{
+    static getFunctionParams(tokens:string[]):{name:string,type:string,defaultValue?:string,variadic?:boolean}[]{
         const open = tokens.indexOf('(')
         if(open===-1){
             return []
@@ -365,11 +365,14 @@ export class Tokenizer{
             const signature = param.join('')
             const colon = signature.indexOf(':')
             const equals = signature.indexOf('=',colon+1)
-            const name = (colon===-1?signature:signature.slice(0,colon)).replace(/\?$/,'')
+            const rawName = (colon===-1?signature:signature.slice(0,colon)).replace(/\?$/,'')
+            const variadic = rawName.startsWith('...')
+            const name = variadic?rawName.slice(3):rawName
             const type = colon===-1?'any':signature.slice(colon+1,equals===-1?undefined:equals)
             return {
                 name,
                 type,
+                ...(variadic?{variadic:true}:{}),
                 ...(equals===-1?{}:{defaultValue:signature.slice(equals+1)})
             }
         })
