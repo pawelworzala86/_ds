@@ -33,7 +33,7 @@ Tablice statyczne i typowane obsługują `.length` oraz `.toString()` zwracając
 
 Literały obiektów mogą zawierać pola typu `number`, `string` i `boolean`. Obsługiwany jest odczyt oraz zapis znanych pól przez notację kropkową lub indeks z literalnym kluczem tekstowym, przekazywanie obiektu do funkcji, destrukturyzacja pól liczbowych i `Object.keys(obj)` do inicjalizacji tablicy `string[]`. `console.log(obj)` wypisuje aktualne wartości pól, a `console.log(array)` elementy tablicy; wartości tekstowe są ujmowane w apostrofy. `Object.assign({}, source1, source2)` tworzy płytką kopię pól źródeł; późniejsze źródła nadpisują wartości, a przypisanie odbywa się w czasie działania programu. Źródła muszą być zmiennymi obiektowymi z polami skalarnymi `number`, `string` lub `boolean`; dynamiczne klucze, dodawanie/usuwanie pól, prototypy, zagnieżdżone obiekty i tablice w `Object.assign` nie są obsługiwane. Przykład testowy: `.\test.cmd testobj`.
 
-Dynamiczne tablice typów klasowych, np. `const items: MyClass[] = []`, obsługują przypisanie istniejącej instancji lub `new MyClass()` bez argumentów do indeksu, np. `items[0] = new MyClass()`. Pola `number` obiektów w tablicy można odczytywać i modyfikować przez `items[index].field`.
+Dynamiczne tablice typów klasowych, np. `const items: MyClass[] = []`, obsługują przypisanie istniejącej instancji lub `new MyClass()` bez argumentów do indeksu, np. `items[0] = new MyClass()`. Pola `number` obiektów w tablicy można odczytywać i modyfikować przez `items[index].field`; metody elementów można też wywoływać przez tablicową właściwość klasy, np. `this.items[index].render()`.
 
 ## JSON
 
@@ -51,7 +51,7 @@ Przykłady pokazują również podstawowe konstrukcje sterujące i sposób pracy
 
 - Instrukcje warunkowe `if`/`else if`/`else` obsługują porównania liczb i tekstu, a także wyniki wywołań funkcji. Pętle `for` z licznikiem, `for...in` po tablicach (iteracja po indeksach) oraz `while` pozwalają sterować wykonaniem; dostępna jest instrukcja `break`.
 - `switch` działa dla wartości liczbowych i tekstowych, z gałęziami `case` oraz `default`.
-- Funkcje mogą zwracać wartości, w tym instancje klas. Klasy obsługują konstruktory, metody, dziedziczenie, `super` oraz łańcuchowe wywołania metod zwracających `this`.
+- Funkcje mogą zwracać wartości, w tym instancje klas. Klasy obsługują konstruktory, metody, dziedziczenie, `super`, dynamiczne wywoływanie nadpisanych metod przez referencje do klas bazowych oraz łańcuchowe wywołania metod zwracających `this`.
 - Aliasy `type` mogą wskazywać typy proste, tablice i klasy. Deklaracje `interface` oraz literały obiektowe służą do opisywania i przekazywania struktur danych.
 - Tablice zwykłe obsługują inicjalizację, dostęp przez indeks, destrukturyzację, `push` i tablice dynamiczne. Przykłady pokazują też tablice `any[]` i tablice instancji klas.
 - `prototype` umożliwia definiowanie metod dla typów prostych i tablic.

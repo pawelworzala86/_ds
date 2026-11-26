@@ -4,26 +4,39 @@ import type Base from './base.ts'
 
 export class ClassElement{
     name:string|null = null
-    props:DataElement[]
+    private ownProps:DataElement[]
     funcs:FuncElement[]
     parentClass:ClassElement|null
+    runtimeTypeId:number|null = null
     methodNodes:{element:FuncElement|null,getStructCode:(ASM:import('../asm.ts').default)=>string}[] = []
     constructor(name:string,props:DataElement[],funcs:FuncElement[],parentClass:ClassElement|null=null){
         this.name = name
-        this.props = props
+        this.ownProps = props
         this.funcs = funcs
         this.parentClass = parentClass
+    }
+    get props():DataElement[]{
+        return this.parentClass
+            ? [...this.parentClass.props,...this.ownProps]
+            : this.ownProps
+    }
+    set props(props:DataElement[]){
+        this.ownProps = this.parentClass
+            ? props.slice(this.parentClass.props.length)
+            : props
     }
     getCode(){
         return this.name
     }
     getFunction(name:string):FuncElement|null{
-        return this.funcs.find(func=>func.name===name)??this.parentClass?.getFunction(name)??null
+        return this.funcs.find(func=>func.name===name||func.sourceName===name)
+            ??this.parentClass?.getFunction(name)
+            ??null
     }
 }
 
 export function getClassPropertyOffset(classType:ClassElement,propertyName:string,getClass?:((name:string)=>ClassElement|null)){
-    let offset = 0
+    let offset = classType.runtimeTypeId===null?0:8
     let currentClass = classType
     const properties = propertyName.split('.')
     for(let pathIndex=0;pathIndex<properties.length;pathIndex++){
@@ -45,6 +58,9 @@ export function getClassPropertyOffset(classType:ClassElement,propertyName:strin
         if(!nestedClass){
             return null
         }
+        if(nestedClass.runtimeTypeId!==null){
+            offset += 8
+        }
         currentClass = nestedClass
     }
     return null
@@ -54,13 +70,17 @@ function getClassPropertySize(property:DataElement,getClass?:((name:string)=>Cla
     if(property.classType&&!property.isArray){
         const nestedClass = getClass?.(property.classType)??null
         if(nestedClass){
-            return nestedClass.props.reduce((size,member)=>size+getClassPropertySize(member,getClass),0)
+            return (nestedClass.runtimeTypeId===null?0:8)
+                +nestedClass.props.reduce((size,member)=>size+getClassPropertySize(member,getClass),0)
         }
     }
-    if(property.type==='string'){
+    if(property.type==='string'&&!property.isArray){
         return 8
     }
     if(property.isArray){
+        if(property.dynamicArray){
+            return 24
+        }
         return 8*Math.max(1,(property.value?.split(',').filter(Boolean).length??1))
     }
     return 8

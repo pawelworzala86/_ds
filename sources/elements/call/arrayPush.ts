@@ -3,10 +3,12 @@ import DataElement from '../dataElement.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
 import type {Call} from '../call.ts'
 
+let arrayPushEmissionId = 0
+
 export function emitArrayPush(call:Call,ASM:Asm){
         const array = call.builtinArray!
         const param = call.params[0]
-        const id = call.arrayPushId!
+        const id = ++arrayPushEmissionId
         const valueName = `__ds_array_push_value_${id}`
         const nextCapacityName = `__ds_array_push_capacity_${id}`
         const lengthName = `${array.name}__length`
@@ -15,6 +17,22 @@ export function emitArrayPush(call:Call,ASM:Asm){
         const readyLabel = `__ds_array_push_ready_${id}`
         const errorLabel = `__ds_array_push_error_${id}`
         const dynamicParameter = array.isParameter
+        const dynamicProperty = Boolean(array.classPropertyInstance&&array.classPropertyOffset!==null)
+        const emitPropertyBase = ()=>{
+            const instance = array.classPropertyInstance
+            if(!instance||array.classPropertyOffset===null){
+                throw new Error('Dynamic class array property is not initialized')
+            }
+            ASM.addCode(instance.isHeapAllocated
+                ? `mov rdx, [${instance.name}]`
+                : `lea rdx, [${instance.name}]`)
+            if(array.classPropertyOffset){
+                ASM.addCode(`add rdx, ${array.classPropertyOffset}`)
+            }
+        }
+        if(dynamicProperty&&!array.classPropertyDynamicArray){
+            throw new Error('Array.push requires a dynamic class array property')
+        }
 
         ASM.addData(`${valueName} dq 0`)
         ASM.addData(`${nextCapacityName} dq 0`)
@@ -63,7 +81,12 @@ export function emitArrayPush(call:Call,ASM:Asm){
         if(!(array.type==='number'&&array.numericKind==='float'&&(param.expression?.numericKind==='integer'||param.value instanceof DataElement&&param.value.numericKind==='integer'))){
             ASM.addCode(`mov [${valueName}], rax`)
         }
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov rax, [rdx+8]')
+            emitPropertyBase()
+            ASM.addCode('cmp rax, [rdx+16]')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('mov rax, [rdx+8]')
             ASM.addCode(`mov rdx, ${array.name}`)
@@ -75,7 +98,10 @@ export function emitArrayPush(call:Call,ASM:Asm){
         ASM.addCode(`jnb ${growLabel}`)
         ASM.addCode(`jmp ${readyLabel}`)
         ASM.addCode(`${growLabel}:`)
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov rcx, [rdx+16]')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('mov rcx, [rdx+16]')
         }else{
@@ -90,7 +116,10 @@ export function emitArrayPush(call:Call,ASM:Asm){
         ASM.addCode(`${growLabel}_allocate:`)
         ASM.addCode(`mov [${nextCapacityName}], rcx`)
         ASM.addCode('shl rcx, 3')
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov rdx, [rdx]')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('mov rdx, [rdx]')
         }else{
@@ -105,7 +134,13 @@ export function emitArrayPush(call:Call,ASM:Asm){
         ASM.addCode('add rsp, 40')
         ASM.addCode('test rax, rax')
         ASM.addCode(`jz ${errorLabel}`)
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov [rdx], rax')
+            ASM.addCode(`mov rcx, [${nextCapacityName}]`)
+            emitPropertyBase()
+            ASM.addCode('mov [rdx+16], rcx')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('mov [rdx], rax')
             ASM.addCode(`mov rcx, [${nextCapacityName}]`)
@@ -117,14 +152,20 @@ export function emitArrayPush(call:Call,ASM:Asm){
             ASM.addCode(`mov [${capacityName}], rcx`)
         }
         ASM.addCode(`${readyLabel}:`)
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov rax, [rdx+8]')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('mov rax, [rdx+8]')
         }else{
             ASM.addCode(`mov rax, [${lengthName}]`)
         }
         ASM.addCode('shl rax, 3')
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov rdx, [rdx]')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('mov rdx, [rdx]')
         }else{
@@ -133,7 +174,10 @@ export function emitArrayPush(call:Call,ASM:Asm){
         ASM.addCode('add rdx, rax')
         ASM.addCode(`mov rcx, [${valueName}]`)
         ASM.addCode('mov [rdx], rcx')
-        if(dynamicParameter){
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('inc qword [rdx+8]')
+        }else if(dynamicParameter){
             ASM.addCode(`mov rdx, ${array.name}`)
             ASM.addCode('inc qword [rdx+8]')
         }else{

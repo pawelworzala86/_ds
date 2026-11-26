@@ -23,12 +23,41 @@ console.log(testArrayD)
 
 class TestClass {
     numA: number = 111
+    show(value: number) {
+        console.log('base class array method', this.numA, value)
+    }
+}
+
+class TestDerivedClass extends TestClass {
+    show(value: number) {
+        console.log('derived class array method', this.numA, value)
+    }
 }
 
 const arrayTest:TestClass[] = []
 arrayTest[0] = new TestClass()
 
 console.log(arrayTest[0].numA)
+
+class TestContainer {
+    items: TestClass[] = []
+    add(item: TestClass) {
+        this.items.push(item)
+    }
+    showFirst() {
+        this.items[0].show(123)
+    }
+}
+
+function showTestClass(item: TestClass) {
+    item.show(456)
+}
+
+const testContainer:TestContainer = new TestContainer()
+const arrayMethodTestItem:TestDerivedClass = new TestDerivedClass()
+testContainer.add(arrayMethodTestItem)
+testContainer.showFirst()
+showTestClass(arrayMethodTestItem)
 
 
 const arrayAny:any[] = []

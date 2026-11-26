@@ -8,7 +8,6 @@ import Call from '../call.ts'
 import {getPromiseValueTypeFromData} from '../promise.ts'
 import Data from '../data.ts'
 
-let arrayPushId = 0
 let arrayToStringArgumentId = 0
 let stringCharCodeAtId = 0
 let defaultClassArgumentId = 0
@@ -467,7 +466,6 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             &&!value.isParameter){
             value.isHeapAllocated = true
         }
-        instance.arrayPushId = ++arrayPushId
     }
     instance.prepareDynamicArrayArguments()
 }

@@ -11,10 +11,40 @@ export function getMethod(active:Base,name:string) :{
         instance:DataElement
         arrayMethod?:{array:DataElement,index:string}
     }|null{
-        const arrayElementMethod = name.match(/^([a-z_$][\w$]*)\[([^\]]+)\]\.([a-z_$][\w$]*)$/i)
+        const arrayElementMethod = name.match(/^([a-z_$][\w.$]*)\[([^\]]+)\]\.([a-z_$][\w$]*)$/i)
         if(arrayElementMethod){
             const [,arrayName,index,methodName] = arrayElementMethod
-            const array = active.getData(arrayName)
+            let array = active.getData(arrayName)
+            if(!array){
+                const access = getClassPropertyAccess(active,arrayName)
+                if(access?.property.isArray&&access.property.classType){
+                    const rootClass = access.instance.classType
+                        ? active.getClass(access.instance.classType)
+                        : null
+                    const offset = rootClass
+                        ? getClassPropertyOffset(
+                            rootClass,
+                            arrayName.split('.').slice(1).join('.'),
+                            className=>active.getClass(className)
+                        )
+                        : null
+                    if(offset!==null){
+                        array = new DataElement(
+                            'let',
+                            `${access.instance.name}+${offset}`,
+                            access.property.classType,
+                            access.property.value??'0'
+                        )
+                        array.classType = access.property.classType
+                        array.isArray = true
+                        array.dynamicArray = access.property.dynamicArray
+                        array.classPropertyDynamicArray = access.property.dynamicArray
+                        array.classPropertyInstance = access.instance
+                        array.classPropertyPath = access.path
+                        array.classPropertyOffset = offset
+                    }
+                }
+            }
             if(!array?.isArray||!array.classType){
                 return null
             }
@@ -97,8 +127,22 @@ export function getPrototypeMethod(active:Base,name:string) :{method:PrototypeMe
                 )
                 instance.declaredType = access.property.declaredType
                 instance.isArray = access.property.isArray
+                instance.dynamicArray = access.property.dynamicArray
+                instance.classPropertyDynamicArray = access.property.dynamicArray
                 instance.classType = access.property.classType
                 instance.numericKind = access.property.numericKind
+                instance.classPropertyInstance = access.instance
+                instance.classPropertyPath = access.path
+                const classType = access.instance.classType
+                    ? active.getClass(access.instance.classType)
+                    : null
+                instance.classPropertyOffset = classType
+                    ? getClassPropertyOffset(
+                        classType,
+                        receiverName.split('.').slice(1).join('.'),
+                        name=>active.getClass(name)
+                    )
+                    : null
             }
         }
         if(!instance){

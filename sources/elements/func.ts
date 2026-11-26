@@ -9,6 +9,7 @@ import {isPromiseType} from './promise.ts'
 import TypePrototypeRegistry from './typePrototype.ts'
 
 let returnId = 0
+let structCodeEmissionId = 0
 let asyncWorkerId = 0
 let inferredStructId = 0
 let inlineCallbackId = 0
@@ -185,6 +186,86 @@ export class Func extends Base{
             Func.predeclared.add(element)
         }
     }
+    static predeclareClassMethods(active:Base,tokens:string[]){
+        let blockDepth = 0
+        for(let index=0;index<tokens.length;index++){
+            const name = tokens[index]
+            if(name==='{'){
+                blockDepth++
+                continue
+            }
+            if(name==='}'){
+                blockDepth--
+                continue
+            }
+            if(blockDepth!==0){
+                continue
+            }
+            if(!name||!/^[a-z_$][\w$]*$/i.test(name)||tokens[index+1]!=='('
+                ||tokens[index-1]==='.'||active.FUNCTIONS.some(func=>func.name===name)){
+                continue
+            }
+            let depth = 0
+            let signatureEnd = index+1
+            for(;signatureEnd<tokens.length;signatureEnd++){
+                if(tokens[signatureEnd]==='('){
+                    depth++
+                }else if(tokens[signatureEnd]===')'&&--depth===0){
+                    break
+                }
+            }
+            if(signatureEnd===tokens.length){
+                continue
+            }
+            let bodyStart = signatureEnd+1
+            while(tokens[bodyStart]==='\n'){
+                bodyStart++
+            }
+            let returnType:string|null = null
+            if(tokens[bodyStart]===':'){
+                returnType = tokens[bodyStart+1]??null
+                bodyStart += 2
+                while(tokens[bodyStart]==='\n'){
+                    bodyStart++
+                }
+            }
+            if(tokens[bodyStart]!=='{'){
+                continue
+            }
+            let bodyDepth = 0
+            let bodyEnd = bodyStart
+            for(;bodyEnd<tokens.length;bodyEnd++){
+                if(tokens[bodyEnd]==='{'){
+                    bodyDepth++
+                }else if(tokens[bodyEnd]==='}'&&--bodyDepth===0){
+                    break
+                }
+            }
+            if(bodyEnd===tokens.length){
+                continue
+            }
+            const params = Tokenizer.getFunctionParams(tokens.slice(index,signatureEnd+1)).map(param=>{
+                const resolvedType = TypePrototypeRegistry.resolveType(param.type)
+                return {
+                    ...param,
+                    type:resolvedType.isArray?`${resolvedType.type}[]`:resolvedType.type,
+                    declaredType:resolvedType.declaredType??null,
+                    numericKind:resolvedType.numericKind??undefined
+                }
+            })
+            const element = new FuncElement(name,params)
+            if(returnType){
+                const resolvedReturnType = TypePrototypeRegistry.resolveType(returnType)
+                element.returnType = resolvedReturnType.isArray
+                    ? `${resolvedReturnType.type}[]`
+                    : resolvedReturnType.type
+                element.returnClassType = active.getClass(resolvedReturnType.type)?.name??null
+            }
+            active.addFunction(element)
+            Func.predeclared.add(element)
+            index = bodyEnd
+        }
+    }
     set(tokenizer:Tokenizer,ASM:Asm,classMethod=false,isAsync=false){
         let tokens:string[] = tokenizer.getBlock()
         const prefixLength = classMethod?1:isAsync?3:2
@@ -359,6 +440,7 @@ export class Func extends Base{
     }
     getStructCode(ASM:Asm){
         const asm = new Asm()
+        const emissionId = ++structCodeEmissionId
         this.returnLabel = `__ds_return_${++returnId}`
         for(const node of this.children){
             node.asm(asm)
@@ -366,10 +448,33 @@ export class Func extends Base{
         asm.addCode(`${this.returnLabel}:`)
         asm.addCode('ret')
         const params = this.element?.params.map((param:any)=>param.name).join(', ')
-        const body = asm.getCode().join('').trimEnd()
+        const symbols = new Set<string>()
+        for(const line of asm.getData()){
+            const label = line.match(/^\s*(__ds_[\w$]+)\s+(?:dq|db|dw|dd|dt)\b/i)?.[1]
+            if(label){
+                symbols.add(label)
+            }
+        }
+        for(const line of asm.getCode()){
+            const label = line.match(/^\s*(__ds_[\w$]+):\s*$/i)?.[1]
+            if(label){
+                symbols.add(label)
+            }
+        }
+        const remapSymbols = (text:string)=>{
+            let remapped = text
+            for(const symbol of symbols){
+                remapped = remapped.replace(
+                    new RegExp(`\\b${symbol}\\b`,'g'),
+                    `${symbol}_emit_${emissionId}`
+                )
+            }
+            return remapped
+        }
+        const body = remapSymbols(asm.getCode().join('').trimEnd())
         const signature = `proc ${this.element!.name}${params?`, ${params}`:''}`
         for(const data of asm.getData()){
-            ASM.addData(data.trimEnd())
+            ASM.addData(remapSymbols(data.trimEnd()))
         }
         for(const dll of Object.keys(asm.imp)){
             for(const importedFunction of asm.imp[dll]){

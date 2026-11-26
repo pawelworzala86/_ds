@@ -1,17 +1,19 @@
 import * as gl from './../gl.ts'
 import * as shader from './../shader.ts'
 import * as texture from './../texture.ts'
+import GUIElement from './gui.ts'
 
 let vertices:number[] = [1.0,1.0,0.0,1.0,-1.0,0.0,-1.0,-1.0,0.0,1.0,1.0,0.0,-1.0,-1.0,0.0,-1.0,1.0,0.0]
 let coords:number[] = [1.0,1.0,1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0]
 
-export class BoxElement {
+export class BoxElement extends GUIElement {
     VAO:number = 0
     bufferID:number = 0
     shader:shader.Shader = new shader.Shader()
     fontFileName:string = 'font.png'
     fontTextureID:number = 0
     constructor(){
+        super()
         this.shader.load('box')
         console.log('fontShader instance created')
         //this.fontMesh = new mesh.Mesh(this.shader)
@@ -91,6 +93,9 @@ export class BoxElement {
             gl.bindVertexArray(this.VAO)
             gl.drawArrays(gl.TRIANGLES, 0, 6)
         //}
+        console.log('super.render')
+        super.render(perspective, camera, model, textureID)
+        this.children[0].render(perspective, camera, model, textureID)
     }
 }
 

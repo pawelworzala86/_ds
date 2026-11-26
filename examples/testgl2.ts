@@ -1,6 +1,6 @@
 import * as kernel from './system/lib/kernel.ts'
 import * as msvcrt from './system/lib/msvcrt.ts'
-import Font from './system/gl/font.ts'
+import Font from './system/gl/gui/font.ts'
 import * as gl from './system/gl/gl.ts'
 import * as glWindow from './system/gl/glWindow.ts'
 import * as shader from './system/gl/shader.ts'
@@ -8,7 +8,6 @@ import * as mat4 from './system/gl/mat4.ts'
 import * as texture from './system/gl/texture.ts'
 import * as mesh from './system/gl/mesh.ts'
 import BoxElement from './system/gl/gui/box.ts'
-
 
 
 
@@ -80,8 +79,8 @@ function init(){
 	msvcrt.printf( 'OK4.5 ')
 
 	font = new Font()
-
 	box = new BoxElement()
+	box.addChild(font)
 
 
 	msvcrt.printf('OK5')
@@ -140,7 +139,7 @@ function render(delay: number){
 		mesh.render(perspective, camera, model, textureID)
 	}
 
-	font.render(perspective, camera, model, textureID)
+	//font.render(perspective, camera, model, textureID)
 
 	box.render(perspective, camera, model, textureID)
 	

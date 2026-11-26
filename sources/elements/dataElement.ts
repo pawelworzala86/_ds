@@ -42,6 +42,8 @@ export class DataElement{
     isConstAlias = false
     isExportedConstAlias = false
     classPropertyOffset:number|null = null
+    classPropertyDynamicArray = false
+    isRuntimeTypeTag = false
     constructor(kind:string,name:string,type:string,value:string){
         this.kind = kind
         this.name = name

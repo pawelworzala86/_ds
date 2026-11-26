@@ -51,10 +51,22 @@ export function getStructFields(properties:DataElement[],getClass:(name:string)=
         if(property.classType&&!property.isArray){
             const nestedClass = getClass(property.classType)
             if(nestedClass){
-                return getStructFields(nestedClass.props,getClass)
+                return [
+                    ...(nestedClass.runtimeTypeId===null
+                        ? []
+                        : [createRuntimeTypeField(nestedClass.runtimeTypeId)]),
+                    ...getStructFields(nestedClass.props,getClass)
+                ]
             }
         }
         if(property.isArray){
+            if(property.dynamicArray){
+                return ['','__length','__capacity'].map(suffix=>{
+                    const field = new DataElement('let',`${property.name}${suffix}`,'number','0')
+                    field.numericKind = 'integer'
+                    return field
+                })
+            }
             const values = splitTopLevelArrayValues(property.value??'')
             return (values.length?values:['0']).map(value=>{
                 const fieldValue = property.type==='string'&&/^(['"])/.test(value)
@@ -70,15 +82,51 @@ export function getStructFields(properties:DataElement[],getClass:(name:string)=
     })
 }
 
+export function getClassInstanceFields(
+    classType:ClassElement,
+    properties:DataElement[],
+    getClass:(name:string)=>ClassElement|null
+):DataElement[]{
+    return [
+        ...(classType.runtimeTypeId===null
+            ? []
+            : [createRuntimeTypeField(classType.runtimeTypeId)]),
+        ...getStructFields(properties,getClass)
+    ]
+}
+
+function createRuntimeTypeField(runtimeTypeId:number){
+    const field = new DataElement(
+        'let',
+        `__ds_runtime_type_${runtimeTypeId}`,
+        'number',
+        String(runtimeTypeId)
+    )
+    field.isRuntimeTypeTag = true
+    return field
+}
+
 export function getStructLayoutMembers(properties:DataElement[],getClass:(name:string)=>ClassElement|null,prefix=''):string[]{
     return properties.flatMap(property=>{
         if(property.classType&&!property.isArray){
             const nestedClass = getClass(property.classType)
             return nestedClass
-                ? getStructLayoutMembers(nestedClass.props,getClass,`${prefix}${property.name}_`)
+                ? [
+                    ...(nestedClass.runtimeTypeId===null
+                        ? []
+                        : [`    ${prefix}${property.name}__ds_runtime_type_${nestedClass.runtimeTypeId} dq ${nestedClass.runtimeTypeId}`]),
+                    ...getStructLayoutMembers(nestedClass.props,getClass,`${prefix}${property.name}_`)
+                ]
                 : []
         }
         if(property.isArray){
+            if(property.dynamicArray){
+                return [
+                    `    ${prefix}${property.name} dq 0`,
+                    `    ${prefix}${property.name}__length dq 0`,
+                    `    ${prefix}${property.name}__capacity dq 0`
+                ]
+            }
             const values = property.arrayObjectValues
                 ? property.arrayObjectValues.map(()=>'0')
                 : splitTopLevelArrayValues(property.value??'')

@@ -3,6 +3,8 @@ import DataElement from '../dataElement.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
 import type Base from '../base.ts'
 import type {Call} from '../call.ts'
+import {getClassArgumentCode} from './classArgument.ts'
+import {getDynamicMethodTargets} from './localMethodCall.ts'
 
 let functionCallStringId = 0
 
@@ -36,7 +38,22 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             ASM.addData(`${call.methodInstance.name} dq 0`)
             ASM.addCode(`mov rax, ${index}`)
             ASM.addCode('shl rax, 3')
-            if(array.isParameter){
+            if(array.classPropertyInstance&&array.classPropertyOffset!==null){
+                const root = array.classPropertyInstance
+                if(root.isHeapAllocated||root.isReferenceAlias){
+                    ASM.addCode(`mov rdx, [${root.name}]`)
+                }else if(root.isParameter){
+                    ASM.addCode(`mov rdx, ${root.name}`)
+                }else{
+                    ASM.addCode(`lea rdx, [${root.name}]`)
+                }
+                if(array.classPropertyOffset){
+                    ASM.addCode(`add rdx, ${array.classPropertyOffset}`)
+                }
+                if(array.dynamicArray){
+                    ASM.addCode('mov rdx, [rdx]')
+                }
+            }else if(array.isParameter){
                 ASM.addCode(`mov rdx, ${array.name}`)
                 if(array.dynamicArray){
                     ASM.addCode('mov rdx, [rdx]')
@@ -211,7 +228,8 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
         if(call.methodInstance?.classPropertyInstance
             ||call.methodInstance?.isProcedureLocal
             ||call.methodInstance?.isReferenceAlias
-            ||call.methodInstance?.isParameter){
+            ||call.methodInstance?.isParameter
+            ||Boolean(call.methodInstance&&getDynamicMethodTargets(call).length)){
             call.emitLocalMethodCall(ASM)
             return
         }
@@ -226,6 +244,7 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
                 const param = call.params[index]
                 const expected = call.func?.params[index]
                 const expectedClass = expected?.type?call.getClass(expected.type):null
+                const classArgument = getClassArgumentCode(param,expected?.type,call)
                 if(expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
                     ASM.addCode(param.value.isParameter
                         ? `mov rax, ${param.value.name}`
@@ -259,6 +278,11 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
                             ? `mov rax, ${value.name}`
                             : `mov rax, [${value.getAccessName()}]`)
                     }
+                }else if(classArgument){
+                    const address = classArgument.match(/^addr\s+(.+)$/i)
+                    ASM.addCode(address
+                        ? `lea rax, [${address[1]}]`
+                        : `mov rax, ${classArgument}`)
                 }else if(param.value instanceof DataElement&&param.value.classType
                     &&(expected?.type===param.value.classType||param.value.classLayoutProps&&hasSameStructLayout(param.value.classLayoutProps,expectedClass))){
                     ASM.addCode((param.value.isProcedureLocal||param.value.isReferenceAlias)
@@ -286,7 +310,8 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             if(param.value instanceof DataElement&&param.value.isArray){
                 return param.getArrayArgumentCode(Boolean(call.func?.params[index]?.dynamicArray))
             }
-            return param.getCode(call.methodInstance!==null)
+            return getClassArgumentCode(param,call.func?.params[index]?.type,call)
+                ??param.getCode(call.methodInstance!==null)
         }).join(', ')
         const methodName = call.methodInstance?.isProcedureLocal
             ? `${call.methodInstance.classType}.${call.func!.name}`

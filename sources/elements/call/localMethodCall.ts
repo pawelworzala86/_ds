@@ -1,9 +1,48 @@
 import Asm from '../../asm.ts'
+import Base from '../base.ts'
 import DataElement from '../dataElement.ts'
 import {stringData} from '../../stringLiteral.ts'
+import {getClassArgumentCode} from './classArgument.ts'
+import type ClassElement from '../clasElement.ts'
+import type FuncElement from '../funcElement.ts'
 import type {Call} from '../call.ts'
 
 let methodStringId = 0
+let dynamicMethodCallId = 0
+
+type DynamicMethodTarget = {classType:ClassElement,func:FuncElement}
+
+export function getDynamicMethodTargets(call:Call):DynamicMethodTarget[]{
+    const instance = call.methodInstance
+    const staticClass = instance?.classType?call.getClass(instance.classType):null
+    const methodName = call.func?.sourceName
+    if(!staticClass||staticClass.runtimeTypeId===null||!methodName||methodName==='constructor'){
+        return []
+    }
+    let root:Base = call
+    while(root.parent){
+        root = root.parent
+    }
+    return root.CLASSES.flatMap(classType=>{
+        if(classType===staticClass||classType.runtimeTypeId===null){
+            return []
+        }
+        let parentClass = classType.parentClass
+        let extendsStaticClass = false
+        while(parentClass){
+            if(parentClass===staticClass){
+                extendsStaticClass = true
+                break
+            }
+            parentClass = parentClass.parentClass
+        }
+        if(!extendsStaticClass){
+            return []
+        }
+        const func = classType.getFunction(methodName)
+        return func&&func!==call.func?[{classType,func}]:[]
+    })
+}
 
 export function emitLocalMethodCall(call:Call,ASM:Asm){
         const instance = call.methodInstance
@@ -34,7 +73,7 @@ export function emitLocalMethodCall(call:Call,ASM:Asm){
             const expected = call.func!.params[index]
             const value = param.value instanceof DataElement&&param.value.isArray
                 ? param.getArrayArgumentCode(Boolean(expected?.dynamicArray))
-                : param.getCode(true)
+                : getClassArgumentCode(param,expected?.type,call)??param.getCode(true)
             if(value===null){
                 throw new Error(`Unable to resolve local method argument ${index+1}`)
             }
@@ -62,6 +101,23 @@ export function emitLocalMethodCall(call:Call,ASM:Asm){
                 ASM.addCode(`mov qword [rsp+${offset}], rax`)
             }
         })
-        ASM.addCode(`call ${instance.classType}.${call.func.name}`)
+        const dynamicTargets = getDynamicMethodTargets(call)
+        if(dynamicTargets.length){
+            const id = ++dynamicMethodCallId
+            const done = `__ds_method_dispatch_done_${id}`
+            ASM.addCode('mov r10, [rcx]')
+            dynamicTargets.forEach((target,index)=>{
+                const next = `__ds_method_dispatch_next_${id}_${index}`
+                ASM.addCode(`cmp r10, ${target.classType.runtimeTypeId}`)
+                ASM.addCode(`jne ${next}`)
+                ASM.addCode(`call ${target.classType.name}.${target.func.name}`)
+                ASM.addCode(`jmp ${done}`)
+                ASM.addCode(`${next}:`)
+            })
+            ASM.addCode(`call ${instance.classType}.${call.func.name}`)
+            ASM.addCode(`${done}:`)
+        }else{
+            ASM.addCode(`call ${instance.classType}.${call.func.name}`)
+        }
         ASM.addCode(`add rsp, ${stackSize}`)
     }

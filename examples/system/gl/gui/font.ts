@@ -1,7 +1,7 @@
-import * as gl from './gl.ts'
-import * as shader from './shader.ts'
-import * as mesh from './mesh.ts'
-import * as texture from './texture.ts'
+import * as gl from './../gl.ts'
+import * as shader from './../shader.ts'
+import * as texture from './../texture.ts'
+import GUIElement from './gui.ts'
 
 let vertices:number[] = [1.0,1.0,0.0,1.0,-1.0,0.0,-1.0,-1.0,0.0,1.0,1.0,0.0,-1.0,-1.0,0.0,-1.0,1.0,0.0]
 let coords:number[] = [1.0,1.0,1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0]
@@ -51,13 +51,14 @@ for(let i = 0; i < vertices.length; i++){
     vertices2[i] = vertices[i] * scale
 }
 
-export class Font {
+export class Font extends GUIElement {
     VAO:number = 0
     bufferID:number = 0
     shader:shader.Shader = new shader.Shader()
     fontFileName:string = 'font.png'
     fontTextureID:number = 0
     constructor(){
+        super()
         this.shader.load('font')
         console.log('fontShader instance created')
         //this.fontMesh = new mesh.Mesh(this.shader)
@@ -86,7 +87,7 @@ export class Font {
         gl.vertexAttribPointer(1,2,gl.DOUBLE,gl.FALSE, 16, 0)
     }
     render(perspective:number[], camera:number[], model:number[], textureID:number){
-        console.log(' fontTextureID=', this.fontTextureID,' ')
+        //console.log(' fontTextureID=', this.fontTextureID,' ')
         gl.useProgram(this.shader.programID)
 
         let uniformLocation:number = gl.getUniformLocation(this.shader.programID, 'diffuseTexture')
@@ -100,7 +101,7 @@ export class Font {
         let scaleX: number = scale
         let scaleY: number = scale
         let offsetX: number = -1.0 + scaleX
-        console.log('scaleY=', scaleY)
+        //console.log('scaleY=', scaleY)
         let topMargin: number = 0.2
         let offsetY: number = 1.0 - topMargin - scaleY
 
@@ -119,7 +120,7 @@ export class Font {
             let sizeX: number = (widthsFnt[letter] / 64.0)*(scaleX*2)
             uniformLocation = gl.getUniformLocation(this.shader.programID, 'offsetX')
             gl.uniform1d(uniformLocation, offsetX)
-            console.log('letter=', letter, ' offsetX=', offsetX, ' uniformLocation=', uniformLocation, letter)
+            //console.log('letter=', letter, ' offsetX=', offsetX, ' uniformLocation=', uniformLocation, letter)
             offsetX += sizeX
 
             //this.fontMesh.render(perspective, camera, model, this.fontTextureID)

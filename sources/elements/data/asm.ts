@@ -3,7 +3,7 @@ import DataElement, {getNumericKind} from '../dataElement.ts'
 import {stringData,stringLiteralData} from '../../stringLiteral.ts'
 import {splitTopLevelArrayValues} from './arrays.ts'
 import {getTypedArrayInfo} from './typedArrays.ts'
-import {getStructFields,getStructLayoutMembers,initializeStackStructStrings,initializeStructStrings} from './struct.ts'
+import {getClassInstanceFields,getStructFields,getStructLayoutMembers,initializeStackStructStrings,initializeStructStrings} from './struct.ts'
 import {nextObjectStringLabelId} from './ids.ts'
 import {isPromiseType} from '../promise.ts'
 import {getClassPropertyOffset} from '../clasElement.ts'
@@ -125,7 +125,10 @@ export function emitDataAsm(data:Data,ASM:Asm){
             if(!properties){
                 throw new Error(`Unknown class type "${data.element!.classType}" for local "${data.element!.name}"`)
             }
-            const fields = getStructFields(properties,name=>data.parent!.getClass(name))
+            const getClass = (name:string)=>data.parent!.getClass(name)
+            const fields = classType
+                ? getClassInstanceFields(classType,properties,getClass)
+                : getStructFields(properties,getClass)
             const heapAllocated = data.element!.isHeapAllocated
             if(heapAllocated){
                 ASM.addCode(`local ${data.element!.name} dq 0`)
@@ -341,6 +344,10 @@ export function emitDataAsm(data:Data,ASM:Asm){
             if(data.element!.classLayoutType&&data.element!.classLayoutProps){
                 const getClass = (name:string)=>data.parent!.getClass(name)
                 const members = getStructLayoutMembers(data.element!.classLayoutProps,getClass)
+                const classType = data.parent?.getClass(data.element!.classType!)
+                if(classType?.runtimeTypeId!==null&&classType?.runtimeTypeId!==undefined){
+                    members.unshift(`    __ds_runtime_type_${classType.runtimeTypeId} dq ${classType.runtimeTypeId}`)
+                }
                 if(!members.length){
                     members.push('    __ds_empty dq 0')
                 }

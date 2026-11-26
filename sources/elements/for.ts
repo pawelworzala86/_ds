@@ -5,6 +5,7 @@ import Assign from './assign.ts'
 import Data from './data.ts'
 import DataElement from './dataElement.ts'
 import While from './while.ts'
+import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 
 let forInId = 0
 let forOfId = 0
@@ -158,7 +159,24 @@ export class For extends While{
         if(tokens.length!==4||!['const','let','var'].includes(tokens[0])||tokens[2]!=='of'||!/^[a-z_$][\w$]*$/i.test(tokens[1])){
             throw new Error('Invalid for-of statement')
         }
-        const array = this.getData(tokens[3])
+        const access = getClassPropertyAccess(this,tokens[3])
+        const array = this.getData(tokens[3])??(access
+            ? new DataElement('let',`${access.instance.name}.${access.path}`,access.property.type??'',access.property.value??'')
+            : null)
+        if(access&&array){
+            array.isArray = access.property.isArray
+            array.dynamicArray = access.property.dynamicArray
+            array.classPropertyDynamicArray = access.property.dynamicArray
+            array.classType = access.property.classType
+            array.classPropertyInstance = access.instance
+            array.classPropertyPath = access.path
+            const classType = access.instance.classType
+                ? this.getClass(access.instance.classType)
+                : null
+            array.classPropertyOffset = classType
+                ? getClassPropertyOffset(classType,tokens[3].split('.').slice(1).join('.'),name=>this.getClass(name))
+                : null
+        }
         if(!array?.isArray||(!array.classType&&array.type!=='string')){
             throw new Error(`For-of loop expects an object or string array identifier, received "${tokens[3]}"`)
         }
@@ -204,6 +222,13 @@ export class For extends While{
         if(array.dynamicArray){
             this.dynamicLength = new DataElement('let',`__ds_for_of_length_${forOfId}`,'number','0')
             this.addData(this.dynamicLength)
+            if(array.classPropertyInstance&&array.classPropertyOffset!==null){
+                this.dynamicLength.isProcedureLocal = inFunction
+                const declaration = new Data(this)
+                declaration.element = this.dynamicLength
+                this.children.push(declaration)
+                this.initStatements.push(declaration)
+            }
             length = this.dynamicLength.name!
         }else{
             length = `${countArrayValues(array.value??'')}`
@@ -264,7 +289,7 @@ export class For extends While{
 
     testChangeName(){
         super.testChangeName()
-        if(this.dynamicLength&&this.iterationArray){
+        if(this.dynamicLength&&this.iterationArray&&!this.iterationArray.classPropertyInstance){
             this.dynamicLength.name = `${this.iterationArray.name}__length`
         }
     }
@@ -275,13 +300,37 @@ export class For extends While{
         }
         this.initStatements.forEach(statement=>statement.asm(ASM))
         ASM.addCode(`${this.startLabel}:`)
+        if(this.iterationArray?.classPropertyInstance
+            &&this.iterationArray.classPropertyOffset!==null
+            &&this.dynamicLength){
+            const instance = this.iterationArray.classPropertyInstance
+            ASM.addCode(instance.isHeapAllocated
+                ? `mov rdx, [${instance.name}]`
+                : `lea rdx, [${instance.name}]`)
+            if(this.iterationArray.classPropertyOffset){
+                ASM.addCode(`add rdx, ${this.iterationArray.classPropertyOffset}`)
+            }
+            ASM.addCode('mov rax, [rdx+8]')
+            ASM.addCode(`mov [${this.dynamicLength.name}], rax`)
+        }
         this.emitBranch(this.condition,ASM,this.bodyLabel,this.endLabel)
         ASM.addCode(`${this.bodyLabel}:`)
         if(this.iterationArray&&this.iterationIndex&&this.iterationValue){
             const array = this.iterationArray
             ASM.addCode(`mov rax, [${this.iterationIndex.name}]`)
             ASM.addCode('shl rax, 3')
-            if(array.isParameter){
+            if(array.classPropertyInstance&&array.classPropertyOffset!==null){
+                const instance = array.classPropertyInstance
+                ASM.addCode(instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
+                if(array.classPropertyOffset){
+                    ASM.addCode(`add rdx, ${array.classPropertyOffset}`)
+                }
+                if(array.dynamicArray){
+                    ASM.addCode('mov rdx, [rdx]')
+                }
+            }else if(array.isParameter){
                 ASM.addCode(`mov rdx, ${array.name}`)
                 if(array.dynamicArray){
                     ASM.addCode('mov rdx, [rdx]')

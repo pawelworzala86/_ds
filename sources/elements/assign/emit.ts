@@ -1,7 +1,7 @@
 import Asm from '../../asm.ts'
 import {emitExpression} from '../../maths.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
-import {getStructFields,initializeStackStructStrings} from '../data/struct.ts'
+import {getClassInstanceFields,initializeStackStructStrings} from '../data/struct.ts'
 import type {Assign} from '../assign.ts'
 
 let stringAssignId = 0
@@ -89,7 +89,8 @@ export function emitAssign(assignment:Assign,ASM:Asm){
             if(!classType){
                 throw new Error(`Unknown class type "${assignment.target.classType}" for awaited Promise`)
             }
-            const fields = getStructFields(
+            const fields = getClassInstanceFields(
+                classType,
                 assignment.target.classLayoutProps??classType.props,
                 name=>assignment.parent!.getClass(name)
             )
@@ -111,7 +112,10 @@ export function emitAssign(assignment:Assign,ASM:Asm){
             }
             fields.forEach((_,index)=>{
                 const fieldOffset = index*8
-                ASM.addCode(`mov rax, [rdx+${fieldOffset}]`)
+                const field = fields[index]
+                ASM.addCode(field?.isRuntimeTypeTag
+                    ? `mov rax, ${field.value}`
+                    : `mov rax, [rdx+${fieldOffset}]`)
                 ASM.addCode(`mov [rcx+${fieldOffset}], rax`)
             })
         }else if(assignment.target.type==='number'&&assignment.target.numericKind==='float'){
@@ -155,7 +159,7 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         if(!classType||!instance||offset===null){
             throw new Error('Class property assignment is not initialized')
         }
-        const fields = getStructFields(classType.props,name=>assignment.parent!.getClass(name))
+        const fields = getClassInstanceFields(classType,classType.props,name=>assignment.parent!.getClass(name))
         if(source.isParameter){
             ASM.addCode(`mov rdx, ${source.name}`)
         }else if(source.isHeapAllocated||source.isReferenceAlias){
@@ -171,7 +175,10 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         }
         fields.forEach((_,index)=>{
             const fieldOffset = index*8
-            ASM.addCode(`mov rax, [rdx+${fieldOffset}]`)
+            const field = fields[index]
+            ASM.addCode(field?.isRuntimeTypeTag
+                ? `mov rax, ${field.value}`
+                : `mov rax, [rdx+${fieldOffset}]`)
             ASM.addCode(`mov [r8+${fieldOffset}], rax`)
         })
         return
@@ -352,7 +359,7 @@ export function emitAssign(assignment:Assign,ASM:Asm){
             if(!classType){
                 throw new Error(`Unknown class type "${classTypeName}"`)
             }
-            const fields = getStructFields(classType.props,name=>assignment.parent!.getClass(name))
+            const fields = getClassInstanceFields(classType,classType.props,name=>assignment.parent!.getClass(name))
             const id = ++arrayClassInstanceId
             const instance = `__ds_array_class_instance_${id}`
             const allocationError = `__ds_array_class_instance_error_${id}`

@@ -5,6 +5,8 @@ import Asm from "./../asm.ts"
 import ClassElement from './clasElement.ts'
 import Func from './func.ts'
 
+let classRuntimeTypeId = 0
+
 export class Class extends Base{
     element:ClassElement|null = null
     constructor(parent:Base){
@@ -23,11 +25,16 @@ export class Class extends Base{
         if(bodyStart===-1||bodyEnd===-1){
             throw new Error(`Class "${name}" is missing a body`)
         }
+        const isClass = tokens[0]==='class'
         tokens = tokens.slice(bodyStart+1,bodyEnd)
         const element = new ClassElement(name,this.DATA,this.FUNCTIONS,parentClass)
+        if(isClass){
+            element.runtimeTypeId = ++classRuntimeTypeId
+        }
         this.element = element
         this.classElement = element
         this.parent!.addClass(element)
+        Func.predeclareClassMethods(this,tokens)
         const tokenizer2 = new Tokenizer('')
         tokenizer2.tokens = tokens
         Make.compile(ASM,this,tokenizer2,null)
@@ -39,6 +46,10 @@ export class Class extends Base{
     }
     asm(ASM:Asm){
         const props:string[] = []
+        const runtimeTypeId = this.element!.runtimeTypeId
+        if(runtimeTypeId!==null){
+            props.push(`    __ds_runtime_type_${runtimeTypeId} dq ${runtimeTypeId}`)
+        }
         const addProperties = (classType:ClassElement,prefix='')=>{
             for(const prop of classType.props){
                 if(prop.classType&&!prop.isArray){
@@ -46,10 +57,19 @@ export class Class extends Base{
                     if(!nestedClass){
                         throw new Error(`Unknown class type "${prop.classType}" for property "${prop.name}"`)
                     }
+                    if(nestedClass.runtimeTypeId!==null){
+                        props.push(`    ${prefix}${prop.name}__ds_runtime_type_${nestedClass.runtimeTypeId} dq ${nestedClass.runtimeTypeId}`)
+                    }
                     addProperties(nestedClass,`${prefix}${prop.name}_`)
                     continue
                 }
                 const name = `${prefix}${prop.name}`
+                if(prop.isArray&&prop.dynamicArray){
+                    props.push(`    ${name} dq 0`)
+                    props.push(`    ${name}__length dq 0`)
+                    props.push(`    ${name}__capacity dq 0`)
+                    continue
+                }
                 const value = prop.type==='string'?'0':prop.value||'0'
                 const type = 'dq'
                 props.push(`    ${name} ${type} ${value}`)

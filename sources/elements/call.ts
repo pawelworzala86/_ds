@@ -60,7 +60,6 @@ export class Call extends Base{
     nestedArgumentCalls = new Map<FunctionArgument,Call>()
     prototypeMethod = false
     prototypeReceiver = false
-    arrayPushId:number|null = null
     noOp = false
     superCall = false
     constructor(parent:Base){

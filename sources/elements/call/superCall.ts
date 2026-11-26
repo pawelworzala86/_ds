@@ -1,6 +1,7 @@
 import Asm from '../../asm.ts'
 import DataElement from '../dataElement.ts'
 import {stringData} from '../../stringLiteral.ts'
+import {getClassArgumentCode} from './classArgument.ts'
 import type {Call} from '../call.ts'
 
 let superStringId = 0
@@ -22,7 +23,7 @@ export function emitSuperCall(call:Call,ASM:Asm){
             const expected = call.func!.params[index]
             const value = param.value instanceof DataElement&&param.value.isArray
                 ? param.getArrayArgumentCode(Boolean(expected?.dynamicArray))
-                : param.getCode(true)
+                : getClassArgumentCode(param,expected?.type,call)??param.getCode(true)
             if(value===null){
                 throw new Error(`Unable to resolve parent method argument ${index+1}`)
             }
