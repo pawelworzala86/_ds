@@ -46,13 +46,20 @@ console.log(testArrayD)
 
 class TestClass {
     numA: number = 111
+    lastValue: number = 0
+    baseMethodCalls: number = 0
     show(value: number) {
+        this.baseMethodCalls++
+        this.lastValue = value
         console.log('base class array method', this.numA, value)
     }
 }
 
 class TestDerivedClass extends TestClass {
+    derivedMethodCalls: number = 0
     show(value: number) {
+        this.derivedMethodCalls++
+        this.lastValue = value
         console.log('derived class array method', this.numA, value)
     }
 }
@@ -61,6 +68,9 @@ const arrayTest:TestClass[] = []
 arrayTest[0] = new TestClass()
 
 console.log(arrayTest[0].numA)
+assertNumber(arrayTest[0].numA, 111)
+arrayTest[0].numA = 222
+assertNumber(arrayTest[0].numA, 222)
 
 class TestContainer {
     items: TestClass[] = []
@@ -80,7 +90,13 @@ const testContainer:TestContainer = new TestContainer()
 const arrayMethodTestItem:TestDerivedClass = new TestDerivedClass()
 testContainer.add(arrayMethodTestItem)
 testContainer.showFirst()
+assertNumber(arrayMethodTestItem.derivedMethodCalls, 1)
+assertNumber(arrayMethodTestItem.baseMethodCalls, 0)
+assertNumber(arrayMethodTestItem.lastValue, 123)
 showTestClass(arrayMethodTestItem)
+assertNumber(arrayMethodTestItem.derivedMethodCalls, 2)
+assertNumber(arrayMethodTestItem.baseMethodCalls, 0)
+assertNumber(arrayMethodTestItem.lastValue, 456)
 
 
 const arrayAny:any[] = []

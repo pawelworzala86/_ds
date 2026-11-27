@@ -12,6 +12,24 @@ function assertNumber(actual:number, expected:number) {
     }
 }
 
+class PromiseValue {
+    value:number
+    constructor(value:number) {
+        this.value = value
+    }
+}
+
+let promiseAllIndex:number = 0
+
+function assertPromiseAllValue(value:PromiseValue) {
+    if (promiseAllIndex === 0) {
+        assertNumber(value.value, 10)
+    } else {
+        assertNumber(value.value, 20)
+    }
+    promiseAllIndex++
+}
+
 async function setNumA(value:number) {
     numA = value
 }
@@ -35,6 +53,22 @@ const timerId:Task = setTimeout(() => {
 }, 5000)
 clearTimeout(timerId)
 assertNumber(numC, 0)
+
+const slowPromise:Promise<PromiseValue> = new Promise((resolve,reject) => {
+    setTimeout(() => {
+        resolve(new PromiseValue(10))
+    }, 100)
+})
+const fastPromise:Promise<PromiseValue> = new Promise((resolve,reject) => {
+    setTimeout(() => {
+        resolve(new PromiseValue(20))
+    }, 10)
+})
+const orderedPromise:Promise<PromiseValue[]> = Promise.all([slowPromise,fastPromise])
+orderedPromise.then(values => {
+    values.forEach(assertPromiseAllValue)
+})
+assertNumber(promiseAllIndex, 2)
 
 msvcrt.printf('async tests passed\n')
 kernel.ExitProcess(0)

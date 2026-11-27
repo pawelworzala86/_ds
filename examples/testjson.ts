@@ -10,8 +10,12 @@ let json:any = JSON.parse(text)
 const serialized:string = JSON.stringify(json,null,4)
 const serializedFiltered:string = JSON.stringify(json,['propA','numbers'],2)
 const serializedNumericReplacer:string = JSON.stringify(json,[1,2],2)
+const serializedTextReplacer:string = JSON.stringify(json,['profile','enabled','nickname','label'],2)
+const serializedMixedReplacer:string = JSON.stringify(json,[1,'profile','numbers','enabled','nickname','label'],2)
 const serializedProfile:string = JSON.stringify(json.profile)
 const serializedNumericSpace:string = JSON.stringify(json.profile,null,2)
+const serializedStringSpace:string = JSON.stringify(json.profile,null,'  ')
+const serializedCompactProfile:string = JSON.stringify(json.profile,null,0)
 let rootArray:any = JSON.parse('[1,2,3]')
 const serializedArray:string = JSON.stringify(rootArray)
 const serializedMixed:string = JSON.stringify(json.mixed)
@@ -30,8 +34,13 @@ function assertString(actual:string, expected:string) {
     }
 }
 
+assertString(serializedFiltered, '{\n  "propA": "valueA",\n  "numbers": [\n    2,\n    4,\n    8\n  ]\n}')
 assertString(serializedNumericReplacer, '{}')
+assertString(serializedTextReplacer, '{\n  "profile": {\n    "enabled": true,\n    "nickname": null,\n    "label": "admin"\n  }\n}')
+assertString(serializedMixedReplacer, '{\n  "profile": {\n    "enabled": true,\n    "nickname": null,\n    "label": "admin"\n  },\n  "numbers": [\n    2,\n    4,\n    8\n  ]\n}')
 assertString(serializedNumericSpace, '{\n  "enabled": true,\n  "nickname": null,\n  "label": "admin"\n}')
+assertString(serializedStringSpace, '{\n  "enabled": true,\n  "nickname": null,\n  "label": "admin"\n}')
+assertString(serializedCompactProfile, '{"enabled":true,"nickname":null,"label":"admin"}')
 
 console.log(json.propA, json.profile.label, json.profile.enabled, json.profile.nickname, json.numbers[1], json.flags[1], json.labels[0], json.mixed[1], rootArray[1])
 console.log(rootBoolean, rootNull)

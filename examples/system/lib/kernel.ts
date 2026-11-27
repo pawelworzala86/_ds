@@ -2,6 +2,7 @@ export declare function ExitProcess(...args:any[]):any//kernel32
 export declare function GetModuleHandleA(...args:any[]):any//kernel32
 export declare function Sleep(...args:any[]):any//kernel32
 export declare function GetTickCount64(...args:any[]):any//kernel32
+export declare function GetTempPathA(...args:any[]):any//kernel32
 
 
 export declare function CreateFileA(...args:any[]):any//kernel32

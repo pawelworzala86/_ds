@@ -7,7 +7,7 @@ const OPEN_EXISTING:number = 3
 const CREATE_ALWAYS:number = 2
 const FILE_ATTRIBUTE_NORMAL:number = 0x80
 
-export function readFileSync(fileName:string):ArrayBuffer{
+export function readFileSync(fileName:any):ArrayBuffer{
 
     let handle:number = 0
     let fsize:number = 0
@@ -40,7 +40,7 @@ export function readFileSync(fileName:string):ArrayBuffer{
     return buffer
 }
 
-export function writeFileSync(fileName:string,contents:any){
+export function writeFileSync(fileName:any,contents:any){
 
     const contentSize:number = msvcrt.strlen(contents)
     let handle:number = 0

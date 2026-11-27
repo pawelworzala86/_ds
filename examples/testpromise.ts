@@ -24,6 +24,13 @@ function assertNumber(actual:number, expected:number) {
     }
 }
 
+let executorRejectCount:number = 0
+
+function assertExecutorRejectReason(reason:number) {
+    assertNumber(reason, 23)
+    executorRejectCount++
+}
+
 let promiseAllCatchCount:number = 0
 
 function showUnexpectedAll(values:number[]) {
@@ -48,6 +55,12 @@ const executorResolved:Promise<number> = new Promise((resolve,reject) => {
 })
 executorResolved.then(showValue)
 
+const executorRejected:Promise<number> = new Promise((resolve,reject) => {
+    reject(23)
+})
+executorRejected.catch(assertExecutorRejectReason)
+assertNumber(executorRejectCount, 1)
+
 const text:Promise<string> = Promise.resolve('ready')
 text.then(showText)
 
@@ -63,17 +76,29 @@ class MyClass {
     }
 }
 
-/*function showClass(value:MyClass){
-    console.log('promise class callback:',value.value)
-}*/
+function assertClassValue(value:MyClass) {
+    assertNumber(value.value, 44)
+}
+
+let promiseAllClassIndex:number = 0
+
+function assertPromiseAllClassValue(value:MyClass) {
+    if (promiseAllClassIndex === 0) {
+        assertNumber(value.value, 44)
+    } else {
+        assertNumber(value.value, 55)
+    }
+    promiseAllClassIndex++
+}
 
 const executorRes:Promise<MyClass> = new Promise((resolve,reject) => {
     setTimeout(() => {
         resolve(new MyClass(44))
     }, 1000)
 })
-//executorRes.then(showClass)
+executorRes.then(assertClassValue)
 let executorResValue:MyClass = await executorRes
+assertNumber(executorResValue.value, 44)
 console.log('executorResValue:',executorResValue.value)
 
 
@@ -83,19 +108,18 @@ console.log('executorResValue:',executorResValue.value)
 const promise1:Promise<MyClass> = new Promise((resolve,reject) => {
     setTimeout(() => {
         resolve(new MyClass(44))
-    }, 1000)
+    }, 100)
 })
 const promise2:Promise<MyClass> = new Promise((resolve,reject) => {
     setTimeout(() => {
-        resolve(new MyClass(44))
-    }, 1000)
+        resolve(new MyClass(55))
+    }, 10)
 })
 const allPromises:Promise<MyClass[]> = Promise.all([promise1,promise2])
 allPromises.then(values => {
-    values.forEach(value => {
-        console.log('allPromises value:', value.value)
-    })
+    values.forEach(assertPromiseAllClassValue)
 })
+assertNumber(promiseAllClassIndex, 2)
 
 const resolvedNumber:Promise<number> = Promise.resolve(21)
 const rejectedAll:Promise<number[]> = Promise.all([resolvedNumber,rejected])
@@ -103,6 +127,5 @@ rejectedAll.then(showUnexpectedAll)
 rejectedAll.catch(showAllError)
 assertNumber(promiseAllCatchCount, 1)
 
-
-
+msvcrt.printf('promise tests passed\n')
 kernel.ExitProcess(0)

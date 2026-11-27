@@ -2,20 +2,15 @@ import * as msvcrt from './system/lib/msvcrt.ts'
 import * as kernel from './system/lib/kernel.ts'
 
 class cKlasa{
+    value:number = 0
     constructor(){
         console.log("cKlasa instance created");
     }
     sayHello(){
+        this.value++;
         console.log("Hello from cKlasa");
     }
 }
-
-function testFunction(){
-    const instance = new cKlasa();
-    instance.sayHello();
-    return instance;
-}
-testFunction().sayHello()
 
 function assertNumber(actual:number, expected:number) {
     if (actual !== expected) {
@@ -30,6 +25,30 @@ function assertString(actual:string, expected:string) {
         kernel.ExitProcess(1)
     }
 }
+
+function assertSameInstance(actual:cKlasa, expected:cKlasa) {
+    if (actual !== expected) {
+        msvcrt.printf('default argument test failed: function returned a different instance\n')
+        kernel.ExitProcess(1)
+    }
+}
+
+function testFunction(instance:cKlasa){
+    instance.sayHello();
+    return instance;
+}
+
+const firstInstance = new cKlasa();
+const firstResult:cKlasa = testFunction(firstInstance);
+assertSameInstance(firstResult, firstInstance)
+assertNumber(firstResult.value, 1)
+
+const secondInstance = new cKlasa();
+secondInstance.value = 10;
+const secondResult:cKlasa = testFunction(secondInstance);
+assertSameInstance(secondResult, secondInstance)
+assertNumber(secondResult.value, 11)
+assertNumber(firstInstance.value, 1)
 
 function funcA(a:number,b:number=10,c:string='test',klasa:cKlasa=new cKlasa()){
     if (a === 5) {
