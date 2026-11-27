@@ -201,10 +201,12 @@ export function emitExpression(expression:Expression,ASM:Asm){
         }
         const instance = expression.value.classPropertyInstance
         const offset = expression.value.classPropertyOffset
-        if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null){
-            ASM.addCode(instance.isHeapAllocated
-                ? `mov rdx, [${instance.name}]`
-                : `lea rdx, [${instance.name}]`)
+        if((instance?.isParameter||instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null){
+            ASM.addCode(instance.isParameter
+                ? `mov rdx, ${instance.name}`
+                : instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
             if(offset){
                 ASM.addCode(`add rdx, ${offset}`)
             }

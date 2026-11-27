@@ -17,10 +17,12 @@ export function emitAssign(assignment:Assign,ASM:Asm){
     const storeTarget = (value:string,asFloat=false)=>{
         const instance = assignment.target?.classPropertyInstance
         const offset = assignment.target?.classPropertyOffset
-        if((instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null&&offset!==undefined){
-            ASM.addCode(instance.isHeapAllocated
-                ? `mov rdx, [${instance.name}]`
-                : `lea rdx, [${instance.name}]`)
+        if((instance?.isParameter||instance?.isProcedureLocal||instance?.isReferenceAlias)&&offset!==null&&offset!==undefined){
+            ASM.addCode(instance.isParameter
+                ? `mov rdx, ${instance.name}`
+                : instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
             ASM.addCode(asFloat
                 ? `movsd qword [rdx+${offset}], ${value}`
                 : `mov [rdx+${offset}], ${value}`)

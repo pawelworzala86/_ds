@@ -4,10 +4,6 @@
 - [ ] Dodać sprawdzanie oczekiwanych wyników dla przykładów: większość tylko wypisuje wartości, więc nie wykrywa regresji; wzorem są asercje w `testobj.ts`.
 
 ## Pokrycie funkcji języka
-- [ ] `testprototype.ts` i `test2.ts`: dodać asercje wyników metod `prototype` (w tym dla aliasów typów), a nie tylko wywołania wypisujące wartości.
-- [ ] `test2.ts`: sprawdzić przypisania i przekazywanie wartości przez aliasy prostych typów, tablic i klas oraz zachowanie aliasów łańcuchowych; obecnie część funkcji tylko wypisuje wartości albo nie ma widocznego efektu.
-- [ ] `teststruct.ts`: zweryfikować oczekiwane wartości pól po przypisaniu, destrukturyzacji i przekazaniu struktury do funkcji; obecny przykład nie sprawdza wyniku tych operacji.
-- [ ] `testobj.ts`: dodać asercje dla kolejności zdarzeń konstruktora bazowego/pochodnego, wywołania `super` i nadpisania metody przez referencję typu bazowego; te zachowania są obecnie widoczne wyłącznie w wydruku.
 - [ ] `testlog.ts`: sprawdzić dokładny format wyjścia dla tablic zagnieżdżonych, pustych struktur i obiektów z polami logicznymi; obecny przykład pokazuje tylko wybrane kształty danych bez porównania wyniku.
 - [ ] `testasync.ts` i `testpromise.ts`: sprawdzić różne czasy rozstrzygnięcia wejść `Promise.all` i potwierdzić, że wynik zachowuje kolejność wejściową, niezależnie od kolejności zakończenia.
 - [ ] `testpromise.ts`: sprawdzić bezpośrednie odrzucenie w executorze, obsługę wyniku klasy przez callback oraz sytuację, gdy odrzuca się tylko jedno z kilku wejść `Promise.all`.
@@ -15,7 +11,6 @@
 - [ ] `testbuffer.ts`: sprawdzić widoki bufora z niezerowym offsetem, ograniczoną długością, offsetem poza buforem i offsetem niezgodnym z rozmiarem elementu; dopasować oczekiwane błędy do kontraktu kompilatora.
 - [ ] `testjson.ts`: sprawdzić serializację zagnieżdżonych struktur po wybraniu `replacer` tekstowego i liczbowego oraz dla różnych wartości `space`; porównać dokładny wynik JSON, nie tylko go wypisać.
 - [ ] `testregexpr.ts`: pokryć puste elementy wyniku przy separatorach na początku/końcu i sąsiadujących separatorach oraz sprawdzić wielkość liter i flagi; błędy kompilacji powinny być testowane osobno od poprawnych wzorców.
-- [ ] `teststr.ts`: sprawdzić `charCodeAt` na pierwszym i ostatnim znaku oraz poza zakresem, a także zachowanie metod zakresów i wyszukiwania przy pustym tekście wejściowym.
 - [ ] `testarray.ts`: sprawdzić dispatch nadpisanej metody po zapisaniu obiektu pochodnego do tablicy typu bazowego oraz odczyt/zapis pól obiektu przez indeks; przykład demonstruje wywołanie metody, ale nie asercje jej zachowania.
 - [ ] `testchain.ts` i `test1.ts`: sprawdzić zwracanie właściwej instancji z funkcji i metod oraz zachowanie metod przy kilku instancjach, aby wykryć przypadkowe współdzielenie stanu.
 - [ ] `testfs.ts`: izolować testy w katalogu tymczasowym i sprzątać pliki po teście; obecny przykład zapisuje `write.txt` w katalogu roboczym i może zależeć od pozostałości poprzedniego uruchomienia.
