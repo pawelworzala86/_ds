@@ -60,7 +60,6 @@ export function perspective(out:float[], fovy:float, aspect:float, near:float, f
   const nf:number = 1 / (near - far);
   out[10] = (far + near) * nf;
   out[14] = 2 * far * near * nf;
-  out[14] = -2.0202020202020203
 }
 
 export function translate(out:float[], a:float[], v:float[]) {

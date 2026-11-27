@@ -4,18 +4,9 @@
 - [ ] Dodać sprawdzanie oczekiwanych wyników dla przykładów: większość tylko wypisuje wartości, więc nie wykrywa regresji; wzorem są asercje w `testobj.ts`.
 
 ## Pokrycie funkcji języka
-- [ ] `testbuffer.ts`: objąć testami pozostałe typy z obsługiwanej listy (`Int8Array`, `Int16Array`, `Int32Array`, `Uint32Array`); sprawdzić konstruktor z długością oraz widoki `ArrayBuffer` z offsetem/długością i oczekiwanym porządkiem bajtów.
-- [ ] `testbuffer.ts`: sprawdzić dokładne wartości konwersji i graniczne indeksy `slice` (puste zakresy, indeksy poza zakresem oraz niezależność wyniku od źródła, jeśli zapis elementów stanie się obsługiwany).
-- [ ] `testjson.ts`: sprawdzić odrzucenie niepoprawnego JSON-u i warianty `JSON.stringify` z liczbowym `replacer`/`space`; obecne przykłady tylko wypisują wyniki, a `replacer` pokazuje wyłącznie listę nazw pól.
-- [ ] `testregexpr.ts`: dodać asercje wyników podziału, przechwytywania separatorów i zamian oraz testy błędów dla nieobsługiwanych wzorców (np. dopasowania pustego tekstu); callback i `replaceAll` są już demonstrowane w `teststr.ts`.
-- [ ] `teststr.ts`: dodać asercje dla wartości brzegowych metod tekstowych, m.in. pustego tekstu, indeksów spoza zakresu, powtórzeń i zamiany; aktualnie wyniki są tylko wypisywane.
-- [ ] `testfs.ts`: sprawdzić zawartość zapisanego pliku i odczyt pustego pliku oraz jawnie określić oczekiwane zachowanie dla brakującego pliku; przykład zależy od `test.txt` i nie weryfikuje wyniku.
-- [ ] `testmat4.ts`: porównać elementy macierzy po `create`, `translate` i `perspective` z oczekiwanymi wartościami, zamiast polegać na ręcznym odczycie wydruku.
-- [ ] `testchain.ts`: sprawdzić, że każde wywołanie łańcuchowe zwraca tę samą instancję; obecnie przykład potwierdza jedynie, że nie zgłasza błędu.
 - [ ] `testprototype.ts` i `test2.ts`: dodać asercje wyników metod `prototype` (w tym dla aliasów typów), a nie tylko wywołania wypisujące wartości.
 - [ ] `test2.ts`: sprawdzić przypisania i przekazywanie wartości przez aliasy prostych typów, tablic i klas oraz zachowanie aliasów łańcuchowych; obecnie część funkcji tylko wypisuje wartości albo nie ma widocznego efektu.
 - [ ] `teststruct.ts`: zweryfikować oczekiwane wartości pól po przypisaniu, destrukturyzacji i przekazaniu struktury do funkcji; obecny przykład nie sprawdza wyniku tych operacji.
-- [ ] `testtype.ts`: dodać przypadki `typeof` dla liczby i tablicy oraz negatywny `instanceof`; obecnie sprawdzany jest tylko pozytywny `instanceof` i wybrane typy.
 - [ ] `testobj.ts`: dodać asercje dla kolejności zdarzeń konstruktora bazowego/pochodnego, wywołania `super` i nadpisania metody przez referencję typu bazowego; te zachowania są obecnie widoczne wyłącznie w wydruku.
 - [ ] `testlog.ts`: sprawdzić dokładny format wyjścia dla tablic zagnieżdżonych, pustych struktur i obiektów z polami logicznymi; obecny przykład pokazuje tylko wybrane kształty danych bez porównania wyniku.
 - [ ] `testasync.ts` i `testpromise.ts`: sprawdzić różne czasy rozstrzygnięcia wejść `Promise.all` i potwierdzić, że wynik zachowuje kolejność wejściową, niezależnie od kolejności zakończenia.

@@ -1,6 +1,20 @@
 import * as msvcrt from './system/lib/msvcrt.ts'
 import * as kernel from './system/lib/kernel.ts'
 
+function assertNumber(actual:number, expected:number) {
+    if (actual !== expected) {
+        msvcrt.printf('string test failed: expected %i, received %i\n', expected, actual)
+        kernel.ExitProcess(1)
+    }
+}
+
+function assertString(actual:string, expected:string) {
+    if (actual !== expected) {
+        msvcrt.printf('string test failed: expected "%s", received "%s"\n', expected, actual)
+        kernel.ExitProcess(1)
+    }
+}
+
 msvcrt.printf('start\n')
 
 
@@ -49,10 +63,14 @@ let substringRange: string = 'placeholder'
 let substringToEnd: string = 'placeholder'
 let substringReversed: string = 'placeholder'
 let substringClamped: string = 'placeholder'
+let substringBeyond: string = 'placeholder'
+let substringBothNegative: string = 'placeholder'
 substringRange = substringText.substring(2, 6)
 substringToEnd = substringText.substring(7)
 substringReversed = substringText.substring(6, 2)
 substringClamped = substringText.substring(-3, 99)
+substringBeyond = substringText.substring(99)
+substringBothNegative = substringText.substring(-5, -2)
 msvcrt.printf('substring: %s, to end: %s, reversed: %s, clamped: %s\n', substringRange, substringToEnd, substringReversed, substringClamped)
 
 let sliceText: string = '0123456789'
@@ -60,10 +78,14 @@ let sliceRange: string = 'placeholder'
 let sliceFromEnd: string = 'placeholder'
 let sliceNegativeRange: string = 'placeholder'
 let sliceEmpty: string = 'placeholder'
+let sliceBeyond: string = 'placeholder'
+let sliceNegativeStart: string = 'placeholder'
 sliceRange = sliceText.slice(2, 6)
 sliceFromEnd = sliceText.slice(-4)
 sliceNegativeRange = sliceText.slice(-7, -3)
 sliceEmpty = sliceText.slice(8, 3)
+sliceBeyond = sliceText.slice(99)
+sliceNegativeStart = sliceText.slice(-99, 2)
 msvcrt.printf('slice: %s, from end: %s, negative range: %s, empty: "%s"\n', sliceRange, sliceFromEnd, sliceNegativeRange, sliceEmpty)
 
 let concatText: string = 'compiler'
@@ -90,9 +112,11 @@ let replaceAllText: string = 'red red'
 let replaceAllString: string = 'placeholder'
 let replaceAllRegExp: string = 'placeholder'
 let replaceAllEmpty: string = 'placeholder'
+let replaceMissing: string = 'placeholder'
 replaceAllString = replaceAllText.replaceAll('red', 'blue')
 replaceAllRegExp = replaceAllText.replaceAll(/red/g, 'green')
 replaceAllEmpty = replaceAllText.replaceAll('', '-')
+replaceMissing = replaceText.replace('missing', 'blue')
 msvcrt.printf('replaceAll string: %s, regex: %s, empty: %s\n', replaceAllString, replaceAllRegExp, replaceAllEmpty)
 
 let caseText: string = 'Hello, World! 123'
@@ -116,10 +140,34 @@ rightTrimmedText = whitespaceText.trimEnd()
 msvcrt.printf('trim: "%s", start: "%s", end: "%s"\n', trimmedText, leftTrimmedText, rightTrimmedText)
 
 let repeatText: string = 'ab'
+let emptyText: string = ''
 let repeatedText: string = 'placeholder'
 let repeatedZero: string = 'placeholder'
+let repeatedEmpty: string = 'placeholder'
 repeatedText = repeatText.repeat(3)
 repeatedZero = repeatText.repeat(0)
-msvcrt.printf('repeat: %s, zero: "%s"\n', repeatedText, repeatedZero)
+repeatedEmpty = emptyText.repeat(3)
+msvcrt.printf('repeat: %s, zero: "%s", empty: "%s"\n', repeatedText, repeatedZero, repeatedEmpty)
+
+let emptyTextIndex: number = emptyText.indexOf('')
+let emptyTextMissingIndex: number = emptyText.indexOf('x')
+let emptyTextIncludes: boolean = emptyText.includes('')
+let emptyTextNotIncludes: boolean = emptyText.includes('x')
+assertNumber(emptyTextIndex, 0)
+assertNumber(emptyTextMissingIndex, -1)
+if (!emptyTextIncludes || emptyTextNotIncludes) {
+    msvcrt.printf('string test failed: empty text search\n')
+    kernel.ExitProcess(1)
+}
+
+assertString(substringBeyond, '')
+assertString(substringBothNegative, '')
+assertString(sliceBeyond, '')
+assertString(sliceNegativeStart, '01')
+assertString(repeatedText, 'ababab')
+assertString(repeatedZero, '')
+assertString(repeatedEmpty, '')
+assertString(replaceMissing, 'red red')
+assertString(replaceAllEmpty, '-r-e-d- -r-e-d-')
 
 kernel.ExitProcess(0)

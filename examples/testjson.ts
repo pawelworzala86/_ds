@@ -1,4 +1,5 @@
 import * as msvcrt from './system/lib/msvcrt.ts'
+import * as kernel from './system/lib/kernel.ts'
 
 
 
@@ -8,7 +9,9 @@ const text:string = '{"propA":"valueA","profile":{"enabled":true,"nickname":null
 let json:any = JSON.parse(text)
 const serialized:string = JSON.stringify(json,null,4)
 const serializedFiltered:string = JSON.stringify(json,['propA','numbers'],2)
+const serializedNumericReplacer:string = JSON.stringify(json,[1,2],2)
 const serializedProfile:string = JSON.stringify(json.profile)
+const serializedNumericSpace:string = JSON.stringify(json.profile,null,2)
 let rootArray:any = JSON.parse('[1,2,3]')
 const serializedArray:string = JSON.stringify(rootArray)
 const serializedMixed:string = JSON.stringify(json.mixed)
@@ -20,6 +23,16 @@ let emptyArray:any = JSON.parse('[]')
 const serializedEmptyObject:string = JSON.stringify(emptyObject)
 const serializedEmptyArray:string = JSON.stringify(emptyArray)
 
+function assertString(actual:string, expected:string) {
+    if (actual !== expected) {
+        msvcrt.printf('json test failed: expected %s, received %s\n', expected, actual)
+        kernel.ExitProcess(1)
+    }
+}
+
+assertString(serializedNumericReplacer, '{}')
+assertString(serializedNumericSpace, '{\n  "enabled": true,\n  "nickname": null,\n  "label": "admin"\n}')
+
 console.log(json.propA, json.profile.label, json.profile.enabled, json.profile.nickname, json.numbers[1], json.flags[1], json.labels[0], json.mixed[1], rootArray[1])
 console.log(rootBoolean, rootNull)
 msvcrt.printf(' JSON: %s ', serialized)
@@ -29,3 +42,6 @@ msvcrt.printf(' ARRAY: %s ', serializedArray)
 msvcrt.printf(' MIXED: %s ', serializedMixed)
 msvcrt.printf(' BOOLEAN: %s ', serializedBoolean)
 msvcrt.printf(' EMPTY: %s %s ', serializedEmptyObject, serializedEmptyArray)
+
+msvcrt.printf('json tests passed\n')
+kernel.ExitProcess(0)

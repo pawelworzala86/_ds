@@ -20,6 +20,11 @@ export function readFileSync(fileName:string):ArrayBuffer{
     //mov handle, rax
     //msvcrt.printf(" h %i ",handle)
 
+    if (handle == -1) {
+        msvcrt.printf('Unable to open file for reading: %s\n', fileName)
+        kernel.ExitProcess(1)
+    }
+
     fsize = kernel.GetFileSize(handle, 0)
     //mov fsize, rax
     //msvcrt.printf(" sz %i ",fsize)
@@ -42,6 +47,11 @@ export function writeFileSync(fileName:string,contents:any){
     let bytesWritten:number = 0
 
     handle = kernel.CreateFileA(fileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0)
+    if (handle == -1) {
+        msvcrt.printf('Unable to open file for writing: %s\n', fileName)
+        kernel.ExitProcess(1)
+    }
+
     kernel.WriteFile(handle, contents, contentSize, &bytesWritten, 0)
     kernel.CloseHandle(handle)
 }

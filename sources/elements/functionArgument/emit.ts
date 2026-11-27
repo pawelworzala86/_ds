@@ -228,10 +228,15 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
         }else if(typedArrayInfo){
             const width = typedArrayInfo.bytesPerElement
             const operand = width===1?'byte':width===2?'word':'dword'
-            const extension = typedArrayInfo.signed
-                ? width===4?'movsxd rax, dword [rdx]':`movsx rax, ${operand} [rdx]`
-                : width===4?'mov eax, dword [rdx]':`movzx rax, ${operand} [rdx]`
-            ASM.addCode(extension)
+            if(typedArrayInfo.signed&&width===4){
+                ASM.addCode('mov eax, dword [rdx]')
+                ASM.addCode('cdqe')
+            }else{
+                const extension = typedArrayInfo.signed
+                    ? `movsx rax, ${operand} [rdx]`
+                    : width===4?'mov eax, dword [rdx]':`movzx rax, ${operand} [rdx]`
+                ASM.addCode(extension)
+            }
             ASM.addCode(`mov [${argument.tempName}], rax`)
         }else{
             ASM.addCode('mov rax, [rdx]')

@@ -20,6 +20,28 @@ if(obj instanceof cTest) {
     msvcrt.printf('obj is an instance of cTest\n');
 }
 
+class cOtherTest {
+    constructor() {}
+}
+
+const numericValue:number = 42
+const numericValues:number[] = [1, 2, 3]
+
+if(typeof numericValue !== 'number') {
+    msvcrt.printf('type test failed: typeof number\n')
+    kernel.ExitProcess(1)
+}
+
+if(typeof numericValues !== 'object') {
+    msvcrt.printf('type test failed: typeof array\n')
+    kernel.ExitProcess(1)
+}
+
+if(obj instanceof cOtherTest) {
+    msvcrt.printf('type test failed: unrelated instanceof\n')
+    kernel.ExitProcess(1)
+}
+
 if(typeof obj === 'string') {
     msvcrt.printf('obj is an typeof object\n');
 }else{

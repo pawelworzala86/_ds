@@ -555,6 +555,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         &&type==='number'
         &&!arrayType
         &&!classType
+        &&!typedArrayInitializer
         &&!runtimeInitializer
         &&/^[+-]?(?:0x[0-9a-f]+|[0-9a-f]+h|\d+)$/i.test(value??'')
     data.element.isExportedConstAlias = data.element.isConstAlias
