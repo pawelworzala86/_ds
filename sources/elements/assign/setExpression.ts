@@ -335,7 +335,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
         const tokenizer = new Tokenizer(expression.trim())
         call.set(tokenizer)
         if(!tokenizer.has()
-            &&(call.func||call.functionVariable||call.builtinStringCharCodeAt)
+            &&(call.func||call.functionVariable||call.builtinStringCharCodeAt||call.builtinArray)
             &&!call.func?.isAsync
             &&!call.prototypeMethod){
             assignment.functionCall = call

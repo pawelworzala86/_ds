@@ -183,6 +183,15 @@ export function emitArrayPush(call:Call,ASM:Asm){
         }else{
             ASM.addCode(`inc qword [${lengthName}]`)
         }
+        if(dynamicProperty){
+            emitPropertyBase()
+            ASM.addCode('mov rax, [rdx+8]')
+        }else if(dynamicParameter){
+            ASM.addCode(`mov rdx, ${array.name}`)
+            ASM.addCode('mov rax, [rdx+8]')
+        }else{
+            ASM.addCode(`mov rax, [${lengthName}]`)
+        }
         ASM.addCode(`jmp ${errorLabel}_done`)
         ASM.addCode(`${errorLabel}:`)
         ASM.addCode('mov ecx, 1')

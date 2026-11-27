@@ -4,8 +4,6 @@
 - [ ] Dodać sprawdzanie oczekiwanych wyników dla przykładów: większość tylko wypisuje wartości, więc nie wykrywa regresji; wzorem są asercje w `testobj.ts`.
 
 ## Pokrycie funkcji języka
-- [ ] `test1.ts`: sprawdzić jawne argumenty i kombinacje argumentów domyślnych (w tym pominięcie tylko części argumentów), a nie tylko wywołanie z jednym argumentem.
-- [ ] `testarray.ts`: sprawdzić indeksowanie tablicy dynamicznej z luką (indeks 1 jest obecnie zakomentowany), pustą tablicę, wynik `push`/`length` oraz odczyt poza zakresem.
 - [ ] `testiff.ts`: doprowadzić wykonanie do fałszywego `if`, kolejnych gałęzi `else if` i końcowego `else`; obecne warunki wybierają głównie gałęzie prawdziwe.
 - [ ] `testfor.ts` i `testwhile.ts`: dodać przypadki pętli, która nie wykona się ani razu, oraz iteracji `for...in` po pustej i rzadkiej tablicy; sprawdzić również wyjście przez `break`.
 - [ ] `testswitch.ts`: sprawdzić wykonanie `default` dla liczby i tekstu oraz zachowanie `break` przy dopasowanej gałęzi.
