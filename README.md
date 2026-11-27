@@ -79,7 +79,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testlog.ts` | `console.log` dla argumentów prostych, tablic, obiektów i danych JSON. |
 | `testmat4.ts` | Tworzenie, drukowanie, translacja i macierz perspektywy z modułu `system/gl/mat4.ts`. |
 | `testobj.ts` | Klasy i dziedziczenie oraz operacje na obiektach, `Object.keys`, `Object.assign` i tablice obiektów. |
-| `testpromise.ts` | Promise, callbacki `then`/`catch`, `await` oraz `Promise.all`. |
+| `testpromise.ts` | Promise, callbacki `then`/`catch`, `await` oraz sukces i odrzucenie `Promise.all`. `testpromiseawaitfailure.ts` sprawdza zakończenie procesu po odrzuconym `await`. |
 | `testprototype.ts` | Metody `prototype` dla liczb, tekstu i tablic oraz `push`. |
 | `testregexpr.ts` | Dzielenie tekstu z użyciem wyrażeń regularnych i zastępowanie dopasowań. |
 | `teststr.ts` | Długość, kod znaków, metody wyszukiwania, zakresy, konwersja wielkości liter, przycinanie, powtarzanie i zamiana tekstu. |

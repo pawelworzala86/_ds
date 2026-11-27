@@ -17,6 +17,24 @@ function showFlag(value:boolean){
     msvcrt.printf(' flag=%i ', value)
 }
 
+function assertNumber(actual:number, expected:number) {
+    if (actual !== expected) {
+        msvcrt.printf('promise test failed: expected %i, received %i\n', expected, actual)
+        kernel.ExitProcess(1)
+    }
+}
+
+let promiseAllCatchCount:number = 0
+
+function showUnexpectedAll(values:number[]) {
+    msvcrt.printf('promise test failed: Promise.all unexpectedly resolved\n')
+    kernel.ExitProcess(1)
+}
+
+function showAllError(reason:number[]) {
+    promiseAllCatchCount++
+}
+
 const resolved:Promise<number> = Promise.resolve(42)
 resolved.then(showValue)
 resolved.catch(showError)
@@ -78,6 +96,12 @@ allPromises.then(values => {
         console.log('allPromises value:', value.value)
     })
 })
+
+const resolvedNumber:Promise<number> = Promise.resolve(21)
+const rejectedAll:Promise<number[]> = Promise.all([resolvedNumber,rejected])
+rejectedAll.then(showUnexpectedAll)
+rejectedAll.catch(showAllError)
+assertNumber(promiseAllCatchCount, 1)
 
 
 

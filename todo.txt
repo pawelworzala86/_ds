@@ -4,11 +4,6 @@
 - [ ] Dodać sprawdzanie oczekiwanych wyników dla przykładów: większość tylko wypisuje wartości, więc nie wykrywa regresji; wzorem są asercje w `testobj.ts`.
 
 ## Pokrycie funkcji języka
-- [ ] `testiff.ts`: doprowadzić wykonanie do fałszywego `if`, kolejnych gałęzi `else if` i końcowego `else`; obecne warunki wybierają głównie gałęzie prawdziwe.
-- [ ] `testfor.ts` i `testwhile.ts`: dodać przypadki pętli, która nie wykona się ani razu, oraz iteracji `for...in` po pustej i rzadkiej tablicy; sprawdzić również wyjście przez `break`.
-- [ ] `testswitch.ts`: sprawdzić wykonanie `default` dla liczby i tekstu oraz zachowanie `break` przy dopasowanej gałęzi.
-- [ ] `testasync.ts`: sprawdzić kolejność wykonania i zakończenie funkcji `async` przez `await`; `clearTimeout` jest obecnie zakomentowane, więc anulowanie timera nie jest testowane.
-- [ ] `testpromise.ts`: sprawdzić odrzucenie w `Promise.all` (obecnie testowana jest tylko ścieżka sukcesu) oraz błąd programu po odrzuconym `await`.
 - [ ] `testbuffer.ts`: objąć testami pozostałe typy z obsługiwanej listy (`Int8Array`, `Int16Array`, `Int32Array`, `Uint32Array`); sprawdzić konstruktor z długością oraz widoki `ArrayBuffer` z offsetem/długością i oczekiwanym porządkiem bajtów.
 - [ ] `testbuffer.ts`: sprawdzić dokładne wartości konwersji i graniczne indeksy `slice` (puste zakresy, indeksy poza zakresem oraz niezależność wyniku od źródła, jeśli zapis elementów stanie się obsługiwany).
 - [ ] `testjson.ts`: sprawdzić odrzucenie niepoprawnego JSON-u i warianty `JSON.stringify` z liczbowym `replacer`/`space`; obecne przykłady tylko wypisują wyniki, a `replacer` pokazuje wyłącznie listę nazw pól.
