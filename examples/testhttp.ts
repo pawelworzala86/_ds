@@ -9,12 +9,23 @@ function listenCallback(){
   console.log('Serwer działa');
 };
 
-function requestCallback(req: httpTypes.IncomingMessage, res: httpTypes.ServerResponse){
+function requestCallback(req: httpTypes.Request, res: httpTypes.Response){
   msvcrt.printf('trace: callback start\n')
   msvcrt.fflush(0)
-  //res.statusCode = 200;
-  //res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.end('hello world\n');
+  if (req.isGet()) {
+    res.json({method: 'GET'})
+  } else if (req.isPost()) {
+    res.json({method: 'POST'})
+  } else if (req.isPut()) {
+    res.json({method: 'PUT'})
+  } else if (req.isPatch()) {
+    res.json({method: 'PATCH'})
+  } else if (req.isDelete()) {
+    res.json({method: 'DELETE'})
+  } else {
+    res.statusCode = 405
+    res.json({error:"Method Not Allowed"})
+  }
   msvcrt.printf('trace: callback end\n')
   msvcrt.fflush(0)
 }

@@ -7,11 +7,28 @@ import {parseRegExpLiteral} from '../../regex.ts'
 import Call from '../call.ts'
 import {getPromiseValueTypeFromData} from '../promise.ts'
 import Data from '../data.ts'
+import {createJSONDataElement, getJSONValueFromData, getJSONValueFromProperties} from '../data/json.ts'
+import {parseObjectLiteral} from '../data/struct.ts'
 
 let arrayToStringArgumentId = 0
 let stringCharCodeAtId = 0
 let defaultClassArgumentId = 0
 let functionArgumentCallbackId = 0
+
+function serializeJsonArgument(argument:string, active:Call){
+    const text = argument.trim()
+    const data = active.getData(text)
+    if(data){
+        const value = getJSONValueFromData(data, active)
+        return value===undefined?null:JSON.stringify(value)
+    }
+    if(text.startsWith('{')&&text.endsWith('}')){
+        const properties = parseObjectLiteral(new Tokenizer(text).tokens).map(createJSONDataElement)
+        const value = getJSONValueFromProperties(properties, active)
+        return value===undefined?null:JSON.stringify(value)
+    }
+    return null
+}
 
 export function initializeCall(instance:Call,tokenizer:Tokenizer){
     const name = tokenizer.get()
@@ -144,6 +161,18 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
         instance.func = new FuncElement('__ds_string_transform',[])
     }
     const argumentTexts = tokenizer.getCallArguments()
+    if(instance.methodInstance
+        &&instance.func?.sourceName==='json'
+        &&['any','string'].includes(instance.func.params[0]?.type??'')){
+        if(argumentTexts.length!==1){
+            throw new Error('Response.json expects exactly one object')
+        }
+        const json = serializeJsonArgument(argumentTexts[0],instance)
+        if(json===null){
+            throw new Error('Response.json currently requires a compile-time JSON object')
+        }
+        argumentTexts[0] = JSON.stringify(json)
+    }
     const prototypeReceiverOffset = instance.prototypeReceiver?1:0
     const hasVariadicParameter = instance.func?.params[instance.func.params.length-1]?.variadic===true
     const parameterLimit = instance.func

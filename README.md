@@ -27,6 +27,8 @@ Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wyw
 
 `examples/system/fetch.ts` udostępnia `fetch(url)` przez WinINet. Pobieranie jest synchroniczne i obsługuje żądanie GET; odpowiedź udostępnia tekst przez `response.text()`. `await` może poprzedzać takie synchroniczne wywołanie, ale nie czyni pobierania asynchronicznym. Odczyt odpowiedzi kończy się błędem procesu w razie niepowodzenia połączenia lub odczytu.
 
+`examples/system/http.ts` udostępnia serwer TCP z `createServer` oraz obsługę przychodzących metod GET, POST, PUT, PATCH i DELETE. `Request` udostępnia nazwę metody w polu `method` oraz predykaty `isGet()`, `isPost()`, `isPut()`, `isPatch()` i `isDelete()` do routingu. `Response.json(object)` ustawia typ JSON i serializuje znane kompilatorowi dane obiektu podczas kompilacji, zgodnie z ograniczeniami `JSON.stringify`. Przykład serwera: `.\test.cmd testhttp`.
+
 ## Tablice typowane
 
 Obsługiwane typy tablic typowanych to `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`, `BigInt64Array` i `BigUint64Array`. Konstruktor przyjmuje długość, literał tablicy wartości odpowiedniego typu, znaną kompilatorowi tablicę albo widok `innaTablica.buffer`; widok może dodatkowo podawać bajtowy offset i długość. Literały BigInt używają składni `n`, np. `new BigInt64Array([-1n, 2n])`. Konwersja wartości oraz bajtowa reprezentacja używają semantyki typowanych tablic JavaScript i porządku little-endian. Obsługiwane są inicjalizacja i odczyt indeksowanych elementów, np. `console.log(bytes[0])`; modyfikowanie elementów nie jest jeszcze obsługiwane. `slice()` tworzy niezależną tablicę tego samego typu, przyjmuje do dwóch indeksów całkowitych (literałów lub stałych), obsługuje indeksy ujemne liczone od końca i może być użyte jako inicjalizator tablicy typowanej.
@@ -78,6 +80,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testfs.ts` | Odczyt i zapis pliku za pomocą modułu `system/fs.ts`. Wymaga pliku `test.txt` w katalogu roboczym. |
 | `testgl1.ts` | Podstawowe rysowanie trójkąta z użyciem OpenGL. |
 | `testgl2.ts` | Rozszerzenie sceny OpenGL o renderowanie fontu. Przykłady graficzne wymagają odpowiednich zasobów i środowiska Windows z obsługą OpenGL. |
+| `testhttp.ts` | Serwer HTTP obsługujący metody GET, POST, PUT, PATCH i DELETE oraz odpowiedzi JSON. |
 | `testiff.ts` | Warunki `if`/`else if`/`else` z różnymi typami wyrażeń. |
 | `testjson.ts` | Parsowanie i serializacja JSON, w tym obiektów, tablic, wartości prostych i pustych struktur. |
 | `testlog.ts` | `console.log` dla argumentów prostych, tablic, obiektów i danych JSON. |

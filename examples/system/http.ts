@@ -9,6 +9,45 @@ const SOMAXCONN:number = 128
 const SOCKET_ADDRESS_SIZE:number = 16
 const REQUEST_BUFFER_SIZE:number = 8192
 const WSA_DATA_SIZE:number = 512
+const METHOD_GET:number = 1
+const METHOD_POST:number = 2
+const METHOD_PUT:number = 3
+const METHOD_PATCH:number = 4
+const METHOD_DELETE:number = 5
+
+function getRequestMethod(raw:number):number {
+    let prefix:number = 0
+    let suffix:number = 0
+    let finalByte:number = 0
+
+    msvcrt.memcpy(&prefix, raw, 4)
+    if (prefix === 0x20544547) {
+        return METHOD_GET
+    }
+    if (prefix === 0x54534f50) {
+        msvcrt.memcpy(&suffix, raw + 4, 1)
+        if (suffix === 32) {
+            return METHOD_POST
+        }
+    }
+    if (prefix === 0x20545550) {
+        return METHOD_PUT
+    }
+    if (prefix === 0x43544150) {
+        msvcrt.memcpy(&suffix, raw + 4, 2)
+        if (suffix === 0x2048) {
+            return METHOD_PATCH
+        }
+    }
+    if (prefix === 0x454c4544) {
+        msvcrt.memcpy(&suffix, raw + 4, 2)
+        msvcrt.memcpy(&finalByte, raw + 6, 1)
+        if (suffix === 0x4554 && finalByte === 32) {
+            return METHOD_DELETE
+        }
+    }
+    return 0
+}
 
 function sendAll(clientSocket:number, buffer:number, size:number) {
     let sentBytes:number = 0
@@ -28,19 +67,130 @@ function sendAll(clientSocket:number, buffer:number, size:number) {
     }
 }
 
+function sendJsonResponse(clientSocket:number, statusCode:number, headerName:number, headerValue:number, body:string) {
+    const bodyLength:number = msvcrt.strlen(body)
+    const headerNameLength:number = msvcrt.strlen(headerName)
+    const headerValueLength:number = msvcrt.strlen(headerValue)
+    const statusPrefixLength:number = msvcrt.strlen('HTTP/1.1 ')
+    const statusTextLength:number = msvcrt.strlen(' OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: ')
+    const lineBreakLength:number = msvcrt.strlen('\r\n')
+    const connectionTextLength:number = msvcrt.strlen('Connection: close\r\n\r\n')
+    const headerSeparatorLength:number = msvcrt.strlen(': ')
+    let statusBuffer:number = msvcrt.calloc(16, 1)
+    let lengthBuffer:number = msvcrt.calloc(16, 1)
+    let statusLength:number = 0
+    let lengthTextLength:number = 0
+    let headersCapacity:number = 0
+    let headers:number = 0
+    let headersLength:number = 0
+
+    if (statusBuffer === 0 || lengthBuffer === 0) {
+        msvcrt.printf('http ran out of memory while preparing a JSON response\n')
+        kernel.ExitProcess(1)
+    }
+
+    msvcrt._itoa(statusCode, statusBuffer, 10)
+    msvcrt._itoa(bodyLength, lengthBuffer, 10)
+    statusLength = msvcrt.strlen(statusBuffer)
+    lengthTextLength = msvcrt.strlen(lengthBuffer)
+    headersCapacity = statusPrefixLength + statusLength + statusTextLength + lengthTextLength + lineBreakLength + connectionTextLength + 1
+    if (headerNameLength > 0) {
+        headersCapacity = headersCapacity + headerNameLength + headerSeparatorLength + headerValueLength + lineBreakLength
+    }
+    headers = msvcrt.calloc(headersCapacity, 1)
+    if (headers === 0) {
+        msvcrt.printf('http ran out of memory while preparing a JSON response\n')
+        kernel.ExitProcess(1)
+    }
+
+    msvcrt.strcpy(headers, 'HTTP/1.1 ')
+    msvcrt.strcat(headers, statusBuffer)
+    msvcrt.strcat(headers, ' OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: ')
+    msvcrt.strcat(headers, lengthBuffer)
+    msvcrt.strcat(headers, '\r\n')
+    if (headerNameLength > 0) {
+        msvcrt.strcat(headers, headerName)
+        msvcrt.strcat(headers, ': ')
+        msvcrt.strcat(headers, headerValue)
+        msvcrt.strcat(headers, '\r\n')
+    }
+    msvcrt.strcat(headers, 'Connection: close\r\n\r\n')
+    headersLength = msvcrt.strlen(headers)
+    sendAll(clientSocket, headers, headersLength)
+    sendAll(clientSocket, body, bodyLength)
+
+    msvcrt.free(headers)
+    msvcrt.free(statusBuffer)
+    msvcrt.free(lengthBuffer)
+}
+
 function invokeCallback(callback:Function) {
     callback()
 }
 
-export class IncomingMessage {
+export class Request {
     raw:number
+    method:string
 
     constructor(raw:number) {
         this.raw = raw
+        this.method = ''
+        const methodCode:number = getRequestMethod(raw)
+        if (methodCode === METHOD_GET) {
+            this.method = 'GET'
+        } else if (methodCode === METHOD_POST) {
+            this.method = 'POST'
+        } else if (methodCode === METHOD_PUT) {
+            this.method = 'PUT'
+        } else if (methodCode === METHOD_PATCH) {
+            this.method = 'PATCH'
+        } else if (methodCode === METHOD_DELETE) {
+            this.method = 'DELETE'
+        }
+    }
+
+    isGet():boolean {
+        if (getRequestMethod(this.raw) === METHOD_GET) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    isPost():boolean {
+        if (getRequestMethod(this.raw) === METHOD_POST) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    isPut():boolean {
+        if (getRequestMethod(this.raw) === METHOD_PUT) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    isPatch():boolean {
+        if (getRequestMethod(this.raw) === METHOD_PATCH) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    isDelete():boolean {
+        if (getRequestMethod(this.raw) === METHOD_DELETE) {
+            return true
+        } else {
+            return false
+        }
     }
 }
 
-export class ServerResponse {
+export class Response {
     clientSocket:number
     statusCode:number = 200
     contentType:number
@@ -78,6 +228,13 @@ export class ServerResponse {
             msvcrt.strcpy(this.headerName, name)
             msvcrt.strcpy(this.headerValue, value)
         }
+    }
+
+    json(body:any) {
+        sendJsonResponse(this.clientSocket, this.statusCode, this.headerName, this.headerValue, body)
+        msvcrt.free(this.contentType)
+        msvcrt.free(this.headerName)
+        msvcrt.free(this.headerValue)
     }
 
     end(body:string) {
@@ -153,8 +310,8 @@ export class ServerResponse {
 function dispatchRequest(requestListener:Function, requestBuffer:number, clientSocket:number) {
     msvcrt.printf('trace: dispatch start\n')
     msvcrt.fflush(0)
-    const request:IncomingMessage = new IncomingMessage(requestBuffer)
-    const response:ServerResponse = new ServerResponse(clientSocket)
+    const request:Request = new Request(requestBuffer)
+    const response:Response = new Response(clientSocket)
     msvcrt.printf('trace: response ready\n')
     msvcrt.fflush(0)
     requestListener(request, response)
