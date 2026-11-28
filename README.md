@@ -81,7 +81,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testobj.ts` | Klasy i dziedziczenie oraz operacje na obiektach, `Object.keys`, `Object.assign` i tablice obiektów. |
 | `testpromise.ts` | Promise, callbacki `then`/`catch`, `await` oraz sukces i odrzucenie `Promise.all`. `testpromiseawaitfailure.ts` sprawdza zakończenie procesu po odrzuconym `await`. |
 | `testprototype.ts` | Metody `prototype` dla liczb, tekstu i tablic oraz `push`. |
-| `testregexpr.ts` | Dzielenie tekstu z użyciem wyrażeń regularnych i zastępowanie dopasowań. |
+| `testregexpr.ts` | Dzielenie tekstu i zastępowanie dopasowań regexem, w tym odwołania `\k<nazwa>` do nazwanych grup o stałej zawartości literalnej. |
 | `teststr.ts` | Długość, kod znaków, metody wyszukiwania, zakresy, konwersja wielkości liter, przycinanie, powtarzanie i zamiana tekstu. |
 | `teststruct.ts` | Typ `interface`, literały obiektowe, odczyt pól, destrukturyzacja i przekazywanie obiektu do funkcji. |
 | `testswitch.ts` | Instrukcja `switch` dla liczb i tekstu. |

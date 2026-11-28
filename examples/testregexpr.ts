@@ -134,6 +134,27 @@ assertText(slashParts[1], 'b', 'slash split[1]')
 assertText(slashParts[2], '', 'slash split[2]')
 assertText(slashParts[3], 'c', 'slash split[3]')
 
+let namedCaptureText: string = 'startcatcatend'
+let namedCaptureParts: string[] = namedCaptureText.split(/(?<word>cat)\k<word>/g)
+assertNumber(namedCaptureParts.length, 2, 'named backreference split')
+assertText(namedCaptureParts[0], 'start', 'named backreference split[0]')
+assertText(namedCaptureParts[1], 'end', 'named backreference split[1]')
+
+let namedSeparatorText: string = 'red,,green'
+let namedSeparatorParts: string[] = namedSeparatorText.split(/(?<separator>,)\k<separator>/)
+assertNumber(namedSeparatorParts.length, 2, 'named separator backreference split')
+assertText(namedSeparatorParts[0], 'red', 'named separator backreference split[0]')
+assertText(namedSeparatorParts[1], 'green', 'named separator backreference split[1]')
+
+let namedCaptureReplacement: string = 'catcat dogdog'
+namedCaptureReplacement = namedCaptureReplacement.replace(/(?<word>cat)\k<word>/g, 'x')
+assertText(namedCaptureReplacement, 'x dogdog', 'named backreference replace')
+
+let caseInsensitiveBackreference: string = 'aA-aB'
+let caseInsensitiveBackreferenceParts: string[] = caseInsensitiveBackreference.split(/(?<letter>a)\k<letter>/i)
+assertNumber(caseInsensitiveBackreferenceParts.length, 2, 'case-insensitive named backreference')
+assertText(caseInsensitiveBackreferenceParts[0], '', 'case-insensitive named backreference[0]')
+assertText(caseInsensitiveBackreferenceParts[1], '-aB', 'case-insensitive named backreference[1]')
 
 
 

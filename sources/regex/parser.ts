@@ -4,6 +4,7 @@ export class RegExpParser{
     private index = 0
     private readonly pattern:string
     private readonly flags:string
+    private readonly namedCaptures = new Map<string,string>()
     constructor(pattern:string,flags:string){
         this.pattern = pattern
         this.flags = flags
@@ -44,7 +45,32 @@ export class RegExpParser{
         if(char==='('){
             if(this.peek()==='?'){
                 this.index++
-                if(this.pattern[this.index++]!==':'){
+                if(this.peek()===':'){
+                    this.index++
+                }else if(this.peek()==='<'){
+                    this.index++
+                    const nameStart = this.index
+                    while(this.index<this.pattern.length&&this.peek()!=='>'){
+                        this.index++
+                    }
+                    const name = this.pattern.slice(nameStart,this.index)
+                    if(!/^[A-Za-z_$][\w$]*$/.test(name)||this.pattern[this.index++]!=='>'){
+                        throw new Error('Invalid named capture group')
+                    }
+                    if(this.namedCaptures.has(name)){
+                        throw new Error(`Duplicate named capture group "${name}"`)
+                    }
+                    const node = this.parseAlternative()
+                    if(this.pattern[this.index++]!==')'){
+                        throw new Error('Unterminated regular expression group')
+                    }
+                    const literal = this.fixedLiteral(node)
+                    if(literal===null){
+                        throw new Error(`Named capture group "${name}" must contain a fixed literal to be reused in a regular expression`)
+                    }
+                    this.namedCaptures.set(name,literal)
+                    return node
+                }else{
                     throw new Error('Lookaround and special regular expression groups are not supported')
                 }
             }else{
@@ -60,7 +86,24 @@ export class RegExpParser{
             return {kind:'characters',characters:this.parseCharacterClass()}
         }
         if(char==='\\'){
-            return {kind:'characters',characters:this.normalizeCharacters(this.parseEscape(false).characters)}
+            const escaped = this.parseEscape(false)
+            if(escaped.backreference!==undefined){
+                const literal = this.namedCaptures.get(escaped.backreference)
+                if(literal===undefined){
+                    throw new Error(`Unknown or forward named capture reference "${escaped.backreference}"`)
+                }
+                if(literal.length===0){
+                    return {kind:'empty'}
+                }
+                return {
+                    kind:'sequence',
+                    nodes:Array.from(literal,char=>({
+                        kind:'characters' as const,
+                        characters:this.normalizeCharacters(new Set([char.charCodeAt(0)]))
+                    }))
+                }
+            }
+            return {kind:'characters',characters:this.normalizeCharacters(escaped.characters)}
         }
         if(char==='.'){
             const characters = this.allCharacters()
@@ -175,10 +218,24 @@ export class RegExpParser{
         return new Set([code])
     }
 
-    private parseEscape(inClass:boolean):{characters:CharacterSet}{
+    private parseEscape(inClass:boolean):{characters:CharacterSet,backreference?:string}{
         const escaped = this.pattern[this.index++]
         if(escaped===undefined){
             throw new Error('Unterminated escape sequence in regular expression')
+        }
+        if(escaped==='k'&&!inClass){
+            if(this.pattern[this.index++]!=='<'){
+                throw new Error('Invalid named capture reference')
+            }
+            const nameStart = this.index
+            while(this.index<this.pattern.length&&this.peek()!=='>'){
+                this.index++
+            }
+            const name = this.pattern.slice(nameStart,this.index)
+            if(!/^[A-Za-z_$][\w$]*$/.test(name)||this.pattern[this.index++]!=='>'){
+                throw new Error('Invalid named capture reference')
+            }
+            return {characters:new Set(),backreference:name}
         }
         const shorthands:Record<string,(characters:CharacterSet)=>void>={
             d:characters=>{for(let code=48;code<=57;code++) characters.add(code)},
@@ -217,6 +274,38 @@ export class RegExpParser{
             throw new Error('Regular expressions for String.split and String.replace support ASCII and byte characters only')
         }
         return {characters:new Set([code])}
+    }
+
+    private fixedLiteral(node:RegExpNode):string|null{
+        if(node.kind==='empty'){
+            return ''
+        }
+        if(node.kind==='characters'){
+            if(node.characters.size===1){
+                return String.fromCharCode(node.characters.values().next().value as number)
+            }
+            if(node.characters.size===2){
+                const [first,second] = [...node.characters]
+                if(Math.abs(first-second)===32&&
+                    (first>=65&&first<=90||first>=97&&first<=122)&&
+                    (second>=65&&second<=90||second>=97&&second<=122)){
+                    return String.fromCharCode(Math.min(first,second))
+                }
+            }
+            return null
+        }
+        if(node.kind==='sequence'){
+            let result = ''
+            for(const child of node.nodes){
+                const literal = this.fixedLiteral(child)
+                if(literal===null){
+                    return null
+                }
+                result += literal
+            }
+            return result
+        }
+        return null
     }
 
     private readHex(length:number){

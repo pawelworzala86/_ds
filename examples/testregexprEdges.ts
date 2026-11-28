@@ -54,5 +54,20 @@ assertText(dotAllParts[1], '', 'dot-all flag[1]')
 assertText(dotAllParts[2], '', 'dot-all flag[2]')
 assertText(dotAllParts[3], '', 'dot-all flag[3]')
 
+let repeatedNameText:string = 'catdog'
+let repeatedNameParts:string[] = repeatedNameText.split(/(?<word>cat)\k<word>/)
+assertNumber(repeatedNameParts.length, 1, 'named backreference mismatch')
+assertText(repeatedNameParts[0], 'catdog', 'named backreference mismatch[0]')
+
+let repeatedNameReplace:string = 'catcat-catdog'
+repeatedNameReplace = repeatedNameReplace.replace(/(?<word>cat)\k<word>/, 'matched')
+assertText(repeatedNameReplace, 'matched-catdog', 'named backreference first match')
+
+let repeatedReferenceText:string = 'ababab!'
+let repeatedReferenceParts:string[] = repeatedReferenceText.split(/(?<pair>ab)\k<pair>\k<pair>/)
+assertNumber(repeatedReferenceParts.length, 2, 'reused named backreference')
+assertText(repeatedReferenceParts[0], '', 'reused named backreference[0]')
+assertText(repeatedReferenceParts[1], '!', 'reused named backreference[1]')
+
 msvcrt.printf('regexp edge tests passed\n')
 kernel.ExitProcess(0)
