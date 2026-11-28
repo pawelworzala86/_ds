@@ -3,9 +3,10 @@ import DataElement, {getNumericKind} from '../elements/dataElement.ts'
 import {getClassPropertyAccess, getClassPropertyOffset} from '../elements/clasElement.ts'
 import {isMathFunction} from './functions.ts'
 import type {BinaryOperator, Expression, MathFunctionName} from './types.ts'
+import {getDynamicJSONAccess} from '../elements/data/jsonAccess.ts'
 
 export function parseExpression(text:string,active:Base):Expression{
-    const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|,|[()[\]+\-*/%]/gi)??[]
+    const tokens = text.match(/0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?|[a-z_$][\w.$]*|\*\*|,|[()[\].+\-*/%]/gi)??[]
     if(!tokens.length||tokens.join('')!==text){
         throw new Error(`Invalid numeric expression "${text}"`)
     }
@@ -24,6 +25,69 @@ export function parseExpression(text:string,active:Base):Expression{
         }
         if(!token){
             throw new Error('Expected a value in numeric expression')
+        }
+        const dynamicAccess = getDynamicJSONAccess(
+            token,
+            active,
+            expression=>parseExpression(expression,active)
+        )
+        if(dynamicAccess){
+            while(tokens[index]==='['){
+                const start = index+1
+                let cursor = start
+                let depth = 0
+                let quote = ''
+                let escaped = false
+                for(;cursor<tokens.length;cursor++){
+                    const part = tokens[cursor]
+                    if(quote){
+                        if(escaped){
+                            escaped = false
+                        }else if(part==='\\'){
+                            escaped = true
+                        }else if(part===quote){
+                            quote = ''
+                        }
+                        continue
+                    }
+                    if(part==="'"||part==='"'){
+                        quote = part
+                    }else if(part==='['){
+                        depth++
+                    }else if(part===']'){
+                        if(depth===0){
+                            break
+                        }
+                        depth--
+                    }
+                }
+                if(cursor===tokens.length){
+                    throw new Error(`Unclosed index for dynamic JSON value "${token}"`)
+                }
+                const indexText = tokens.slice(start,cursor).join('')
+                if(!indexText){
+                    throw new Error('Dynamic JSON index cannot be empty')
+                }
+                const expanded = getDynamicJSONAccess(
+                    `${token}[${indexText}]`,
+                    active,
+                    expression=>parseExpression(expression,active)
+                )
+                if(!expanded){
+                    throw new Error(`Unable to resolve dynamic JSON index "${indexText}"`)
+                }
+                dynamicAccess.steps = expanded.steps
+                index = cursor+1
+                while(tokens[index]==='.'){
+                    const property = tokens[index+1]
+                    if(!property||!/^[a-z_$][\w$]*$/i.test(property)){
+                        throw new Error('Expected a property name after dynamic JSON index')
+                    }
+                    dynamicAccess.steps.push({kind:'property',key:property})
+                    index += 2
+                }
+            }
+            return {kind:'jsonNumber',access:dynamicAccess,numericKind:'float'}
         }
         if(token==='true'||token==='false'){
             return {kind:'number',value:token==='true'?'1':'0',numericKind:'integer'}

@@ -8,6 +8,7 @@ import Call from '../call.ts'
 import {getPromiseValueTypeFromData} from '../promise.ts'
 import Timeout from '../timeout.ts'
 import type {Assign} from '../assign.ts'
+import {getDynamicJSONAccess} from '../data/jsonAccess.ts'
 
 let callbackId = 0
 
@@ -33,6 +34,37 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
         }
         return
     }
+    const dynamicJSONAccess = getDynamicJSONAccess(
+        expression.trim(),
+        assignment.parent!,
+        value=>parseExpression(value,assignment.parent!)
+    )
+    if(dynamicJSONAccess&&!target.isArray
+        &&['any','string','number','boolean'].includes(target.type??'')){
+        assignment.target = target
+        assignment.dynamicJSONValue = dynamicJSONAccess
+        if(target.type==='any'){
+            target.isDynamicJSON = true
+        }else if(target.type==='number'){
+            target.numericKind = 'float'
+        }
+        return
+    }
+    if(target.type==='any'&&!target.isArray&&!indexText){
+        const callSyntax = expression.trim().match(/^[a-z_$][\w.$]*\([\s\S]*\)$/i)
+        if(callSyntax){
+            const call = new Call(assignment.parent!)
+            call.set(new Tokenizer(expression.trim()))
+            if(!call.func?.isAsync&&(call.jsonRuntimeMethod==='parse'
+                ||call.jsonRuntimeMethod==='fromString'
+                ||call.func?.returnType==='any')){
+                assignment.target = target
+                assignment.functionCall = call
+                target.isDynamicJSON = true
+                return
+            }
+        }
+    }
     if(target.type==='boolean'&&!target.isArray){
         const value = expression.trim()
         if(value==='true'||value==='false'){
@@ -54,6 +86,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
             call.set(tokenizer)
             if(!tokenizer.has()
                 &&(call.builtinStringSearchMethod&&call.builtinStringSearchMethod!=='indexOf'
+                    ||call.jsonRuntimeMethod==='isValid'
                     ||call.func?.returnType==='boolean')){
                 assignment.target = target
                 assignment.functionCall = call
@@ -278,6 +311,7 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
                 ||call.builtinStringRange
                 ||call.builtinStringConcat
                 ||call.builtinStringTransform
+                ||call.jsonRuntimeMethod==='stringify'
                 ||call.func?.returnType==='string'
             )){
                 assignment.stringCall = call

@@ -268,11 +268,16 @@ export class Iff extends Base{
                 const callTokenizer = new Tokenizer(`${name}(${args})`)
                 const call = new Call(this)
                 call.set(callTokenizer)
-                if(!call.func&&!call.functionVariable){
+                if(!call.func&&!call.functionVariable&&call.jsonRuntimeMethod!=='isValid'){
                     throw new Error(`Unknown function "${name}" in if condition`)
                 }
                 const tempName = nextLabel('value')
-                const temp = new DataElement('let',tempName,'number','0')
+                const temp = new DataElement(
+                    'let',
+                    tempName,
+                    call.jsonRuntimeMethod==='isValid'?'boolean':'number',
+                    '0'
+                )
                 this.addData(temp)
                 calls.push({call,temp})
                 result += tempName

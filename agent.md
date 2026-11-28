@@ -95,3 +95,12 @@ Wartości JSON powinny zachowywać typ: tekst, liczba, boolean, `null`, obiekt l
 - Żądania większe niż pojedynczy odczyt TCP są obsługiwane poprawnie albo odrzucane jawnie zgodnie z ustalonym framingiem/limitem.
 - Dotychczasowe testy i zachowanie istniejącego `JSON.parse`, `JSON.stringify`, nagłówków i odpowiedzi HTTP pozostają poprawne.
 - Zmiany są ograniczone do kompilatora, HTTP, testów/przykładów i bezpośrednio związanej dokumentacji.
+
+## Stan implementacji
+
+Pozostałe ograniczenia:
+
+- Runtime parser ogranicza zagnieżdżenie do 256 poziomów; niepoprawne lub zbyt głębokie JSON zwraca `undefined` zamiast rzucać wyjątek.
+- Dynamiczne JSON-y są niezmienne przez dostęp pól; `JSON.stringify` odtwarza zwarte aktualnie przechowywane poddrzewo. `JSON.free` zwalnia wyłącznie arena-root wraz ze wszystkimi aliasami potomków.
+- Dynamiczne `replacer`/`space` nie są obsługiwane; ta opcja pozostaje dostępna w ścieżce statycznej.
+- `Transfer-Encoding: chunked` nie jest dekodowany i jest odrzucany kodem `501`.

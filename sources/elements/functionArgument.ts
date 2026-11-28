@@ -8,6 +8,7 @@ import {getClassPropertyAccess, getClassPropertyOffset} from './clasElement.ts'
 import {emitFunctionArgument} from './functionArgument/emit.ts'
 import {nextFunctionArgumentId} from './functionArgument/ids.ts'
 import {parseRegExpLiteral} from '../regex.ts'
+import {getDynamicJSONAccess,type DynamicJSONAccess} from './data/jsonAccess.ts'
 
 let methodCallbackId = 0
 
@@ -97,6 +98,7 @@ export class FunctionArgument{
     pointerOffset:{base:DataElement,offset:number}|null = null
     addressOf:DataElement|null = null
     jsonValue:JsonValue|undefined
+    dynamicJSONAccess:DynamicJSONAccess|null = null
     stringConcatenation:(DataElement|string)[]|null = null
 
     constructor(active:Base,text:string){
@@ -106,6 +108,17 @@ export class FunctionArgument{
         if(this.stringConcatenation){
             this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
             this.value = new DataElement('let',this.tempName,'string','0')
+            return
+        }
+        this.dynamicJSONAccess = getDynamicJSONAccess(
+            text,
+            active,
+            expression=>parseExpression(expression,active)
+        )
+        if(this.dynamicJSONAccess){
+            this.tempName = `__ds_call_json_${nextFunctionArgumentId()}`
+            this.value = new DataElement('let',this.tempName,'any','0')
+            this.value.isDynamicJSON = true
             return
         }
         const pointerOffset = text.match(/^([a-z_$][\w$]*)\s*\+\s*(\d+)$/i)

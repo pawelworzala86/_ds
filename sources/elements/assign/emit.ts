@@ -2,6 +2,7 @@ import Asm from '../../asm.ts'
 import {emitExpression} from '../../maths.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
 import {getClassInstanceFields,initializeStackStructStrings} from '../data/struct.ts'
+import {emitDynamicJSONNode} from '../data/jsonAccess.ts'
 import type {Assign} from '../assign.ts'
 
 let stringAssignId = 0
@@ -52,6 +53,39 @@ export function emitAssign(assignment:Assign,ASM:Asm){
             ASM.addCode(`mov [${target.name}__length], rax`)
         }
         ASM.addCode(`${done}:`)
+    }
+    if(assignment.dynamicJSONValue){
+        emitDynamicJSONNode(assignment.dynamicJSONValue,ASM,(value,source)=>{
+            if(!value){
+                throw new Error(`Unable to resolve dynamic JSON array index "${source}"`)
+            }
+            if(value.numericKind!=='integer'){
+                throw new Error('Dynamic JSON array index must be an integer')
+            }
+            emitExpression(value,ASM)
+        })
+        if(assignment.target.type==='string'){
+            ASM.addCode('mov rcx, rax')
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call __ds_json_to_string')
+            ASM.addCode('add rsp, 40')
+            storeTarget('rax')
+        }else if(assignment.target.type==='number'){
+            ASM.addCode('mov rcx, rax')
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call __ds_json_to_number')
+            ASM.addCode('add rsp, 40')
+            storeTarget('xmm0',true)
+        }else if(assignment.target.type==='boolean'){
+            ASM.addCode('mov rcx, rax')
+            ASM.addCode('sub rsp, 40')
+            ASM.addCode('call __ds_json_to_boolean')
+            ASM.addCode('add rsp, 40')
+            storeTarget('rax')
+        }else{
+            storeTarget('rax')
+        }
+        return
     }
     if(assignment.asyncCall){
         const target = assignment.target

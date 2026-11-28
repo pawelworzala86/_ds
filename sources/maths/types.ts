@@ -1,4 +1,5 @@
 import DataElement, {type NumericKind} from '../elements/dataElement.ts'
+import type {DynamicJSONAccess} from '../elements/data/jsonAccess.ts'
 
 export type BinaryOperator = '+'|'-'|'*'|'/'|'%'|'**'
 export type MathFunctionName = 'sin'|'cos'|'tan'|'asin'|'acos'|'atan'|'atan2'|'sqrt'|'pow'|'fmod'|'exp'|'log'|'log10'|'ceil'|'floor'|'fabs'
@@ -6,6 +7,7 @@ export type MathFunctionName = 'sin'|'cos'|'tan'|'asin'|'acos'|'atan'|'atan2'|'s
 export type Expression =
     | {kind:'number',value:string,numericKind:NumericKind}
     | {kind:'data',value:DataElement,numericKind:NumericKind}
+    | {kind:'jsonNumber',access:DynamicJSONAccess,numericKind:'float'}
     | {kind:'reference',value:DataElement,numericKind:'integer'}
     | {kind:'stringLength',value:DataElement,numericKind:'integer'}
     | {kind:'arrayLength',value:DataElement,numericKind:'integer'}

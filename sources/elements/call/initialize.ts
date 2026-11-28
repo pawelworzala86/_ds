@@ -33,6 +33,10 @@ function serializeJsonArgument(argument:string, active:Call){
 export function initializeCall(instance:Call,tokenizer:Tokenizer){
     const name = tokenizer.get()
     instance.callName = name
+    const jsonRuntimeMethod = name.match(/^JSON\.(parse|fromString|stringify|free|isValid)$/)
+    instance.jsonRuntimeMethod = jsonRuntimeMethod
+        ? jsonRuntimeMethod[1] as NonNullable<Call['jsonRuntimeMethod']>
+        : null
     instance.builtinConsoleLog = name==='console.log'
     if(tokenizer.get()!=='('){
         throw new Error(`Expected '(' after function "${name}"`)
@@ -284,6 +288,39 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             }
             return adaptCallback(new FunctionArgument(instance,token))
         })
+    }
+    if(instance.jsonRuntimeMethod){
+        const method = instance.jsonRuntimeMethod
+        if(method==='stringify'
+            ?instance.params.length<1||instance.params.length>3
+            :instance.params.length!==1){
+            throw new Error(`JSON.${method} received an invalid number of arguments`)
+        }
+        const argument = instance.params[0]
+        if(!argument){
+            throw new Error(`JSON.${method} requires one argument`)
+        }
+        const argumentType = argument.classProperty?.type
+            ??(argument.value instanceof DataElement?argument.value.type:null)
+        const isStringArgument = argumentType==='string'
+            ||typeof argument.value==='string'&&/^(['"])[\s\S]*\1$/.test(argument.value)
+        if((method==='parse'||method==='fromString')&&!isStringArgument){
+            throw new Error(`JSON.${method} expects a string argument`)
+        }
+        const isDynamicJSONArgument = Boolean(
+            argument.dynamicJSONAccess
+            ||argument.value instanceof DataElement
+                &&!argument.value.isArray
+                &&argument.value.isDynamicJSON
+        )
+        if((method==='stringify'||method==='free'||method==='isValid')&&!isDynamicJSONArgument){
+            throw new Error(`JSON.${method} expects a dynamic JSON value`)
+        }
+        if(method==='stringify'&&instance.params.slice(1).some(param=>
+            typeof param.value!=='string'||!['null','undefined'].includes(param.value)
+        )){
+            throw new Error('Runtime JSON.stringify does not support replacer or space; use compile-time JSON values for those options')
+        }
     }
     if(instance.builtinPromiseMethod||instance.builtinArrayForEach){
         const array = instance.builtinArrayForEach

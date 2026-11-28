@@ -1,5 +1,6 @@
 import Asm from '../asm.ts'
 import type {Expression} from './types.ts'
+import {emitDynamicJSONNode} from '../elements/data/jsonAccess.ts'
 
 let labelId = 0
 
@@ -174,6 +175,22 @@ export function emitExpression(expression:Expression,ASM:Asm){
         }else{
             ASM.addCode(`mov rax, ${expression.value.arrayLength??0}`)
         }
+        return
+    }
+    if(expression.kind==='jsonNumber'){
+        emitDynamicJSONNode(expression.access,ASM,(value,source)=>{
+            if(!value){
+                throw new Error(`Unable to resolve dynamic JSON array index "${source}"`)
+            }
+            if(value.numericKind!=='integer'){
+                throw new Error('Dynamic JSON array index must be an integer')
+            }
+            emitExpression(value,ASM)
+        })
+        ASM.addCode('mov rcx, rax')
+        ASM.addCode('sub rsp, 40')
+        ASM.addCode('call __ds_json_to_number')
+        ASM.addCode('add rsp, 40')
         return
     }
     if(expression.kind==='reference'){

@@ -11,6 +11,7 @@ import Call from './call.ts'
 import Timeout from './timeout.ts'
 import type Invoke from './invoke.ts'
 import {getPromiseValueTypeFromData} from './promise.ts'
+import type {DynamicJSONAccess} from './data/jsonAccess.ts'
 
 export class Assign extends Base{
     target:DataElement|null = null
@@ -31,6 +32,7 @@ export class Assign extends Base{
     addressLabel:string|null = null
     invokeExpression:Invoke|null = null
     functionCall:Call|null = null
+    dynamicJSONValue:DynamicJSONAccess|null = null
     arrayCall:Call|null = null
     asyncCall:Call|null = null
     promiseAwait:DataElement|null = null

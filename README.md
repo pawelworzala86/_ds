@@ -27,7 +27,13 @@ Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wyw
 
 `examples/system/fetch.ts` udostępnia `fetch(url)` przez WinINet. Pobieranie jest synchroniczne i obsługuje żądanie GET; odpowiedź udostępnia tekst przez `response.text()`. `await` może poprzedzać takie synchroniczne wywołanie, ale nie czyni pobierania asynchronicznym. Odczyt odpowiedzi kończy się błędem procesu w razie niepowodzenia połączenia lub odczytu.
 
-`examples/system/http.ts` udostępnia serwer TCP z `createServer` oraz obsługę przychodzących metod GET, POST, PUT, PATCH i DELETE. `Request` udostępnia nazwę metody w polu `method`, predykaty `isGet()`, `isPost()`, `isPut()`, `isPatch()` i `isDelete()` do routingu oraz `getHeader(name)`, zwracające wartość nagłówka żądania bez rozróżniania wielkości liter w nazwie (lub pusty tekst, gdy nagłówka brak). `Response.setHeader(name, value)` dodaje nagłówki odpowiedzi; `Content-Type` ustawia typ zawartości, a pozostałe nagłówki można dodawać wielokrotnie. `Response.json(object)` ustawia domyślny typ JSON i serializuje znane kompilatorowi dane obiektu podczas kompilacji, zgodnie z ograniczeniami `JSON.stringify`. Przykład serwera sprawdza `X-Test-Header` w żądaniu i wysyła `X-Test-Response`: `.\test.cmd testhttp`.
+`examples/system/http.ts` udostępnia serwer TCP z `createServer` oraz obsługę metod GET, POST, PUT, PATCH i DELETE. `Request` zawiera `method`, `url` zachowujący query string, predykaty metod oraz `getHeader(name)`, który porównuje nazwę nagłówka bez rozróżniania wielkości liter i zwraca kopię ważną do końca callbacku.
+
+`Request.query` jest dynamicznym obiektem JSON: wartości parametrów są tekstami, `+` zamienia się na spację, poprawne `%HH` jest dekodowane, a powtórzony klucz daje tablicę wartości w kolejności. Brak query oznacza pusty obiekt; puste wartości i parametry bez `=` dają pusty tekst. `Request.body` jest dynamicznym JSON-em: treść zwykła (brak `Content-Type`, `text/plain` i inne typy) jest opakowana jako wartość tekstowa, natomiast `application/json` i typy kończące się na `+json` są parsowane bez względu na wielkość liter i parametry media type. `bodyIsJSON` wskazuje, czy użyto parsera JSON. Niepoprawny JSON body kończy się odpowiedzią `400`; niepoprawne sekwencje `%` w query pozostają dosłownym tekstem.
+
+Serwer odbiera nagłówki i zadeklarowane body w wielu odczytach TCP, nie przekraczając zaalokowanego bufora. Limit całego żądania wynosi 65536 bajtów: przekroczenie daje `413`, nagłówki bez terminatora w limicie `431`, niepoprawny lub powtórzony `Content-Length` `400`. Każdy `Transfer-Encoding` (w tym `chunked`) jest jawnie odrzucany kodem `501`; body bez `Content-Length` jest puste. Żądania zawierające NUL w body są odrzucane kodem `400`, ponieważ teksty _DS są zakończone NUL-em. Po callbacku zwalniane są kopie body, query, nagłówków oraz areny węzłów JSON.
+
+`Response.setHeader(name, value)` dodaje nagłówki odpowiedzi; `Content-Type` ustawia typ zawartości, a pozostałe nagłówki można dodawać wielokrotnie. `Response.json(object)` zachowuje ścieżkę serializacji znanych kompilatorowi obiektów. Przykład `.\test.cmd testhttp` pokazuje query, treść tekstową i JSON; uruchom go jako serwer i wyślij żądania klientem HTTP. Automatyczny test lokalny uruchamia serwer, wysyła żądania fragmentowane i sprawdza poprawne oraz błędne framingi: `.\tests\httpIntegration.ps1`.
 
 ## Tablice typowane
 
@@ -43,9 +49,13 @@ Dynamiczne tablice typów klasowych, np. `const items: MyClass[] = []`, obsługu
 
 ## JSON
 
-`JSON.parse` przyjmuje literał tekstowy albo stałą tekstową i podczas kompilacji wyznacza typ wyniku. Obsługuje wartości tekstowe, skończone liczby, wartości logiczne, `null`, obiekty zagnieżdżone i tablice. Klucze obiektów używane jako pola muszą być poprawnymi identyfikatorami języka. Mieszane i zagnieżdżone tablice można serializować, ale ich indeksowanie nie jest jeszcze ogólnie typowane.
+`JSON.parse` zachowuje dotychczasową ścieżkę kompilacji literałów i stałych tekstowych. Tekst dostępny dopiero w czasie działania daje dynamiczną wartość `any`, której typy runtime są tagowane: `0` — `undefined` (brak węzła), `1` — JSON `null`, `2` — boolean, `3` — number, `4` — string, `5` — array, `6` — object. Obiekty przechowują klucze i łańcuchy węzłów potomnych; tablice przechowują uporządkowane węzły. Parser obsługuje zagnieżdżone struktury oraz typowe sekwencje escape i `\uXXXX`, a głębokość zagnieżdżenia jest ograniczona do 256.
 
-`JSON.stringify` przyjmuje znaną kompilatorowi wartość JSON i tworzy tekst JSON podczas kompilacji, np. `const text: string = JSON.stringify(data, null, 4)`. Opcjonalny `replacer` może być `null`, `undefined` albo tablicą literałów tekstowych i liczbowych, a `space` — literałem tekstowym lub liczbowym. Nie serializuje zmian wprowadzonych do obiektu już po kompilacji.
+Dynamiczne wartości obsługują dostęp przez kropkę oraz indeksowanie tablic liczbą lub obiektu tekstowym kluczem, np. `value.profile.name`, `value.items[0]` i `value[key]`. Wynik zachowuje tag; przypisanie do jawnego typu `string`, `number` lub `boolean` sprawdza typ runtime. Błędne rzutowanie wypisuje błąd i kończy proces kodem `1`. Brakująca właściwość lub indeks to `undefined`, odróżnione od węzła JSON `null`; `JSON.isValid(value)` zwraca `false` dla `undefined` (w tym niepoprawnego JSON-u), a `true` dla sparsowanego `null`.
+
+Runtime’owe `JSON.stringify(dynamicValue)` serializuje aktualnie zachowany fragment JSON w postaci zwartej. Dynamiczne wartości są niezmienne przez dostęp pól w _DS; runtime’owe `replacer`/`space` nie są obsługiwane. Ścieżka statyczna pozostaje bez zmian: znane wartości są serializowane w czasie kompilacji, `replacer` może być `null`, `undefined` albo tablicą literałów tekstowych/liczbowych, a `space` literałem tekstowym/liczbowym. `JSON.fromString(text)` tworzy dynamiczną wartość tekstową. `JSON.free(root)` zwalnia wszystkie alokacje węzłów i tekstów należące do korzenia; należy wywołać ją najwyżej raz na korzeniu, nigdy na pobranym potomku. Serwer HTTP zwalnia swoje drzewa automatycznie po callbacku.
+
+Niepoprawny JSON runtime zwraca `undefined` zamiast rzucać wyjątek; sprawdź wynik przez `JSON.isValid`. `JSON.stringify(undefined)` daje tekst `undefined`. Teksty _DS są zakończone NUL-em, dlatego zawartości zawierające osadzony bajt NUL nie mogą być reprezentowane jako zwykły tekst. Przykłady regresyjne i runtime: `.\test.cmd testjson` oraz `.\test.cmd testjsonruntime`.
 
 ## Parametry domyślne i interpolacja
 
@@ -84,6 +94,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testhttp.ts` | Serwer HTTP obsługujący metody GET, POST, PUT, PATCH i DELETE, odczyt nagłówka żądania oraz nagłówek odpowiedzi. |
 | `testiff.ts` | Warunki `if`/`else if`/`else` z różnymi typami wyrażeń. |
 | `testjson.ts` | Parsowanie i serializacja JSON, w tym obiektów, tablic, wartości prostych i pustych struktur. |
+| `testjsonruntime.ts` | Runtime `JSON.parse`/`JSON.stringify`, dynamiczny dostęp do pól i indeksów, wartości typowane, brakujące pola i błędny JSON. |
 | `testlog.ts` | `console.log` dla argumentów prostych, tablic, obiektów i danych JSON. |
 | `testmat4.ts` | Tworzenie, drukowanie, translacja i macierz perspektywy z modułu `system/gl/mat4.ts`. |
 | `testobj.ts` | Klasy i dziedziczenie oraz operacje na obiektach, `Object.keys`, `Object.assign` i tablice obiektów. |

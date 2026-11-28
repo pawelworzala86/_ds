@@ -5,6 +5,7 @@ import type Base from '../base.ts'
 import type {Call} from '../call.ts'
 import {getClassArgumentCode} from './classArgument.ts'
 import {getDynamicMethodTargets} from './localMethodCall.ts'
+import {emitJSONRuntimeCall} from './jsonRuntime.ts'
 
 let functionCallStringId = 0
 
@@ -76,6 +77,10 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
             }else{
                 param.asm(ASM)
             }
+        }
+        if(call.jsonRuntimeMethod){
+            emitJSONRuntimeCall(call,ASM)
+            return
         }
         if(call.builtinConsoleLog){
             call.emitConsoleLog(ASM)
@@ -250,7 +255,31 @@ export function emitCall(call:Call,ASM:Asm,asyncMode:'detached'|'handle'|'await'
                 const expected = call.func?.params[index]
                 const expectedClass = expected?.type?call.getClass(expected.type):null
                 const classArgument = getClassArgumentCode(param,expected?.type,call)
-                if(expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
+                const isDynamicJSON = Boolean(param.dynamicJSONAccess
+                    ||param.value instanceof DataElement
+                        &&!param.value.isArray
+                        &&param.value.isDynamicJSON)
+                if(isDynamicJSON&&['string','number','boolean'].includes(expected?.type??'')){
+                    const value = param.getCode(true)
+                    if(!value){
+                        throw new Error('Unable to resolve dynamic JSON function argument')
+                    }
+                    ASM.addCode(`mov rcx, ${value}`)
+                    ASM.addCode('sub rsp, 40')
+                    if(expected?.type==='string'){
+                        ASM.addCode('call __ds_json_to_string')
+                    }else if(expected?.type==='boolean'){
+                        ASM.addCode('call __ds_json_to_boolean')
+                    }else{
+                        ASM.addCode('call __ds_json_to_number')
+                    }
+                    ASM.addCode('add rsp, 40')
+                    if(expected?.type==='number'&&expected.numericKind!=='float'){
+                        ASM.addCode('cvttsd2si rax, xmm0')
+                    }else if(expected?.type==='number'){
+                        ASM.addCode('movq rax, xmm0')
+                    }
+                }else if(expected?.dynamicArray&&param.value instanceof DataElement&&param.value.isArray){
                     ASM.addCode(param.value.isParameter
                         ? `mov rax, ${param.value.name}`
                         : `lea rax, [${param.value.name}]`)

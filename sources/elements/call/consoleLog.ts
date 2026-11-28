@@ -357,7 +357,13 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                 if(!code){
                     throw new Error('Unable to resolve console.log template expression')
                 }
-                if(type==='string'){
+                if(argument.dynamicJSONAccess||value?.isDynamicJSON){
+                    ASM.addCode(`mov rcx, ${code}`)
+                    ASM.addCode('sub rsp, 40')
+                    ASM.addCode('call __ds_json_stringify')
+                    ASM.addCode('add rsp, 40')
+                    emitPrintf('%s','rax')
+                }else if(type==='string'){
                     emitPrintf('%s',code)
                 }else if(type==='boolean'&&value){
                     emitBoolean(code)
@@ -411,6 +417,19 @@ export function emitConsoleLog(call:Call,ASM:Asm){
             }
 
             const type = param.classProperty?.type??data?.type
+            if(param.dynamicJSONAccess
+                ||data?.isDynamicJSON&&!data.isArray){
+                const argument = param.getCode(true)
+                if(!argument){
+                    throw new Error('Unable to resolve dynamic JSON console.log argument')
+                }
+                ASM.addCode(`mov rcx, ${argument}`)
+                ASM.addCode('sub rsp, 40')
+                ASM.addCode('call __ds_json_stringify')
+                ASM.addCode('add rsp, 40')
+                emitPrintf(`${prefix}%s`,'rax')
+                return
+            }
             if(type==='boolean'&&data&&(!data.isArray||isArrayElement)){
                 const id = ++consoleLogId
                 const trueLabel = `__ds_console_log_true_${id}`

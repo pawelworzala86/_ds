@@ -27,6 +27,8 @@ export class DataElement{
     typedArrayValues:TypedArrayValue[]|null = null
     typedArrayBytes:number[]|null = null
     jsonValue:JsonValue|undefined
+    isDynamicJSON = false
+    isRuntimeValue = false
     classPropertyInstance:DataElement|null = null
     classPropertyPath:string|null = null
     timeoutLockName:string|null = null

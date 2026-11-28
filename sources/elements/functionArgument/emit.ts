@@ -1,14 +1,29 @@
 import Asm from '../../asm.ts'
-import {emitExpression} from '../../maths.ts'
+import {emitExpression,parseExpression} from '../../maths.ts'
 import DataElement from '../dataElement.ts'
 import {stringLiteralData} from '../../stringLiteral.ts'
-import {getClassPropertyOffset} from '../clasElement.ts'
+import {getClassPropertyAccess,getClassPropertyOffset} from '../clasElement.ts'
 import {getTypedArrayInfo} from '../data/typedArrays.ts'
 import {nextFunctionArgumentId} from './ids.ts'
 import {emitStringConcatOperands} from '../call/stringConcat.ts'
 import {FunctionArgument} from '../functionArgument.ts'
+import {emitDynamicJSONNode} from '../data/jsonAccess.ts'
 
 export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
+    if(argument.dynamicJSONAccess&&argument.tempName){
+        emitDynamicJSONNode(argument.dynamicJSONAccess,ASM,(expression,source)=>{
+            if(!expression){
+                throw new Error(`Unable to resolve dynamic JSON array index "${source}"`)
+            }
+            if(expression.numericKind!=='integer'){
+                throw new Error('Dynamic JSON array index must be an integer')
+            }
+            emitExpression(expression,ASM)
+        })
+        ASM.addData(`${argument.tempName} dq 0`)
+        ASM.addCode(`mov [${argument.tempName}], rax`)
+        return
+    }
     if(argument.pointerOffset&&argument.tempName){
         ASM.addData(`${argument.tempName} dq 0`)
         ASM.addCode(`mov rax, ${argument.pointerOffset.base.getCode(true)}`)

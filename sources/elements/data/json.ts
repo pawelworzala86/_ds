@@ -2,10 +2,12 @@ import Tokenizer from '../../tokenizer.ts'
 import Base from '../base.ts'
 import DataElement, {type JsonValue} from '../dataElement.ts'
 import ClassElement from '../clasElement.ts'
+import {getClassPropertyAccess} from '../clasElement.ts'
 import {decodeStringEscapes,getStringLiteralContents} from '../../stringLiteral.ts'
 import {splitTopLevelArrayValues} from './arrays.ts'
 import {nextStructLayoutId} from './ids.ts'
 import type {JSONArrayLayout,ObjectLiteralProperty} from './types.ts'
+import {getDynamicJSONAccess} from './jsonAccess.ts'
 
 export function createJSONDataElement(property:ObjectLiteralProperty){
     const element = new DataElement('let',property.name,property.type,property.value)
@@ -48,7 +50,7 @@ function getJSONParseText(tokens:string[],active:Base){
         jsonText = decodeStringEscapes(getStringLiteralContents(argument))
     }else if(/^[a-z_$][\w$]*$/i.test(argument)){
         const source = active.getData(argument)
-        if(!source||source.kind!=='const'||source.type!=='string'||source.isArray||source.value===null){
+        if(!source||source.kind!=='const'||source.type!=='string'||source.isArray||source.value===null||source.isRuntimeValue){
             throw new Error('JSON.parse currently requires a string literal or const string')
         }
         jsonText = decodeStringEscapes(source.value)
@@ -57,6 +59,55 @@ function getJSONParseText(tokens:string[],active:Base){
     }
 
     return jsonText
+}
+
+export function getRuntimeJSONParseArgument(tokens:string[],active:Base):string|null{
+    const args = getJSONCallArguments(tokens,'JSON.parse')
+    if(!args){
+        return null
+    }
+    if(args.length!==1){
+        throw new Error('JSON.parse expects exactly one argument')
+    }
+    const argument = args[0].trim()
+    if(/^(['"])[\s\S]*\1$/.test(argument)){
+        return null
+    }
+    const source = active.getData(argument)
+    if(source?.type==='string'&&!source.isArray){
+        if(source.kind==='const'&&source.value!==null&&!source.isRuntimeValue){
+            return null
+        }
+        return argument
+    }
+    const property = getClassPropertyAccess(active,argument)
+    if(property?.property.type==='string'&&!property.property.isArray){
+        return argument
+    }
+    throw new Error('JSON.parse expects a string literal, const string, or runtime string value')
+}
+
+export function getRuntimeJSONStringifyArgument(tokens:string[],active:Base):string|null{
+    const args = getJSONCallArguments(tokens,'JSON.stringify')
+    if(!args){
+        return null
+    }
+    if(args.length<1||args.length>3){
+        throw new Error('JSON.stringify expects between one and three arguments')
+    }
+    const argument = args[0].trim()
+    const parseArgument = new Tokenizer(argument).tokens
+    if(getRuntimeJSONParseArgument(parseArgument,active)!==null){
+        return argument
+    }
+    if(getDynamicJSONAccess(argument,active)){
+        return argument
+    }
+    const source = active.getData(argument)
+    if(source&&!source.isArray&&source.isDynamicJSON){
+        return argument
+    }
+    return null
 }
 
 export function isJSONObject(value:JsonValue):value is {[key:string]:JsonValue}{
@@ -189,6 +240,9 @@ export function createJSONProperties(value:{[key:string]:JsonValue},active:Base)
 }
 
 export function parseJSONParseInitializer(tokens:string[],active:Base):JsonValue|undefined{
+    if(getRuntimeJSONParseArgument(tokens,active)!==null){
+        return undefined
+    }
     const jsonText = getJSONParseText(tokens,active)
     if(jsonText===null){
         return undefined
@@ -216,6 +270,9 @@ export function getJSONValueFromProperties(properties:DataElement[],active:Base)
 }
 
 export function getJSONValueFromData(data:DataElement,active:Base):JsonValue|undefined{
+    if(data.isRuntimeValue){
+        return undefined
+    }
     if(data.jsonValue!==undefined){
         return data.jsonValue
     }
@@ -307,9 +364,15 @@ export function parseJSONStringifyInitializer(tokens:string[],active:Base):strin
     if(args.length<1||args.length>3){
         throw new Error('JSON.stringify expects between one and three arguments')
     }
+    if(getRuntimeJSONStringifyArgument(tokens,active)!==null){
+        return null
+    }
     const argument = args[0]
     let value:JsonValue|undefined
     if(/^JSON\.parse\([\s\S]*\)$/.test(argument)){
+        if(getRuntimeJSONParseArgument(new Tokenizer(argument).tokens,active)!==null){
+            return null
+        }
         const parsed = parseJSONParseInitializer(new Tokenizer(argument).tokens,active)
         value = parsed
     }else if(/^(['"])[\s\S]*\1$/.test(argument)){

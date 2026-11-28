@@ -324,6 +324,9 @@ export class Func extends Base{
             element.classType = this.parent?.getClass(type)?.name??null
             element.isArray = Boolean(arrayType)
             element.isParameter = true
+            element.isDynamicJSON = type==='any'
+                &&!element.isArray
+                &&param.declaredType?.toLowerCase()!=='staticjson'
             this.addData(element)
         }
         const tokenizer2 = new Tokenizer('')
@@ -337,6 +340,7 @@ export class Func extends Base{
                 ||data.type==='boolean'&&data.isArray&&!data.dynamicArray
                 ||data.type==='ArrayBuffer'&&!data.isArray
                 ||data.type==='Task'
+                ||data.type==='any'&&data.isDynamicJSON&&!data.isArray
                 ||isPromiseType(data.type??undefined)&&data.type!=='Promise'
                 ||Boolean(data.classType)&&!data.isArray
             )){
@@ -396,6 +400,11 @@ export class Func extends Base{
             }
         }
         for(const procedure of asm.proc){
+            const isJSONRuntime = procedure.includes('proc __ds_json_alloc')
+            const hasJSONRuntime = ASM.proc.some((existing:string)=>existing.includes('proc __ds_json_alloc'))
+            if(isJSONRuntime&&hasJSONRuntime){
+                continue
+            }
             ASM.addProc(procedure.trimEnd())
         }
         ASM.addProc(code)

@@ -6,7 +6,8 @@ import Assign from '../assign.ts'
 import ClassElement, {getClassPropertyAccess} from '../clasElement.ts'
 import Call from '../call.ts'
 import {getStringLiteralContents} from '../../stringLiteral.ts'
-import {parseJSONParseInitializer,parseJSONStringifyInitializer,createJSONArrayLayout,getJSONValueFromProperties,getJSONValueFromData,isJSONObject,createJSONProperties,createJSONDataElement} from './json.ts'
+import {parseJSONParseInitializer,parseJSONStringifyInitializer,getRuntimeJSONParseArgument,getRuntimeJSONStringifyArgument,createJSONArrayLayout,getJSONValueFromProperties,getJSONValueFromData,isJSONObject,createJSONProperties,createJSONDataElement} from './json.ts'
+import {getDynamicJSONAccess} from './jsonAccess.ts'
 import {createStructLayout,parseObjectLiteral} from './struct.ts'
 import {nextCallResultId,nextStructLayoutId} from './ids.ts'
 import type {JSONArrayLayout} from './types.ts'
@@ -225,6 +226,15 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const jsonStringifyValue = hasInitializer&&data.parent
         ? parseJSONStringifyInitializer(initializerTokens,data.parent)
         : null
+    const jsonParseRuntimeArgument = hasInitializer&&data.parent
+        ? getRuntimeJSONParseArgument(initializerTokens,data.parent)
+        : null
+    const jsonStringifyRuntimeArgument = hasInitializer&&data.parent
+        ? getRuntimeJSONStringifyArgument(initializerTokens,data.parent)
+        : null
+    const dynamicJSONExpression = hasInitializer&&data.parent
+        ? getDynamicJSONAccess(initializerTokens.join(''),data.parent)
+        : null
     const arrayToStringCall = initializerTokens.join('').match(/^([a-z_$][\w$]*)\.toString\(\)$/i)
     const toStringReceiver = arrayToStringCall?data.parent?.getData(arrayToStringCall[1]):null
     const arrayToStringInitializer = arrayToStringCall&&toStringReceiver?.isArray?arrayToStringCall:null
@@ -235,7 +245,13 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     if(jsonParseValue!==undefined&&type&&type!=='any'){
         throw new Error(`JSON.parse result cannot be assigned to "${type}"`)
     }
+    if(jsonParseRuntimeArgument!==null&&type&&type!=='any'){
+        throw new Error(`JSON.parse runtime result cannot be assigned to "${type}"`)
+    }
     if(jsonStringifyValue!==null&&type&&type!=='string'){
+        throw new Error(`JSON.stringify result cannot be assigned to "${type}"`)
+    }
+    if(jsonStringifyRuntimeArgument!==null&&type&&type!=='string'){
         throw new Error(`JSON.stringify result cannot be assigned to "${type}"`)
     }
     if(toStringInitializer&&type&&type!=='string'){
@@ -245,6 +261,16 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         type='string'
     }
     let value = hasAwaitInitializer?'0':initializerTokens[0]
+    if(jsonParseRuntimeArgument!==null||jsonStringifyRuntimeArgument!==null||dynamicJSONExpression){
+        value='0'
+    }
+    if(jsonParseRuntimeArgument!==null){
+        type='any'
+    }else if(jsonStringifyRuntimeArgument!==null){
+        type='string'
+    }else if(dynamicJSONExpression&&!type){
+        type='any'
+    }
     if(hasPromiseInitializer){
         if(classField){
             throw new Error('Promise class fields are not supported')
@@ -361,7 +387,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         runtimeInitializer = true
         value = '0'
     }
-    if(type==='boolean'&&!hasAwaitInitializer){
+    if(type==='boolean'&&!hasAwaitInitializer&&!dynamicJSONExpression){
         if(typeof jsonParseValue==='boolean'){
             value = jsonParseValue?'1':'0'
         }else if(!hasInitializer){
@@ -380,6 +406,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
                     call.set(callTokenizer)
                     isBooleanCall = !callTokenizer.has()
                         &&Boolean(call.builtinStringSearchMethod&&call.builtinStringSearchMethod!=='indexOf'
+                            ||call.jsonRuntimeMethod==='isValid'
                             ||call.func?.returnType==='boolean')
                 }
                 if(source?.type==='boolean'&&!source.isArray
@@ -448,6 +475,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
             value = '0'
         }
         values = hasAwaitInitializer||chainedMethodCall||toStringInitializer
+            ||jsonStringifyRuntimeArgument!==null||dynamicJSONExpression!==null
             ||returnedValueCall?.func?.returnType==='string'?['0']: [jsonParseValue!==undefined
             ? JSON.stringify(jsonParseValue).slice(1,-1)
             : jsonStringifyValue!==null
@@ -456,6 +484,15 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }
     data.element = new DataElement(kind,name,arrayType?classType?.name??arrayType[1]:type??'',arrayType?value:values.join(' ')??'')
     data.element.declaredType = declaredType
+    data.element.isRuntimeValue = runtimeInitializer
+        ||hasAwaitInitializer
+        ||Boolean(returnedValueCall||chainedMethodCall||toStringInitializer)
+        ||jsonParseRuntimeArgument!==null
+        ||jsonStringifyRuntimeArgument!==null
+        ||Boolean(dynamicJSONExpression)
+    data.element.isDynamicJSON = jsonParseRuntimeArgument!==null
+        ||Boolean(dynamicJSONExpression&&type==='any')
+        ||declaredType?.toLowerCase()==='dynamicjson'
     if(resolvedType?.numericKind){
         data.element.numericKind = resolvedType.numericKind
     }
@@ -585,6 +622,26 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     data.element.isExportedConstAlias = data.element.isConstAlias
         &&Boolean(data.parent?.EXPORT[name])
     data.parent?.addData(data.element)
+    if((jsonParseRuntimeArgument!==null||jsonStringifyRuntimeArgument!==null)&&data.parent){
+        let functionScope:Base|null = data.parent
+        while(functionScope&&!functionScope.isFunctionScope){
+            functionScope = functionScope.parent
+        }
+        data.element.isProcedureLocal = Boolean(functionScope)
+        const method = jsonParseRuntimeArgument!==null?'parse':'stringify'
+        const call = new Call(data.parent)
+        call.set(new Tokenizer(`JSON.${method}(${initializerTokens.slice(2,-1).join('')})`))
+        if(call.params.length===0){
+            throw new Error(`JSON.${method} runtime initializer is missing its argument`)
+        }
+        call.resultTarget = data.element
+        data.initializerCalls.push(call)
+        data.runtimeCallInitializer = true
+    }else if(dynamicJSONExpression&&data.parent){
+        const initializer = new Assign(data.parent)
+        initializer.setExpression(data.element,initializerTokens.join(''),true)
+        data.runtimeInitializer = initializer
+    }
     if(!classField&&classInitializerArgs&&data.parent&&classType){
         const constructor = classType.getFunction('constructor')
         if(constructor){

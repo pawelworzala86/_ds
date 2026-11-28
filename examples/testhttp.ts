@@ -18,7 +18,17 @@ function requestCallback(req: httpTypes.Request, res: httpTypes.Response){
   res.setHeader('X-Test-Response', 'response-value')
   res.setHeader('X-Echo-Header', testHeader)
 
-  console.log('GET query: ' + req.query)
+  
+  console.log('GET query:', req.query)
+  console.log('Query user:', req.query.user)
+  console.log('Query repeated values:', req.query.tag)
+  console.log('Request body:', req.body)
+  console.log('Request body is JSON:', req.bodyIsJSON)
+  if (req.bodyIsJSON) {
+    const name:string = req.body.profile.name
+    console.log('JSON body name:', name)
+    console.log('JSON body array:', req.body.profile.values[0])
+  }
 
   if (req.isGet()) {
     res.json({method: 'GET'})

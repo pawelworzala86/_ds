@@ -31,6 +31,7 @@ let returnedClassId = 0
 
 export class Call extends Base{
     callName:string|null = null
+    jsonRuntimeMethod:'parse'|'fromString'|'stringify'|'free'|'isValid'|null = null
     func:FuncElement|null = null
     resultTarget:DataElement|null = null
     params:FunctionArgument[] = []
@@ -214,7 +215,7 @@ export class Call extends Base{
             active.children.push(chained)
             return chained
         }
-        if(token==='console.log'||token==='super'||token.startsWith('super.')||active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
+        if(token==='console.log'||/^JSON\.(?:parse|fromString|stringify|free|isValid)$/.test(token)||token==='super'||token.startsWith('super.')||active.getFunction(token)||Call.getMethod(active,token)||Call.getPrototypeMethod(active,token)||active.getData(token)?.type==='Function'||active.getData(token)?.type==='function'){
             tokenizer.move(-1)
             const data = new Call(active)
             data.set(tokenizer)
