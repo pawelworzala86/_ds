@@ -48,6 +48,9 @@ fs.writeFileSync(emptyFileName, '')
 const readEmptyContents:string = fs.readFileSync(emptyFileName).toString()
 assertString(readEmptyContents, '')
 
+const dirs:string[] = fs.readdirSync(tempPath)
+console.log(dirs)
+
 cleanup()
 
 msvcrt.printf('filesystem tests passed\n')

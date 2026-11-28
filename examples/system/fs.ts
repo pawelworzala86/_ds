@@ -55,3 +55,42 @@ export function writeFileSync(fileName:any,contents:any){
     kernel.WriteFile(handle, contents, contentSize, &bytesWritten, 0)
     kernel.CloseHandle(handle)
 }
+
+export function readdirSync(path:any):string[]{
+    let searchPath:ArrayBuffer = 0
+    let findData:ArrayBuffer = 0
+    let dirs:string[] = []
+    let error:number = 0
+
+    searchPath = msvcrt.calloc(520, 1)
+    findData = msvcrt.calloc(320, 1)
+    msvcrt.strcpy(searchPath, path)
+    msvcrt.strcat(searchPath, '\\*')
+
+    const handle:number = kernel.FindFirstFileA(searchPath, findData)
+    if(handle == -1){
+        error = kernel.GetLastError()
+        if(error != 2){
+            msvcrt.printf('Unable to read directory: %s (error %i)\n', path, error)
+            kernel.ExitProcess(1)
+        }
+        return dirs
+    }
+
+    let more:number = 1
+    while(more != 0){
+        let entryName:ArrayBuffer = 0
+        entryName = msvcrt.calloc(260, 1)
+        msvcrt.strcpy(entryName, findData + 44)
+        const entryNameText:string = entryName.toString()
+        if(entryNameText != '.' && entryNameText != '..'){
+            dirs.push(entryName.toString())
+        }
+        more = kernel.FindNextFileA(handle, findData)
+    }
+
+    kernel.FindClose(handle)
+    msvcrt.free(searchPath)
+    msvcrt.free(findData)
+    return dirs
+}

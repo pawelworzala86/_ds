@@ -94,6 +94,7 @@ export class FunctionArgument{
     classPropertyOffsetPath:string|null = null
     arrayPropertyAccess:{array:DataElement,indexExpression:Expression,property:DataElement,offset:number}|null = null
     arrayElementAccess:{array:DataElement,indexExpression:Expression}|null = null
+    pointerOffset:{base:DataElement,offset:number}|null = null
     addressOf:DataElement|null = null
     jsonValue:JsonValue|undefined
     stringConcatenation:(DataElement|string)[]|null = null
@@ -105,6 +106,14 @@ export class FunctionArgument{
         if(this.stringConcatenation){
             this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
             this.value = new DataElement('let',this.tempName,'string','0')
+            return
+        }
+        const pointerOffset = text.match(/^([a-z_$][\w$]*)\s*\+\s*(\d+)$/i)
+        const pointerBase = pointerOffset?active.getData(pointerOffset[1]):null
+        if(pointerOffset&&pointerBase?.type==='ArrayBuffer'&&!pointerBase.isArray){
+            this.pointerOffset = {base:pointerBase,offset:Number(pointerOffset[2])}
+            this.value = pointerBase
+            this.tempName = `__ds_call_arg_${nextFunctionArgumentId()}`
             return
         }
         const address = text.match(/^&([a-z_$][\w.$]*)$/i)

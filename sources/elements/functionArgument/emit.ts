@@ -9,6 +9,13 @@ import {emitStringConcatOperands} from '../call/stringConcat.ts'
 import {FunctionArgument} from '../functionArgument.ts'
 
 export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
+    if(argument.pointerOffset&&argument.tempName){
+        ASM.addData(`${argument.tempName} dq 0`)
+        ASM.addCode(`mov rax, ${argument.pointerOffset.base.getCode(true)}`)
+        ASM.addCode(`add rax, ${argument.pointerOffset.offset}`)
+        ASM.addCode(`mov [${argument.tempName}], rax`)
+        return
+    }
     if(argument.stringConcatenation&&argument.tempName){
         const parts = argument.stringConcatenation
         const getSource = (part:DataElement|string,index:number)=>{

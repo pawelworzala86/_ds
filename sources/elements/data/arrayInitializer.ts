@@ -69,7 +69,9 @@ if(arrayType&&!jsonRootArray){
             }
             value = arrayValues.join(', ')
         }else if(itemType==='string'){
-            arrayValues = splitTokenArrayValues(initializerTokens).map(item=>item.join(''))
+            if(arrayValues.length){
+                arrayValues = splitTokenArrayValues(initializerTokens).map(item=>item.join(''))
+            }
             if(arrayValues.some(item=>!item||!(/^'(?:\\.|[^'])*'$/.test(item)||/^"(?:\\.|[^"])*"$/.test(item)))){
                 throw new Error(`Array "${name}" must contain string literals`)
             }

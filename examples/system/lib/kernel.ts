@@ -11,3 +11,7 @@ export declare function ReadFile(...args:any[]):any//kernel32
 export declare function WriteFile(...args:any[]):any//kernel32
 export declare function DeleteFileA(...args:any[]):any//kernel32
 export declare function CloseHandle(...args:any[]):any//kernel32
+export declare function FindFirstFileA(...args:any[]):any//kernel32
+export declare function FindNextFileA(...args:any[]):any//kernel32
+export declare function FindClose(...args:any[]):any//kernel32
+export declare function GetLastError(...args:any[]):any//kernel32

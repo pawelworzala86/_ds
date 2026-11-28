@@ -33,7 +33,7 @@ Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wyw
 
 Obsługiwane typy tablic typowanych to `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`, `BigInt64Array` i `BigUint64Array`. Konstruktor przyjmuje długość, literał tablicy wartości odpowiedniego typu, znaną kompilatorowi tablicę albo widok `innaTablica.buffer`; widok może dodatkowo podawać bajtowy offset i długość. Literały BigInt używają składni `n`, np. `new BigInt64Array([-1n, 2n])`. Konwersja wartości oraz bajtowa reprezentacja używają semantyki typowanych tablic JavaScript i porządku little-endian. Obsługiwane są inicjalizacja i odczyt indeksowanych elementów, np. `console.log(bytes[0])`; modyfikowanie elementów nie jest jeszcze obsługiwane. `slice()` tworzy niezależną tablicę tego samego typu, przyjmuje do dwóch indeksów całkowitych (literałów lub stałych), obsługuje indeksy ujemne liczone od końca i może być użyte jako inicjalizator tablicy typowanej.
 
-Tablice statyczne i typowane obsługują `.length` oraz `.toString()` zwracające elementy oddzielone przecinkami; `.length` działa także dla tablic dynamicznych. `console.log` wypisuje zawartość tablic, również dynamicznych, oraz pola obiektów, zamiast ich adresów; tekstowe wartości wewnątrz tych agregatów są ujmowane w apostrofy. `ArrayBuffer` jest wbudowanym typem wskaźnikowym, a `.toString()` zwraca wskaźnik do tekstu zakończonego NUL-em. `examples/system/fs.ts` alokuje dodatkowy bajt zerujący po odczytanych danych.
+Tablice statyczne i typowane obsługują `.length` oraz `.toString()` zwracające elementy oddzielone przecinkami; `.length` działa także dla tablic dynamicznych. `console.log` wypisuje zawartość tablic, również dynamicznych, oraz pola obiektów, zamiast ich adresów; tekstowe wartości wewnątrz tych agregatów są ujmowane w apostrofy. `ArrayBuffer` jest wbudowanym typem wskaźnikowym, a `.toString()` zwraca wskaźnik do tekstu zakończonego NUL-em. `examples/system/fs.ts` udostępnia synchroniczne odczytywanie i zapisywanie plików oraz `readdirSync(path)`, które zwraca nazwy wpisów katalogu jako `string[]`; odczyt pliku alokuje dodatkowy bajt zerujący po odczytanych danych.
 
 ## Obiekty
 
@@ -77,7 +77,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testbuffer.ts` | Tablice typowane, konwersje wartości, widoki `ArrayBuffer` oraz `slice`. |
 | `testchain.ts` | Sekwencyjne wywołania metod zwracających `this`. |
 | `testfor.ts` | Pętla `for` z licznikiem i iteracja `for...in` po tablicach. |
-| `testfs.ts` | Odczyt i zapis pliku za pomocą modułu `system/fs.ts`. Wymaga pliku `test.txt` w katalogu roboczym. |
+| `testfs.ts` | Zapis, odczyt oraz listowanie katalogu tymczasowego za pomocą modułu `system/fs.ts`. |
 | `testgl1.ts` | Podstawowe rysowanie trójkąta z użyciem OpenGL. |
 | `testgl2.ts` | Rozszerzenie sceny OpenGL o renderowanie fontu. Przykłady graficzne wymagają odpowiednich zasobów i środowiska Windows z obsługą OpenGL. |
 | `testhttp.ts` | Serwer HTTP obsługujący metody GET, POST, PUT, PATCH i DELETE oraz odpowiedzi JSON. |
