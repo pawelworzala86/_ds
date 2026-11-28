@@ -49,6 +49,48 @@ function getRequestMethod(raw:number):number {
     return 0
 }
 
+function getRequestUrl(raw:number):string {
+    let position:number = 0
+    let urlStart:number = 0
+    let urlLength:number = 0
+    let currentByte:number = 0
+    let urlBuffer:number = 0
+
+    while (position < REQUEST_BUFFER_SIZE) {
+        msvcrt.memcpy(&currentByte, raw + position, 1)
+        if (currentByte === 32) {
+            urlStart = position + 1
+            position = urlStart
+            break
+        }
+        if (currentByte === 0) {
+            break
+        }
+        position = position + 1
+    }
+
+    if (urlStart > 0) {
+        while (position < REQUEST_BUFFER_SIZE) {
+            msvcrt.memcpy(&currentByte, raw + position, 1)
+            if (currentByte === 0 || currentByte === 32) {
+                break
+            }
+            position = position + 1
+        }
+        urlLength = position - urlStart
+    }
+
+    urlBuffer = msvcrt.calloc(urlLength + 1, 1)
+    if (urlBuffer === 0) {
+        msvcrt.printf('http ran out of memory while parsing a request URL\n')
+        kernel.ExitProcess(1)
+    }
+    if (urlLength > 0) {
+        msvcrt.memcpy(urlBuffer, raw + urlStart, urlLength)
+    }
+    return urlBuffer
+}
+
 function sendAll(clientSocket:number, buffer:number, size:number) {
     let sentBytes:number = 0
     let totalSent:number = 0
@@ -131,10 +173,12 @@ function invokeCallback(callback:Function) {
 export class Request {
     raw:number
     method:string
+    url:string
 
     constructor(raw:number) {
         this.raw = raw
         this.method = ''
+        this.url = getRequestUrl(raw)
         const methodCode:number = getRequestMethod(raw)
         if (methodCode === METHOD_GET) {
             this.method = 'GET'
@@ -317,6 +361,7 @@ function dispatchRequest(requestListener:Function, requestBuffer:number, clientS
     requestListener(request, response)
     msvcrt.printf('trace: listener returned\n')
     msvcrt.fflush(0)
+    msvcrt.free(request.url)
 }
 
 export class Server {

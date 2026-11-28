@@ -43,7 +43,11 @@ export function emitFunctionArgument(argument:FunctionArgument,ASM:Asm){
                 ? addition.name!
                 : addition
             const sourceArgument = new FunctionArgument(argument.scope,value)
-            sourceArgument.tempName = null
+            if(sourceArgument.classPropertyInstance?.isParameter&&sourceArgument.classProperty){
+                sourceArgument.asm(ASM)
+            }else{
+                sourceArgument.tempName = null
+            }
             emitStringConcatOperands(source,sourceArgument,ASM)
             ASM.addCode(`mov [${argument.tempName}], rax`)
             source = new DataElement('let',argument.tempName,'string','0')

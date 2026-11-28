@@ -12,6 +12,7 @@ function listenCallback(){
 function requestCallback(req: httpTypes.Request, res: httpTypes.Response){
   msvcrt.printf('trace: callback start\n')
   msvcrt.fflush(0)
+  console.log('URL: ' + req.url)
   if (req.isGet()) {
     res.json({method: 'GET'})
   } else if (req.isPost()) {

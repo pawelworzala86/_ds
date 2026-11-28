@@ -159,13 +159,15 @@ export class Assign extends Base{
         }
         if(access?.property.type==='string'&&!access.property.isArray){
             const literal = expression.trim().match(/^(['"])(?:\\.|(?!\1).)*\1$/s)
-            if(operator!=='='||!literal){
-                throw new Error('Struct string properties can only be assigned a string literal')
+            if(operator==='='&&literal){
+                this.target = target
+                this.stringValue = literal[0]
+                this.stringPropertyTarget = true
+                return
             }
-            this.target = target
-            this.stringValue = literal[0]
-            this.stringPropertyTarget = true
-            return
+            if(operator!=='='){
+                throw new Error('Struct string properties can only be assigned with =')
+            }
         }
         const assignmentExpression = operator==='='
             ? expression
