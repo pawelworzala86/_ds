@@ -1,27 +1,32 @@
 import type Asm from '../../asm.ts'
 
-const registeredAssemblies = new WeakSet<Asm>()
+let registeredAssemblies = new WeakSet<Asm>()
+
+export function resetJSONRuntime(){
+    registeredAssemblies = new WeakSet<Asm>()
+}
 
 export function ensureJSONRuntime(ASM:Asm){
-    if(registeredAssemblies.has(ASM)){
+    const runtimeASM = ASM.runtimeOwner??ASM
+    if(registeredAssemblies.has(runtimeASM)){
         return
     }
-    registeredAssemblies.add(ASM)
-    if(ASM.proc.some((procedure:string)=>procedure.includes('proc __ds_json_alloc'))){
+    registeredAssemblies.add(runtimeASM)
+    if(runtimeASM.proc.some((procedure:string)=>procedure.includes('proc __ds_json_alloc'))){
         return
     }
 
     for(const name of ['calloc','free','strlen','memcpy','strcmp','atof','printf']){
-        ASM.addImport('msvcrt',name)
+        runtimeASM.addImport('msvcrt',name)
     }
-    ASM.addImport('kernel32','ExitProcess')
-    ASM.addData('__ds_json_literal_null db 110,117,108,108,0')
-    ASM.addData('__ds_json_literal_true db 116,114,117,101,0')
-    ASM.addData('__ds_json_literal_false db 102,97,108,115,101,0')
-    ASM.addData('__ds_json_undefined db 117,110,100,101,102,105,110,101,100,0')
-    ASM.addData('__ds_json_type_error_message db 114,117,110,116,105,109,101,32,74,83,79,78,32,116,121,112,101,32,109,105,115,109,97,116,99,104,10,0')
+    runtimeASM.addImport('kernel32','ExitProcess')
+    runtimeASM.addData('__ds_json_literal_null db 110,117,108,108,0')
+    runtimeASM.addData('__ds_json_literal_true db 116,114,117,101,0')
+    runtimeASM.addData('__ds_json_literal_false db 102,97,108,115,101,0')
+    runtimeASM.addData('__ds_json_undefined db 117,110,100,101,102,105,110,101,100,0')
+    runtimeASM.addData('__ds_json_type_error_message db 114,117,110,116,105,109,101,32,74,83,79,78,32,116,121,112,101,32,109,105,115,109,97,116,99,104,10,0')
 
-    ASM.addProc(`
+    runtimeASM.addProc(`
 proc __ds_json_alloc context,size
 sub rsp, 72
 mov [rsp+32], rcx

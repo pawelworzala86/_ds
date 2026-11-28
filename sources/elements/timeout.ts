@@ -129,6 +129,7 @@ export class Timeout extends Base{
         ASM.addCode(`${done}:`)
 
         const callbackASM = new Asm()
+        callbackASM.runtimeOwner = ASM.runtimeOwner??ASM
         for(const child of this.children){
             child.asm(callbackASM)
         }

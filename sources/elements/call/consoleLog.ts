@@ -3,6 +3,7 @@ import DataElement, {getNumericKind,type JsonValue} from '../dataElement.ts'
 import {stringData,stringLiteralData} from '../../stringLiteral.ts'
 import {getClassPropertyOffset} from '../clasElement.ts'
 import {splitTopLevelArrayValues} from '../data/arrays.ts'
+import {ensureJSONRuntime} from '../data/jsonRuntime.ts'
 import type {Call} from '../call.ts'
 
 let consoleLogId = 0
@@ -358,6 +359,7 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                     throw new Error('Unable to resolve console.log template expression')
                 }
                 if(argument.dynamicJSONAccess||value?.isDynamicJSON){
+                    ensureJSONRuntime(ASM)
                     ASM.addCode(`mov rcx, ${code}`)
                     ASM.addCode('sub rsp, 40')
                     ASM.addCode('call __ds_json_stringify')
@@ -423,6 +425,7 @@ export function emitConsoleLog(call:Call,ASM:Asm){
                 if(!argument){
                     throw new Error('Unable to resolve dynamic JSON console.log argument')
                 }
+                ensureJSONRuntime(ASM)
                 ASM.addCode(`mov rcx, ${argument}`)
                 ASM.addCode('sub rsp, 40')
                 ASM.addCode('call __ds_json_stringify')

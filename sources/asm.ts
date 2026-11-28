@@ -1,6 +1,7 @@
 let programEndId = 0
 
 export class Asm{
+    runtimeOwner:Asm|null = null
     data:any = []
     code:any = []
     proc:any = []

@@ -18,6 +18,7 @@ export declare function glGenTextures(...args:any[]):void//opengl32
 export declare function glBindTexture(...args:any[]):void//opengl32
 export declare function glTexParameteri(...args:any[]):void//opengl32
 export declare function glTexImage2D(...args:any[]):void//opengl32
+export declare function wglGetProcAddress(...args:any[]):Function//opengl32
 
 
 type float32 = float
@@ -152,7 +153,6 @@ export let uniformMatrix4dv:Function
 
 
 
-export declare function wglGetProcAddress(...args:any[]):Function//opengl32
 export function initializeGL(){
     uniform1i = wglGetProcAddress('glUniform1i');
     uniform1f = wglGetProcAddress('glUniform1f');

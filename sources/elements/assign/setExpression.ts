@@ -126,6 +126,25 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
             assignment.functionSource = property
             return
         }
+        const nativeCall = value.match(/^([a-z_$][\w$]*(?:\.[a-z_$][\w$]*)*)\(([\s\S]*)\)$/i)
+        if(nativeCall&&isInvoke(nativeCall[1])){
+            assignment.target = target
+            assignment.invokeExpression = new Invoke(assignment.parent!)
+            assignment.invokeExpression.set(new Tokenizer(value))
+            return
+        }
+        if(/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(value)){
+            const call = new Call(assignment.parent!)
+            const tokenizer = new Tokenizer(value)
+            call.set(tokenizer)
+            if(!tokenizer.has()
+                &&!call.func?.isAsync
+                &&(call.func?.returnType==='Function'||call.func?.returnType==='function')){
+                assignment.target = target
+                assignment.functionCall = call
+                return
+            }
+        }
         throw new Error(`Function "${target.name}" must be assigned from a function variable`)
     }
     if(target.isArray&&!indexText){

@@ -376,6 +376,7 @@ export class Func extends Base{
     }
     asm(ASM:Asm){
         const asm = new Asm()
+        asm.runtimeOwner = ASM.runtimeOwner??ASM
         this.returnLabel = `__ds_return_${++returnId}`
         const params = this.element?.params.map((param:any)=>{
             return param.name
@@ -448,8 +449,6 @@ export class Func extends Base{
                 `proc ${this.element.nativeCallbackName}`,
                 ...callbackArguments.map(name=>`local ${name} dq 0`),
                 ...callbackArguments.map((name,index)=>`mov [${name}], ${registers[index]}`),
-                "invoke printf 'trace: native callback entered\\n'",
-                'invoke fflush 0',
                 ...callbackArguments.map((name,index)=>`mov ${registers[index]}, [${name}]`),
                 ...params.map((_,index)=>`push ${registers[index]}`),
                 `sub rsp, ${shadowSpace}`,
@@ -463,6 +462,7 @@ export class Func extends Base{
     }
     getStructCode(ASM:Asm){
         const asm = new Asm()
+        asm.runtimeOwner = ASM.runtimeOwner??ASM
         const emissionId = ++structCodeEmissionId
         this.returnLabel = `__ds_return_${++returnId}`
         for(const node of this.children){
