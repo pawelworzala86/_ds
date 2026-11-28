@@ -17,6 +17,9 @@ function requestCallback(req: httpTypes.Request, res: httpTypes.Response){
   console.log(testHeader)
   res.setHeader('X-Test-Response', 'response-value')
   res.setHeader('X-Echo-Header', testHeader)
+
+  console.log('GET query: ' + req.query)
+
   if (req.isGet()) {
     res.json({method: 'GET'})
   } else if (req.isPost()) {
