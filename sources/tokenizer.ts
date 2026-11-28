@@ -312,9 +312,21 @@ export class Tokenizer{
         return params
     }
     replace(from:string,to:string){
+        let quote:string|null = null
         for(let i=0;i<this.tokens.length;i++){
-            if(this.tokens[i]==from){
-                this.tokens[i] = to
+            const token = this.tokens[i]
+            if(quote){
+                if(token===quote){
+                    quote = null
+                }
+                continue
+            }
+            if(token==="'"||token==='"'){
+                quote = token
+                continue
+            }
+            if(token===from||token.startsWith(from+'.')){
+                this.tokens[i] = to+token.slice(from.length)
             }
         }
     }

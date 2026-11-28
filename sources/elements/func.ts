@@ -14,19 +14,30 @@ let asyncWorkerId = 0
 let inferredStructId = 0
 let inlineCallbackId = 0
 
-export function createInlineCallback(active:Base,source:string,type:string,arrayLength:number|null=null){
-    const callback = source.match(/^\s*\(?([a-z_$][\w$]*)\)?\s*=>\s*\{([\s\S]*)\}\s*$/i)
+export function createInlineCallback(active:Base,source:string,type:string|string[],arrayLength:number|null=null){
+    const callback = source.match(/^\s*(?:\(\s*([^()]*)\s*\)|([a-z_$][\w$]*))\s*=>\s*\{([\s\S]*)\}\s*$/i)
     if(!callback){
         return null
     }
+    const parameters = callback[1]!==undefined
+        ? callback[1].trim()?callback[1].split(',').map(parameter=>parameter.trim()):[]
+        : [callback[2]]
+    if(parameters.some(parameter=>!parameter||!/^[a-z_$][\w$]*$/i.test(parameter))){
+        return null
+    }
+    const types = Array.isArray(type)?type:parameters.map(()=>type)
+    if(types.length!==parameters.length){
+        throw new Error('Inline callback parameter count does not match its type')
+    }
     const name = `__ds_inline_callback_${++inlineCallbackId}`
     const func = new Func(active)
-    const tokenizer = new Tokenizer(`function ${name}(${callback[1]}:${type}){${callback[2]}}`)
+    const signature = parameters.map((parameter,index)=>`${parameter}:${types[index]}`).join(',')
+    const tokenizer = new Tokenizer(`function ${name}(${signature}){${callback[3]}}`)
     func.set(tokenizer,new Asm())
     if(tokenizer.has()||!func.element){
         throw new Error('Unable to compile inline callback')
     }
-    const parameter = func.getData(callback[1])
+    const parameter = parameters.length?func.getData(parameters[0]):null
     if(parameter&&arrayLength!==null){
         parameter.arrayLength = arrayLength
     }
@@ -201,7 +212,7 @@ export class Func extends Base{
             if(blockDepth!==0){
                 continue
             }
-            if(!name||!/^[a-z_$][\w$]*$/i.test(name)||tokens[index+1]!=='('
+            if(!name||['if','for','while','switch','catch'].includes(name)||!/^[a-z_$][\w$]*$/i.test(name)||tokens[index+1]!=='('
                 ||tokens[index-1]==='.'||active.FUNCTIONS.some(func=>func.name===name)){
                 continue
             }
@@ -422,9 +433,15 @@ export class Func extends Base{
                 throw new Error(`Function "${this.element.name}" has too many parameters for a native callback`)
             }
             const registers = ['rcx','rdx','r8','r9']
+            const callbackArguments = params.map((_,index)=>`${this.element!.nativeCallbackName}_arg_${index+1}`)
             const shadowSpace = 32+(params.length%2===0?8:0)
             const callback = [
                 `proc ${this.element.nativeCallbackName}`,
+                ...callbackArguments.map(name=>`local ${name} dq 0`),
+                ...callbackArguments.map((name,index)=>`mov [${name}], ${registers[index]}`),
+                "invoke printf 'trace: native callback entered\\n'",
+                'invoke fflush 0',
+                ...callbackArguments.map((name,index)=>`mov ${registers[index]}, [${name}]`),
                 ...params.map((_,index)=>`push ${registers[index]}`),
                 `sub rsp, ${shadowSpace}`,
                 `call ${this.element.name}`,
@@ -499,7 +516,7 @@ export class Func extends Base{
         if(classMethod){
             const next = tokenizer.get()
             tokenizer.move(-2)
-            if(next==='('){
+            if(next==='('&&!['if','for','while','switch','catch'].includes(token)){
                 const data = new Func(active)
                 data.set(tokenizer,ASM,true)
                 active.children.push(data)

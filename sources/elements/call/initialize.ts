@@ -11,6 +11,7 @@ import Data from '../data.ts'
 let arrayToStringArgumentId = 0
 let stringCharCodeAtId = 0
 let defaultClassArgumentId = 0
+let functionArgumentCallbackId = 0
 
 export function initializeCall(instance:Call,tokenizer:Tokenizer){
     const name = tokenizer.get()
@@ -229,7 +230,31 @@ export function initializeCall(instance:Call,tokenizer:Tokenizer){
             })
         }
     }else{
-        instance.params = argumentTexts.map(token=>new FunctionArgument(instance,token))
+        instance.params = argumentTexts.map((token,index)=>{
+            const parameter = instance.func?.params[index]
+            const adaptCallback = (argument:FunctionArgument)=>{
+                if((parameter?.type==='Function'||parameter?.type==='function')
+                    &&argument.value instanceof FuncElement
+                    &&!argument.value.nativeCallbackName){
+                    argument.value.nativeCallbackName = `__ds_function_arg_callback_${++functionArgumentCallbackId}`
+                }
+                return argument
+            }
+            if(parameter&&(parameter.type==='Function'||parameter.type==='function')){
+                const callbackTypes = instance.func!.name==='createServer'&&index===0
+                    ? ['IncomingMessage','ServerResponse']
+                    : []
+                const callback = createInlineCallback(instance.parent!,token,callbackTypes)
+                if(callback){
+                    const argument = new FunctionArgument(instance,'0')
+                    argument.value = callback
+                    argument.tempName = null
+                    argument.expression = null
+                    return adaptCallback(argument)
+                }
+            }
+            return adaptCallback(new FunctionArgument(instance,token))
+        })
     }
     if(instance.builtinPromiseMethod||instance.builtinArrayForEach){
         const array = instance.builtinArrayForEach

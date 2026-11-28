@@ -62,6 +62,39 @@ export function setExpression(assignment:Assign,target:DataElement,expression:st
         }
         throw new Error(`Boolean "${target.name}" can only be assigned a boolean value`)
     }
+    if((target.type==='Function'||target.type==='function')&&!target.isArray){
+        const value = expression.trim()
+        const source = assignment.parent?.getData(value)
+        if(source&&(source.type==='Function'||source.type==='function')&&!source.isArray){
+            assignment.target = target
+            assignment.functionSource = source
+            return
+        }
+        const access = assignment.parent?getClassPropertyAccess(assignment.parent,value):null
+        if(access&&(access.property.type==='Function'||access.property.type==='function')){
+            const classType = access.instance.classType
+                ? assignment.parent?.getClass(access.instance.classType)
+                : null
+            const offset = classType
+                ? getClassPropertyOffset(
+                    classType,
+                    value.split('.').slice(1).join('.'),
+                    name=>assignment.parent!.getClass(name)
+                )
+                : null
+            if(offset===null){
+                throw new Error(`Unable to resolve function property "${value}"`)
+            }
+            const property = new DataElement('let',`${access.instance.name}+${offset}`,'Function','0')
+            property.classPropertyInstance = access.instance
+            property.classPropertyPath = access.path
+            property.classPropertyOffset = offset
+            assignment.target = target
+            assignment.functionSource = property
+            return
+        }
+        throw new Error(`Function "${target.name}" must be assigned from a function variable`)
+    }
     if(target.isArray&&!indexText){
         const callSyntax = expression.trim().match(/^[a-z_$][\w.$]*\([\s\S]*\)$/i)
         if(callSyntax){

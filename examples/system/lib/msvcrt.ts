@@ -1,4 +1,5 @@
 export declare function printf(...args:any[]):any//msvcrt
+export declare function fflush(...args:any[]):any//msvcrt
 export declare function malloc(...args:any[]):any//msvcrt
 export declare function calloc(...args:any[]):any//msvcrt
 export declare function strlen(...args:any[]):any//msvcrt
@@ -6,4 +7,5 @@ export declare function strcpy(...args:any[]):any//msvcrt
 export declare function strcat(...args:any[]):any//msvcrt
 export declare function realloc(...args:any[]):any//msvcrt
 export declare function memcpy(...args:any[]):any//msvcrt
+export declare function _itoa(...args:any[]):any//msvcrt
 export declare function free(...args:any[]):any//msvcrt

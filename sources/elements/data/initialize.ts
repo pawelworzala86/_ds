@@ -160,6 +160,16 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     const initializerIndex = tokens.indexOf('=')
     const hasInitializer = initializerIndex!==-1
     const initializerTokens = hasInitializer?tokens.slice(initializerIndex+1):[]
+    if(!type&&hasInitializer){
+        const literal = initializerTokens.join('')
+        if(/^(['"])(?:\\.|(?!\1)[\s\S])*\1$/s.test(literal)){
+            type = 'string'
+        }else if(literal==='true'||literal==='false'){
+            type = 'boolean'
+        }else if(/^[+-]?(?:0x[0-9a-f]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?f?)$/i.test(literal)){
+            type = 'number'
+        }
+    }
     const promiseInitializerExpression = initializerTokens.join('')
     const hasPromiseInitializer = /^Promise\.(?:resolve|reject|all)\(/.test(promiseInitializerExpression)
         ||promiseInitializerExpression.startsWith('newPromise(')

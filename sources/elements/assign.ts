@@ -36,6 +36,7 @@ export class Assign extends Base{
     promiseAwait:DataElement|null = null
     timeout:Timeout|null = null
     addressFunction:FuncElement|null = null
+    functionSource:DataElement|null = null
     constructor(parent:Base){
         super(parent)
     }

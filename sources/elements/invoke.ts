@@ -11,6 +11,25 @@ let invokeStringId = 0
 
 const Invokers:any = []
 
+function isMethodDeclaration(tokens:string[],index:number){
+    if(tokens[index+1]!=='('){
+        return false
+    }
+    let depth = 0
+    for(let cursor=index+1;cursor<tokens.length;cursor++){
+        if(tokens[cursor]==='('){
+            depth++
+        }else if(tokens[cursor]===')'&&--depth===0){
+            cursor++
+            while(tokens[cursor]==='\n'){
+                cursor++
+            }
+            return tokens[cursor]==='{'
+        }
+    }
+    return false
+}
+
 export function setInvoke(name:string){
     Invokers.push(name)
 }
@@ -129,7 +148,8 @@ export class Invoke extends Base{
         const token = tokenizer.get()
         const lineStart = tokenizer.tokens.lastIndexOf('\n',tokenizer.index-2)+1
         const lineComment = tokenizer.tokens[lineStart]?.startsWith(';')??false
-        if(Invokers.includes(token)&&tokenizer.tokens[tokenizer.index]==='('&&!lineComment){
+        if(Invokers.includes(token)&&tokenizer.tokens[tokenizer.index]==='('&&!lineComment
+            &&!isMethodDeclaration(tokenizer.tokens,tokenizer.index-1)){
             tokenizer.move(-1)
             const data = new Invoke(active)
             data.set(tokenizer)

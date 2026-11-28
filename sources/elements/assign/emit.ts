@@ -289,6 +289,22 @@ export function emitAssign(assignment:Assign,ASM:Asm){
         storeTarget('rax')
         return
     }
+    if(assignment.functionSource){
+        const source = assignment.functionSource
+        if(source.classPropertyInstance&&source.classPropertyOffset!==null){
+            const instance = source.classPropertyInstance
+            ASM.addCode(instance.isParameter
+                ? `mov rdx, ${instance.name}`
+                : instance.isHeapAllocated
+                    ? `mov rdx, [${instance.name}]`
+                    : `lea rdx, [${instance.name}]`)
+            ASM.addCode(`mov rax, [rdx+${source.classPropertyOffset}]`)
+        }else{
+            ASM.addCode(`mov rax, [${source.name}]`)
+        }
+        storeTarget('rax')
+        return
+    }
     if(assignment.invokeExpression){
         assignment.invokeExpression.asm(ASM)
         storeTarget('rax')

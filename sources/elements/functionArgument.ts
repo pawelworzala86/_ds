@@ -317,7 +317,7 @@ export class FunctionArgument{
             return this.value.getCode(byValue)
         }
         if(this.value instanceof FuncElement){
-            return `addr ${this.value.getCode()}`
+            return `addr ${this.value.nativeCallbackName??this.value.getCode()}`
         }
         return this.value
     }
