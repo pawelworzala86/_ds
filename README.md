@@ -23,6 +23,10 @@ Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wyw
 
 `Promise.all([promise1, promise2])` przyjmuje niepustą tablicę zmiennych `Promise<T>` o tym samym typie `T` i zwraca `Promise<T[]>`. Promise wynikowy rozstrzyga się po rozstrzygnięciu wszystkich wejściowych; odrzuca się, gdy którykolwiek z nich zostanie odrzucony. Tablicę wyników można obsłużyć w callbacku `.then`, np. przez `values.forEach(value => { ... })`. `await` i callbacki `.then`/`.catch` czekają na rozstrzygnięcie Promise; odrzucenie kończy program kodem błędu. Dla klas `await` kopiuje pola instancji do zmiennej wynikowej. Nie są obsługiwane mikrozadania, inne asynchroniczne resolve/reject, domknięcia ani łańcuchy Promise. Przykład: `.\test.cmd testpromise`.
 
+## HTTP
+
+`examples/system/fetch.ts` udostępnia `fetch(url)` przez WinINet. Pobieranie jest synchroniczne i obsługuje żądanie GET; odpowiedź udostępnia tekst przez `response.text()`. `await` może poprzedzać takie synchroniczne wywołanie, ale nie czyni pobierania asynchronicznym. Odczyt odpowiedzi kończy się błędem procesu w razie niepowodzenia połączenia lub odczytu.
+
 ## Tablice typowane
 
 Obsługiwane typy tablic typowanych to `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`, `BigInt64Array` i `BigUint64Array`. Konstruktor przyjmuje długość, literał tablicy wartości odpowiedniego typu, znaną kompilatorowi tablicę albo widok `innaTablica.buffer`; widok może dodatkowo podawać bajtowy offset i długość. Literały BigInt używają składni `n`, np. `new BigInt64Array([-1n, 2n])`. Konwersja wartości oraz bajtowa reprezentacja używają semantyki typowanych tablic JavaScript i porządku little-endian. Obsługiwane są inicjalizacja i odczyt indeksowanych elementów, np. `console.log(bytes[0])`; modyfikowanie elementów nie jest jeszcze obsługiwane. `slice()` tworzy niezależną tablicę tego samego typu, przyjmuje do dwóch indeksów całkowitych (literałów lub stałych), obsługuje indeksy ujemne liczone od końca i może być użyte jako inicjalizator tablicy typowanej.
@@ -86,4 +90,5 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `teststruct.ts` | Typ `interface`, literały obiektowe, odczyt pól, destrukturyzacja i przekazywanie obiektu do funkcji. |
 | `testswitch.ts` | Instrukcja `switch` dla liczb i tekstu. |
 | `testtype.ts` | `instanceof`, `typeof` i użycie typu `boolean`. |
+| `testurl.ts` | Pobranie tekstu z URL przez systemowy moduł `fetch`. |
 | `testwhile.ts` | Pętle `while`, warunek logiczny i `break`. |

@@ -4,3 +4,6 @@ export declare function calloc(...args:any[]):any//msvcrt
 export declare function strlen(...args:any[]):any//msvcrt
 export declare function strcpy(...args:any[]):any//msvcrt
 export declare function strcat(...args:any[]):any//msvcrt
+export declare function realloc(...args:any[]):any//msvcrt
+export declare function memcpy(...args:any[]):any//msvcrt
+export declare function free(...args:any[]):any//msvcrt

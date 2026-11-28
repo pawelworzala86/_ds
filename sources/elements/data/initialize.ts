@@ -167,7 +167,9 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         type = data.parent?.getClass(initializerTokens[1])?.name??undefined
     }
     let returnedValueCall:Call|null = null
-    const initializerCallExpression = initializerTokens.join('')
+    const hasAwaitInitializer = initializerTokens[0]==='await'
+    const initializerExpressionTokens = hasAwaitInitializer?initializerTokens.slice(1):initializerTokens
+    const initializerCallExpression = initializerExpressionTokens.join('')
     const isJSONInitializer = /^JSON\.(?:parse|stringify)\(/.test(initializerCallExpression)
     if(data.parent&&type!=='boolean'&&!hasPromiseInitializer&&!isJSONInitializer&&initializerTokens[0]!=='setTimeout'&&!(initializerTokens[0]==='new'&&getTypedArrayKind(initializerTokens[1]))&&/^[a-z_$][\w.$]*\([\s\S]*\)$/i.test(initializerCallExpression)){
         const callTokenizer = new Tokenizer(initializerCallExpression)
@@ -179,20 +181,32 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         }
     }
     const eq = hasInitializer?'=':undefined
-    const hasAwaitInitializer = initializerTokens[0]==='await'
+    let awaitCallInitializer = false
     if(hasAwaitInitializer){
-        if(initializerTokens.length!==2){
-            throw new Error('Await initializer must contain one Promise variable')
+        if(initializerTokens.length===2){
+            const promise = data.parent?.getData(initializerTokens[1])
+            const promiseType = promise?getPromiseValueTypeFromData(promise):null
+            if(!promise||!promiseType){
+                throw new Error('Await expects a Promise<T> variable')
+            }
+            if(type&&type!==promiseType){
+                throw new Error(`Awaited Promise value type "${promiseType}" does not match "${type}"`)
+            }
+            type ??= promiseType
+        }else if(returnedValueCall?.func&&!returnedValueCall.func.isAsync){
+            const awaitedType = returnedValueCall.func.returnType
+                ??returnedValueCall.func.returnClassType
+            if(!awaitedType){
+                throw new Error('Awaited function call must return a typed value')
+            }
+            if(type&&type!==awaitedType){
+                throw new Error(`Awaited function value type "${awaitedType}" does not match "${type}"`)
+            }
+            type ??= awaitedType
+            awaitCallInitializer = true
+        }else{
+            throw new Error('Await initializer must contain one Promise variable or a synchronous function call')
         }
-        const promise = data.parent?.getData(initializerTokens[1])
-        const promiseType = promise?getPromiseValueTypeFromData(promise):null
-        if(!promise||!promiseType){
-            throw new Error('Await expects a Promise<T> variable')
-        }
-        if(type&&type!==promiseType){
-            throw new Error(`Awaited Promise value type "${promiseType}" does not match "${type}"`)
-        }
-        type ??= promiseType
     }
     const chainedMethodCall = initializerTokens.join('').match(/^([a-z_$][\w.$]*\([\s\S]*\))\.([a-z_$][\w$]*)\(\)$/i)
     const jsonParseValue = hasInitializer&&data.parent
@@ -332,7 +346,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
     }
     let numericExpression:string|null = null
     let runtimeInitializer = false
-    if(hasAwaitInitializer){
+    if(hasAwaitInitializer&&!awaitCallInitializer){
         numericExpression = `await ${initializerTokens[1]}`
         runtimeInitializer = true
         value = '0'
@@ -393,7 +407,7 @@ export function initializeData(data:Data,tokenizer:Tokenizer,classField=false){
         classType = objectAssign.classType
         classLayout = {type:objectAssign.type,props:objectAssign.properties}
         data.objectAssignSources = objectAssign.sources
-    }else if(classType&&!arrayType&&eq==='='&&!jsonParseClass&&!hasPromiseInitializer&&!hasAwaitInitializer){
+    }else if(classType&&!arrayType&&eq==='='&&!jsonParseClass&&!hasPromiseInitializer&&(!hasAwaitInitializer||awaitCallInitializer)){
         if(initializerTokens[0]==='{'){
             const properties = parseObjectLiteral(initializerTokens)
             classLayout = createStructLayout(properties,classType,name)
