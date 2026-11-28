@@ -91,6 +91,34 @@ function getRequestUrl(raw:number):string {
     return urlBuffer
 }
 
+function lowercaseHeaderByte(value:number):number {
+    if (value >= 65 && value <= 90) {
+        return value + 32
+    }
+    return value
+}
+
+function headerNameMatches(actual:number, actualLength:number, expected:string):number {
+    const expectedLength:number = msvcrt.strlen(expected)
+    let position:number = 0
+    let actualByte:number = 0
+    let expectedByte:number = 0
+
+    if (actualLength !== expectedLength) {
+        return 0
+    }
+
+    while (position < actualLength) {
+        msvcrt.memcpy(&actualByte, actual + position, 1)
+        expectedByte = expected.charCodeAt(position)
+        if (lowercaseHeaderByte(actualByte) !== lowercaseHeaderByte(expectedByte)) {
+            return 0
+        }
+        position = position + 1
+    }
+    return 1
+}
+
 function sendAll(clientSocket:number, buffer:number, size:number) {
     let sentBytes:number = 0
     let totalSent:number = 0
@@ -109,15 +137,15 @@ function sendAll(clientSocket:number, buffer:number, size:number) {
     }
 }
 
-function sendJsonResponse(clientSocket:number, statusCode:number, headerName:number, headerValue:number, body:string) {
+function sendJsonResponse(clientSocket:number, statusCode:number, contentType:number, responseHeaders:number, body:string) {
     const bodyLength:number = msvcrt.strlen(body)
-    const headerNameLength:number = msvcrt.strlen(headerName)
-    const headerValueLength:number = msvcrt.strlen(headerValue)
+    const contentTypeLength:number = msvcrt.strlen(contentType)
+    const responseHeadersLength:number = msvcrt.strlen(responseHeaders)
     const statusPrefixLength:number = msvcrt.strlen('HTTP/1.1 ')
-    const statusTextLength:number = msvcrt.strlen(' OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: ')
+    const statusTextLength:number = msvcrt.strlen(' OK\r\nContent-Type: ')
+    const contentLengthTextLength:number = msvcrt.strlen('\r\nContent-Length: ')
     const lineBreakLength:number = msvcrt.strlen('\r\n')
     const connectionTextLength:number = msvcrt.strlen('Connection: close\r\n\r\n')
-    const headerSeparatorLength:number = msvcrt.strlen(': ')
     let statusBuffer:number = msvcrt.calloc(16, 1)
     let lengthBuffer:number = msvcrt.calloc(16, 1)
     let statusLength:number = 0
@@ -135,10 +163,7 @@ function sendJsonResponse(clientSocket:number, statusCode:number, headerName:num
     msvcrt._itoa(bodyLength, lengthBuffer, 10)
     statusLength = msvcrt.strlen(statusBuffer)
     lengthTextLength = msvcrt.strlen(lengthBuffer)
-    headersCapacity = statusPrefixLength + statusLength + statusTextLength + lengthTextLength + lineBreakLength + connectionTextLength + 1
-    if (headerNameLength > 0) {
-        headersCapacity = headersCapacity + headerNameLength + headerSeparatorLength + headerValueLength + lineBreakLength
-    }
+    headersCapacity = statusPrefixLength + statusLength + statusTextLength + contentTypeLength + contentLengthTextLength + lengthTextLength + lineBreakLength + responseHeadersLength + connectionTextLength + 1
     headers = msvcrt.calloc(headersCapacity, 1)
     if (headers === 0) {
         msvcrt.printf('http ran out of memory while preparing a JSON response\n')
@@ -147,15 +172,12 @@ function sendJsonResponse(clientSocket:number, statusCode:number, headerName:num
 
     msvcrt.strcpy(headers, 'HTTP/1.1 ')
     msvcrt.strcat(headers, statusBuffer)
-    msvcrt.strcat(headers, ' OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: ')
+    msvcrt.strcat(headers, ' OK\r\nContent-Type: ')
+    msvcrt.strcat(headers, contentType)
+    msvcrt.strcat(headers, '\r\nContent-Length: ')
     msvcrt.strcat(headers, lengthBuffer)
     msvcrt.strcat(headers, '\r\n')
-    if (headerNameLength > 0) {
-        msvcrt.strcat(headers, headerName)
-        msvcrt.strcat(headers, ': ')
-        msvcrt.strcat(headers, headerValue)
-        msvcrt.strcat(headers, '\r\n')
-    }
+    msvcrt.strcat(headers, responseHeaders)
     msvcrt.strcat(headers, 'Connection: close\r\n\r\n')
     headersLength = msvcrt.strlen(headers)
     sendAll(clientSocket, headers, headersLength)
@@ -191,6 +213,88 @@ export class Request {
         } else if (methodCode === METHOD_DELETE) {
             this.method = 'DELETE'
         }
+    }
+
+    getHeader(name:string):string {
+        let position:number = 0
+        let lineStart:number = 0
+        let lineEnd:number = 0
+        let colonPosition:number = 0
+        let valueStart:number = 0
+        let valueEnd:number = 0
+        let currentByte:number = 0
+        let nextByte:number = 0
+        let terminator:number = 0
+        let foundColon:number = 0
+
+        while (position < REQUEST_BUFFER_SIZE) {
+            msvcrt.memcpy(&currentByte, this.raw + position, 1)
+            if (currentByte === 0) {
+                return ''
+            }
+            if (currentByte === 13) {
+                msvcrt.memcpy(&nextByte, this.raw + position + 1, 1)
+                if (nextByte === 10) {
+                    position = position + 2
+                    break
+                }
+            }
+            position = position + 1
+        }
+
+        while (position < REQUEST_BUFFER_SIZE) {
+            lineStart = position
+            lineEnd = position
+            while (lineEnd < REQUEST_BUFFER_SIZE) {
+                msvcrt.memcpy(&currentByte, this.raw + lineEnd, 1)
+                if (currentByte === 0) {
+                    return ''
+                }
+                if (currentByte === 13) {
+                    msvcrt.memcpy(&nextByte, this.raw + lineEnd + 1, 1)
+                    if (nextByte === 10) {
+                        break
+                    }
+                }
+                lineEnd = lineEnd + 1
+            }
+            if (lineEnd === lineStart) {
+                return ''
+            }
+
+            colonPosition = lineStart
+            foundColon = 0
+            while (colonPosition < lineEnd) {
+                msvcrt.memcpy(&currentByte, this.raw + colonPosition, 1)
+                if (currentByte === 58) {
+                    foundColon = 1
+                    break
+                }
+                colonPosition = colonPosition + 1
+            }
+            if (foundColon === 1 && headerNameMatches(this.raw + lineStart, colonPosition - lineStart, name) === 1) {
+                valueStart = colonPosition + 1
+                while (valueStart < lineEnd) {
+                    msvcrt.memcpy(&currentByte, this.raw + valueStart, 1)
+                    if (currentByte !== 32 && currentByte !== 9) {
+                        break
+                    }
+                    valueStart = valueStart + 1
+                }
+                valueEnd = lineEnd
+                while (valueEnd > valueStart) {
+                    msvcrt.memcpy(&currentByte, this.raw + valueEnd - 1, 1)
+                    if (currentByte !== 32 && currentByte !== 9) {
+                        break
+                    }
+                    valueEnd = valueEnd - 1
+                }
+                msvcrt.memcpy(this.raw + valueEnd, &terminator, 1)
+                return this.raw + valueStart
+            }
+            position = lineEnd + 2
+        }
+        return ''
     }
 
     isGet():boolean {
@@ -238,20 +342,23 @@ export class Response {
     clientSocket:number
     statusCode:number = 200
     contentType:number
-    headerName:number
-    headerValue:number
+    contentTypeSet:number = 0
+    responseHeaders:number
 
     constructor(clientSocket:number) {
         const defaultContentTypeLength:number = msvcrt.strlen('text/plain; charset=utf-8')
         this.clientSocket = clientSocket
         this.contentType = msvcrt.calloc(defaultContentTypeLength + 1, 1)
-        this.headerName = msvcrt.calloc(1, 1)
-        this.headerValue = msvcrt.calloc(1, 1)
+        this.responseHeaders = msvcrt.calloc(1, 1)
         msvcrt.strcpy(this.contentType, 'text/plain; charset=utf-8')
     }
 
     setHeader(name:string, value:string) {
         let valueLength:number = 0
+        let nameLength:number = 0
+        let headerValueLength:number = 0
+        let responseHeadersLength:number = 0
+        let newHeaders:number = 0
         if (name === 'Content-Type') {
             valueLength = msvcrt.strlen(value)
             this.contentType = msvcrt.realloc(this.contentType, valueLength + 1)
@@ -260,38 +367,49 @@ export class Response {
                 kernel.ExitProcess(1)
             }
             msvcrt.strcpy(this.contentType, value)
+            this.contentTypeSet = 1
         } else {
-            valueLength = msvcrt.strlen(name)
-            this.headerName = msvcrt.realloc(this.headerName, valueLength + 1)
-            valueLength = msvcrt.strlen(value)
-            this.headerValue = msvcrt.realloc(this.headerValue, valueLength + 1)
-            if (this.headerName === 0 || this.headerValue === 0) {
+            responseHeadersLength = msvcrt.strlen(this.responseHeaders)
+            nameLength = msvcrt.strlen(name)
+            headerValueLength = msvcrt.strlen(value)
+            valueLength = nameLength + headerValueLength + 5
+            newHeaders = msvcrt.realloc(this.responseHeaders, responseHeadersLength + valueLength)
+            if (newHeaders === 0) {
                 msvcrt.printf('http ran out of memory while setting a response header\n')
                 kernel.ExitProcess(1)
             }
-            msvcrt.strcpy(this.headerName, name)
-            msvcrt.strcpy(this.headerValue, value)
+            this.responseHeaders = newHeaders
+            msvcrt.strcat(this.responseHeaders, name)
+            msvcrt.strcat(this.responseHeaders, ': ')
+            msvcrt.strcat(this.responseHeaders, value)
+            msvcrt.strcat(this.responseHeaders, '\r\n')
         }
     }
 
     json(body:any) {
-        sendJsonResponse(this.clientSocket, this.statusCode, this.headerName, this.headerValue, body)
+        if (this.contentTypeSet === 0) {
+            const jsonContentTypeLength:number = msvcrt.strlen('application/json; charset=utf-8')
+            this.contentType = msvcrt.realloc(this.contentType, jsonContentTypeLength + 1)
+            if (this.contentType === 0) {
+                msvcrt.printf('http ran out of memory while setting a response content type\n')
+                kernel.ExitProcess(1)
+            }
+            msvcrt.strcpy(this.contentType, 'application/json; charset=utf-8')
+        }
+        sendJsonResponse(this.clientSocket, this.statusCode, this.contentType, this.responseHeaders, body)
         msvcrt.free(this.contentType)
-        msvcrt.free(this.headerName)
-        msvcrt.free(this.headerValue)
+        msvcrt.free(this.responseHeaders)
     }
 
     end(body:string) {
         const bodyLength:number = msvcrt.strlen(body)
-        const headerNameLength:number = msvcrt.strlen(this.headerName)
+        const responseHeadersLength:number = msvcrt.strlen(this.responseHeaders)
         const statusPrefixLength:number = msvcrt.strlen('HTTP/1.1 ')
         const statusTextLength:number = msvcrt.strlen(' OK\r\nContent-Type: ')
         const contentLengthTextLength:number = msvcrt.strlen('\r\nContent-Length: ')
         const lineBreakLength:number = msvcrt.strlen('\r\n')
         const connectionTextLength:number = msvcrt.strlen('Connection: close\r\n\r\n')
-        const headerSeparatorLength:number = msvcrt.strlen(': ')
         const contentTypeLength:number = msvcrt.strlen(this.contentType)
-        const headerValueLength:number = msvcrt.strlen(this.headerValue)
         let statusLength:number = 0
         let lengthTextLength:number = 0
         let headersLength:number = 0
@@ -311,10 +429,7 @@ export class Response {
         statusLength = msvcrt.strlen(statusBuffer)
         lengthTextLength = msvcrt.strlen(lengthBuffer)
 
-        headersCapacity = statusPrefixLength + statusLength + statusTextLength + contentTypeLength + contentLengthTextLength + lengthTextLength + lineBreakLength + connectionTextLength + 1
-        if (headerNameLength > 0) {
-            headersCapacity = headersCapacity + headerNameLength + headerSeparatorLength + headerValueLength + lineBreakLength
-        }
+        headersCapacity = statusPrefixLength + statusLength + statusTextLength + contentTypeLength + contentLengthTextLength + lengthTextLength + lineBreakLength + responseHeadersLength + connectionTextLength + 1
         headers = msvcrt.calloc(headersCapacity, 1)
         if (headers === 0) {
             msvcrt.printf('http ran out of memory while preparing a response\n')
@@ -329,12 +444,7 @@ export class Response {
         msvcrt.strcat(headers, '\r\nContent-Length: ')
         msvcrt.strcat(headers, lengthBuffer)
         msvcrt.strcat(headers, '\r\n')
-        if (headerNameLength > 0) {
-            msvcrt.strcat(headers, this.headerName)
-            msvcrt.strcat(headers, ': ')
-            msvcrt.strcat(headers, this.headerValue)
-            msvcrt.strcat(headers, '\r\n')
-        }
+        msvcrt.strcat(headers, this.responseHeaders)
         msvcrt.strcat(headers, 'Connection: close\r\n\r\n')
 
         headersLength = msvcrt.strlen(headers)
@@ -346,8 +456,7 @@ export class Response {
         msvcrt.free(statusBuffer)
         msvcrt.free(lengthBuffer)
         msvcrt.free(this.contentType)
-        msvcrt.free(this.headerName)
-        msvcrt.free(this.headerValue)
+        msvcrt.free(this.responseHeaders)
     }
 }
 

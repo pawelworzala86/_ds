@@ -27,7 +27,7 @@ Obsługiwane są `Promise.resolve(value)`, `Promise.reject(value)`, executor wyw
 
 `examples/system/fetch.ts` udostępnia `fetch(url)` przez WinINet. Pobieranie jest synchroniczne i obsługuje żądanie GET; odpowiedź udostępnia tekst przez `response.text()`. `await` może poprzedzać takie synchroniczne wywołanie, ale nie czyni pobierania asynchronicznym. Odczyt odpowiedzi kończy się błędem procesu w razie niepowodzenia połączenia lub odczytu.
 
-`examples/system/http.ts` udostępnia serwer TCP z `createServer` oraz obsługę przychodzących metod GET, POST, PUT, PATCH i DELETE. `Request` udostępnia nazwę metody w polu `method` oraz predykaty `isGet()`, `isPost()`, `isPut()`, `isPatch()` i `isDelete()` do routingu. `Response.json(object)` ustawia typ JSON i serializuje znane kompilatorowi dane obiektu podczas kompilacji, zgodnie z ograniczeniami `JSON.stringify`. Przykład serwera: `.\test.cmd testhttp`.
+`examples/system/http.ts` udostępnia serwer TCP z `createServer` oraz obsługę przychodzących metod GET, POST, PUT, PATCH i DELETE. `Request` udostępnia nazwę metody w polu `method`, predykaty `isGet()`, `isPost()`, `isPut()`, `isPatch()` i `isDelete()` do routingu oraz `getHeader(name)`, zwracające wartość nagłówka żądania bez rozróżniania wielkości liter w nazwie (lub pusty tekst, gdy nagłówka brak). `Response.setHeader(name, value)` dodaje nagłówki odpowiedzi; `Content-Type` ustawia typ zawartości, a pozostałe nagłówki można dodawać wielokrotnie. `Response.json(object)` ustawia domyślny typ JSON i serializuje znane kompilatorowi dane obiektu podczas kompilacji, zgodnie z ograniczeniami `JSON.stringify`. Przykład serwera sprawdza `X-Test-Header` w żądaniu i wysyła `X-Test-Response`: `.\test.cmd testhttp`.
 
 ## Tablice typowane
 
@@ -80,7 +80,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testfs.ts` | Zapis, odczyt oraz listowanie katalogu tymczasowego za pomocą modułu `system/fs.ts`. |
 | `testgl1.ts` | Podstawowe rysowanie trójkąta z użyciem OpenGL. |
 | `testgl2.ts` | Rozszerzenie sceny OpenGL o renderowanie fontu. Przykłady graficzne wymagają odpowiednich zasobów i środowiska Windows z obsługą OpenGL. |
-| `testhttp.ts` | Serwer HTTP obsługujący metody GET, POST, PUT, PATCH i DELETE oraz odpowiedzi JSON. |
+| `testhttp.ts` | Serwer HTTP obsługujący metody GET, POST, PUT, PATCH i DELETE, odczyt nagłówka żądania oraz nagłówek odpowiedzi. |
 | `testiff.ts` | Warunki `if`/`else if`/`else` z różnymi typami wyrażeń. |
 | `testjson.ts` | Parsowanie i serializacja JSON, w tym obiektów, tablic, wartości prostych i pustych struktur. |
 | `testlog.ts` | `console.log` dla argumentów prostych, tablic, obiektów i danych JSON. |

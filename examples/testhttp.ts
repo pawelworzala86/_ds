@@ -13,6 +13,10 @@ function requestCallback(req: httpTypes.Request, res: httpTypes.Response){
   msvcrt.printf('trace: callback start\n')
   msvcrt.fflush(0)
   console.log('URL: ' + req.url)
+  const testHeader:string = req.getHeader('X-Test-Header')
+  console.log(testHeader)
+  res.setHeader('X-Test-Response', 'response-value')
+  res.setHeader('X-Echo-Header', testHeader)
   if (req.isGet()) {
     res.json({method: 'GET'})
   } else if (req.isPost()) {
