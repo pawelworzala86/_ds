@@ -76,6 +76,7 @@ Każdy przykład można skompilować i uruchomić przez `.\test.cmd <nazwa>`, np
 | `testasync.ts` | Funkcja `async`, `setTimeout` i wywołania funkcji systemowych `printf`. |
 | `testbuffer.ts` | Tablice typowane, konwersje wartości, widoki `ArrayBuffer` oraz `slice`. |
 | `testchain.ts` | Sekwencyjne wywołania metod zwracających `this`. |
+| `testfetch.ts` | Pobieranie stron po URL, bez options narazie - tylko pobieranie. |
 | `testfor.ts` | Pętla `for` z licznikiem i iteracja `for...in` po tablicach. |
 | `testfs.ts` | Zapis, odczyt oraz listowanie katalogu tymczasowego za pomocą modułu `system/fs.ts`. |
 | `testgl1.ts` | Podstawowe rysowanie trójkąta z użyciem OpenGL. |
